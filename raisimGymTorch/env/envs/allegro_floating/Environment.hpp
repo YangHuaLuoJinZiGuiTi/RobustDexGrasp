@@ -946,10 +946,10 @@ namespace raisim {
 
         // contact_bodies_实际上跟contact reward相关，因此指定的就是link所连接的collision body跟object的接触情况
         std::string contact_bodies_r_[13] =  {"base_link",
-                                              "link_1.0", "link_2.0", "joint_3.0_tip",    // right
-                                              "link_5.0", "link_6.0", "joint_7.0_tip",
-                                              "link_9.0", "link_10.0", "joint_11.0_tip",
-                                              "link_14.0", "link_15.0", "joint_15.0_tip"};
+                                              "link_1.0", "link_2.0", "link_3.0",    // right
+                                              "link_5.0", "link_6.0", "link_7.0",
+                                              "link_9.0", "link_10.0", "link_11.0",
+                                              "link_13.0", "link_14.0", "link_15.0"};
 
         Eigen::VectorXd mean_pose;
 
