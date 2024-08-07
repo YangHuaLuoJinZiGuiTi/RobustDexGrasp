@@ -2,7 +2,7 @@ seed: 1
 
 environment:
   render: True
-  eval_every_n: 100
+  eval_every_n: 200
   update_every_n: 20
   num_threads: 32
   simulation_dt: 0.0025
@@ -20,30 +20,39 @@ environment:
   reward:
     affordance_contact_reward:
       coeff: 1.0
-#    not_affordance_contact_reward:
-#      coeff: -0.0
+    not_affordance_contact_reward:
+      coeff: -0.0
+
+
+    table_contact_reward:
+      coeff: -1.0
 
     affordance_impulse_reward:
       coeff: 0.5
-#    not_affordance_impulse_reward:
-#      coeff: -0.0
+    not_affordance_impulse_reward:
+      coeff: -0.0
+
+    table_impulse_reward:
+      coeff: -0.5
 
     affordance_reward:
       coeff: 0.3
-#    not_affordance_reward:
-#      coeff: -0.0
+    not_affordance_reward:
+      coeff: -0.0
+
+    table_reward:
+      coeff: -0.01
+
+    direction_reward:
+      coeff: -0.1
+    #      coeff: -0.01
+    center_reward:
+      coeff: -1.0
+    #      coeff: -0.0
 
 
-#    direction_reward:
-#      coeff: -0.1
-#    #      coeff: -0.01
-#    center_reward:
-#      coeff: -1.0
-#    #      coeff: -0.0
-#
-#
-#    anatomy_reward:
-#      coeff: -0.0
+    anatomy_reward:
+      coeff: -0.0
 
 
     wrist_vel_reward_:

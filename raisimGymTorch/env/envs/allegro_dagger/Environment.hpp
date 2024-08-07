@@ -26,6 +26,7 @@ namespace raisim {
             if (visualizable_) {
                 std::cout<<"visualizable_: "<<visualizable_<<std::endl;
             }
+            lift = false;
 
             /// create world
             world_ = std::make_unique<raisim::World>();
@@ -43,7 +44,7 @@ namespace raisim {
                 std::cout<<"hand_model_r: "<<hand_model_r<<std::endl;
             }
             resourceDir_ = resourceDir;
-            mano_r_ = world_->addArticulatedSystem(resourceDir+"/allegro/"+hand_model_r,"",{},raisim::COLLISION(0),raisim::COLLISION(0)|raisim::COLLISION(2)|raisim::COLLISION(63));
+            mano_r_ = world_->addArticulatedSystem(resourceDir+"/allegro/"+hand_model_r,"",{},raisim::COLLISION(0),raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63));
             mano_r_->setName("mano_r");
             hand_mass = mano_r_->getTotalMass();
 
@@ -89,6 +90,8 @@ namespace raisim {
             joint_pos_in_obj.setZero(num_bodyparts*3);
             joint_pos_in_world.setZero(num_bodyparts*3);
 
+            joint_height_w.setZero(num_bodyparts);
+
             init_arcticCoord.setZero(8);
 
             contact_body_idx_r_.setZero(num_contacts);
@@ -103,6 +106,8 @@ namespace raisim {
             contacts_r_af.setZero(num_contacts); contacts_r_non_af.setZero(num_contacts);
             impulses_r_af.setZero(num_contacts); impulses_r_non_af.setZero(num_contacts);
             impulse_high.setZero(num_contacts); impulse_low.setZero(num_contacts);
+
+            contacts_r_table.setZero(num_contacts); impulses_r_table.setZero(num_contacts);
 
             pTarget_clipped_r.setZero(gcDim_);
 
@@ -147,7 +152,7 @@ namespace raisim {
             mano_r_->setGeneralizedCoordinate(Eigen::VectorXd::Zero(gcDim_));
 
             /// MUST BE DONE FOR ALL ENVIRONMENTS
-            obDim_single = 77;
+            obDim_single = 93;
             obDim_l_ = 1;
             gsDim_ = 115;
             history_len = 10;
@@ -192,16 +197,16 @@ namespace raisim {
                 server_->launchServer();
 
                 /// Create table
-//                table_top = server_->addVisualBox("tabletop", 2.0, 1.0, 0.05, 0.44921875, 0.30859375, 0.1953125, 1, "");
-//                table_top->setPosition(1.25, 0, 0.475);
-//                leg1 = server_->addVisualCylinder("leg1", 0.025, 0.475, 0.0, 0.0, 0.0, 1, "");
-//                leg2 = server_->addVisualCylinder("leg2", 0.025, 0.475, 0.0, 0.0, 0.0, 1, "");
-//                leg3 = server_->addVisualCylinder("leg3", 0.025, 0.475, 0.0, 0.0, 0.0, 1, "");
-//                leg4 = server_->addVisualCylinder("leg4", 0.025, 0.475, 0.0, 0.0, 0.0, 1, "");
-//                leg1->setPosition(0.2625,0.4675,0.2375);
-//                leg2->setPosition(2.2275,0.4875,0.2375);
-//                leg3->setPosition(0.2625,-0.4675,0.2375);
-//                leg4->setPosition(2.2275,-0.4875,0.2375);
+                table_top = server_->addVisualBox("tabletop", 2.0, 1.0, 0.05, 0.44921875, 0.30859375, 0.1953125, 1, "");
+                table_top->setPosition(1.25, 0, 0.475);
+                leg1 = server_->addVisualCylinder("leg1", 0.025, 0.475, 0.0, 0.0, 0.0, 1, "");
+                leg2 = server_->addVisualCylinder("leg2", 0.025, 0.475, 0.0, 0.0, 0.0, 1, "");
+                leg3 = server_->addVisualCylinder("leg3", 0.025, 0.475, 0.0, 0.0, 0.0, 1, "");
+                leg4 = server_->addVisualCylinder("leg4", 0.025, 0.475, 0.0, 0.0, 0.0, 1, "");
+                leg1->setPosition(0.2625,0.4675,0.2375);
+                leg2->setPosition(2.2275,0.4875,0.2375);
+                leg3->setPosition(0.2625,-0.4675,0.2375);
+                leg4->setPosition(2.2275,-0.4875,0.2375);
 
                 /// initialize Cylinders for sensor
                 for(int i = 0; i < num_bodyparts; i++){
@@ -312,6 +317,7 @@ namespace raisim {
                 first_reset_=false;
             }
             else{
+                lift = false;
 //                std::cout<<"reset!!!!!!!!!!!!!!!!!!!!"<<std::endl;
                 /// all settings to initial state configuration
                 actionMean_r_.setZero();
@@ -339,20 +345,20 @@ namespace raisim {
                 gen_force.setZero(gcDim_obj);
                 arctic->setGeneralizedForce(gen_force);
 
-//                gc_r_=gc_set_r_;
-//                right_hand_torque.setZero(gcDim_);
-//                gv_r_.setZero(gvDim_);
-//                gv_set_r_.setZero(gvDim_);
-//                pTarget_r_ = gc_set_r_;
-//                pTarget_clipped_r = gc_set_r_;
-//                vTarget_r_.setZero(gvDim_);
-//                actionMean_r_.setZero();
-//                actionMean_r_.tail(gcDim_-6) = gc_set_r_.tail(gcDim_-6);
-//                wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
-//                joints_pos.setZero(num_bodyparts*3);
-//                Obj_Position.setZero();Obj_orientation_temp.setZero();
-//                obj_quat.setZero();
-//                Obj_qvel.setZero(); Obj_linvel.setZero();
+                gc_r_=gc_set_r_;
+                right_hand_torque.setZero(gcDim_);
+                gv_r_.setZero(gvDim_);
+                gv_set_r_.setZero(gvDim_);
+                pTarget_r_ = gc_set_r_;
+                pTarget_clipped_r = gc_set_r_;
+                vTarget_r_.setZero(gvDim_);
+                actionMean_r_.setZero();
+                actionMean_r_.tail(gcDim_-6) = gc_set_r_.tail(gcDim_-6);
+                wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
+                joints_pos.setZero(num_bodyparts*3);
+                Obj_Position.setZero();Obj_orientation_temp.setZero();
+                obj_quat.setZero();
+                Obj_qvel.setZero(); Obj_linvel.setZero();
 
                 updateObservation();
             }
@@ -366,7 +372,7 @@ namespace raisim {
                          const Eigen::Ref<EigenVec>& init_vel_r,
                          const Eigen::Ref<EigenVec>& init_vel_l,
                          const Eigen::Ref<EigenVec>& obj_pose) final {
-
+            lift = false;
              obs_history.clear();
 
             /// reset gains (only required in case for inference)
@@ -556,10 +562,14 @@ namespace raisim {
             }
 
             Eigen::Vector3d wrist_bias_w, wrist_bias;
-            wrist_bias_w[0] = target_center[0] - hand_center_w[0];
-            wrist_bias_w[1] = target_center[1] - hand_center_w[1];
-            wrist_bias_w[2] = target_center[2] - hand_center_w[2];
-            wrist_bias_w[2] += hand_mass * 9.81 * 0.01;
+            wrist_bias_w.setZero();
+//            wrist_bias_w[0] = target_center[0] - hand_center_w[0];
+//            wrist_bias_w[1] = target_center[1] - hand_center_w[1];
+//            wrist_bias_w[2] = target_center[2] - hand_center_w[2];
+//            wrist_bias_w[2] += hand_mass * 9.81 * 0.01;
+            if (lift){
+                wrist_bias_w[2] = 0.35;
+            }
             wrist_bias = init_or_r_.e() * wrist_bias_w;
             actionMean_r_.head(3) += wrist_bias;
 //
@@ -609,12 +619,16 @@ namespace raisim {
             else{
                 not_affordance_contact_reward_r = 0;
             }
+            table_contact_reward_r = contacts_r_table.cwiseProduct(finger_weights_contact).sum() / num_contacts;
 
-            Eigen::VectorXd impulses_r_af_clipped, impulses_r_non_af_clipped;
+            Eigen::VectorXd impulses_r_af_clipped, impulses_r_non_af_clipped, impulses_r_table_clipped;
             impulses_r_af_clipped.setZero(num_contacts);
             impulses_r_non_af_clipped.setZero(num_contacts);
+            impulses_r_table_clipped.setZero(num_contacts);
             impulses_r_af_clipped = impulses_r_af.cwiseMax(impulse_low).cwiseMin(impulse_high);
             impulses_r_non_af_clipped = impulses_r_non_af.cwiseMax(impulse_low).cwiseMin(impulse_high);
+            impulses_r_table_clipped = impulses_r_table.cwiseMax(impulse_low).cwiseMin(impulse_high);
+
 
             affordance_impulse_reward_r = impulses_r_af_clipped.cwiseProduct(finger_weights_contact).sum();
             if (has_non_aff){
@@ -623,6 +637,7 @@ namespace raisim {
             else{
                 not_affordance_impulse_reward_r = 0;
             }
+            table_impulse_reward_r = impulses_r_table_clipped.cwiseProduct(finger_weights_contact).sum();
 
             wrist_vel_reward_r = wrist_vel_in_wrist.squaredNorm();
             wrist_qvel_reward_r = wrist_qvel_in_wrist.squaredNorm();
@@ -634,9 +649,11 @@ namespace raisim {
 
             rewards_r_.record("affordance_contact_reward", std::max(0.0, affordance_contact_reward_r));
 //            rewards_r_.record("not_affordance_contact_reward", std::max(0.0, not_affordance_contact_reward_r));
+            rewards_r_.record("table_contact_reward", std::max(0.0, table_contact_reward_r));
 //            rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
             rewards_r_.record("affordance_impulse_reward", std::min(obj_weight * 5, affordance_impulse_reward_r));
 //            rewards_r_.record("not_affordance_impulse_reward", std::max(0.0, not_affordance_impulse_reward_r));
+            rewards_r_.record("table_impulse_reward", std::max(0.0, table_impulse_reward_r));
             rewards_r_.record("wrist_vel_reward_", std::max(0.0, wrist_vel_reward_r));
             rewards_r_.record("wrist_qvel_reward_", std::max(0.0, wrist_qvel_reward_r));
             rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
@@ -660,6 +677,8 @@ namespace raisim {
             // update observation
             impulses_r_af.setZero();
             contacts_r_af.setZero();
+            impulses_r_table.setZero();
+            contacts_r_table.setZero();
             impulses_r_non_af.setZero();
             contacts_r_non_af.setZero();
 
@@ -724,6 +743,18 @@ namespace raisim {
                 impulses_r_non_af[contactMapping_r_[contact_non_af.getlocalBodyIndex()]] = contact_non_af.getImpulse().norm();
             }
 
+            for(auto& contact_table: mano_r_->getContacts()) {
+                if (contact_table.skip() || contact_table.getPairObjectIndex() != box->getIndexInWorld()) continue;
+                contacts_r_table[contactMapping_r_[contact_table.getlocalBodyIndex()]] = 1;
+//                std::cout << "contact idx: " << contact_table.getlocalBodyIndex() << std::endl;
+//                std::cout << "contact body: " << contactMapping_r_[contact_table.getlocalBodyIndex()] << std::endl;
+//                std::cout << "contact name: " << contact_bodies_r_[contactMapping_r_[contact_table.getlocalBodyIndex()]] << std::endl;
+                impulses_r_table[contactMapping_r_[contact_table.getlocalBodyIndex()]] = contact_table.getImpulse().norm();
+            }
+
+//            std::cout << "contacts_r_table: " << contacts_r_table.transpose() << std::endl;
+//            std::cout << "impulses_r_table: " << impulses_r_table.transpose() << std::endl;
+
             for(int i=0; i<num_contacts; i++){
                 if (contacts_r_non_af[i] == 1){
                     contacts_r_non_af[i] = contacts_r_non_af[i] - contacts_r_af[i];
@@ -767,36 +798,6 @@ namespace raisim {
 //            wrist_target_euler[0] += 1.57;
 //            wrist_target_euler[2] -= 1.57;
 
-//            obDouble_r_ << target_center_dif,           // 3, hand center diff
-//                           gc_r_.segment(3, 3) - wrist_target_euler.e(),         // 3, wrist orientation diff
-//                           gc_r_.tail(gcDim_ - 6),      // (mirror) 45, generalized coordinate
-//                            right_hand_torque,
-//                            wrist_vel_in_wrist,
-//                            wrist_qvel_in_wrist,
-//                            contacts_r_af,
-//                            impulses_r_af;
-//                            obj_vel_in_wrist,
-//                            obj_qvel_in_wrist,
-//                            contacts_r_non_af,
-//                            impulses_r_non_af;
-
-            obDouble_r_ << target_center_dif,           // 3, hand center diff
-//                           gc_r_.segment(3, 3) - wrist_target_euler.e(),         // 3, wrist orientation diff
-//                           gc_r_.tail(gcDim_ - 6),      // (mirror) 45, generalized coordinate
-                           gc_r_.tail(gcDim_ - 3),      // (mirror) 45, generalized coordinate
-//               obDouble_r_ << gc_r_,
-                            right_hand_torque,         // (mirror) 51, generalized force
-                            wrist_vel_in_wrist,
-                            wrist_qvel_in_wrist,
-                            contacts_r_af,
-                            impulses_r_af,
-                            wrist_pos_w.e()[2]-0.5;
-//                            wrist_vel_in_wrist,
-//                            wrist_qvel_in_wrist;
-
-            obs_history.push_back(obDouble_r_);
-
-
             raisim::transpose(Obj_orientation_temp, Obj_orientation);
 
             raisim::Mat<3,3> obj_pose_wrist_mat;
@@ -809,18 +810,19 @@ namespace raisim {
             frame_y_frame.setZero();
             frame_y_frame[1] = -1;
             for(int i = 0; i < num_bodyparts ; i++){
-                if(i > 16){
-                    frame_y_frame.setZero();
-                    frame_y_frame[0] = -0.717;
-                    frame_y_frame[2] = -0.717;
-                }
-                mano_r_->getFrameOrientation(body_parts_r_[i], frame_mat);
+//                if(i > 16){
+//                    frame_y_frame.setZero();
+//                    frame_y_frame[0] = -0.717;
+//                    frame_y_frame[2] = -0.717;
+//                }
+//                mano_r_->getFrameOrientation(body_parts_r_[i], frame_mat);
                 mano_r_->getFramePosition(body_parts_r_[i], joint_pos_w);
-                raisim::matvecmul(frame_mat, frame_y_frame, frame_y_w);
-                raisim::matvecmul(Obj_orientation, frame_y_w, frame_y_o);
+//                raisim::matvecmul(frame_mat, frame_y_frame, frame_y_w);
+//                raisim::matvecmul(Obj_orientation, frame_y_w, frame_y_o);
                 joint_pos_in_world[i * 3] = joint_pos_w[0];
                 joint_pos_in_world[i * 3 + 1] = joint_pos_w[1];
                 joint_pos_in_world[i * 3 + 2] = joint_pos_w[2];
+                joint_height_w[i] = joint_pos_w[2] - 0.5;
 
                 raisim::Vec<3>  joint_pos_o_temp;
                 joint_pos_o_temp[0] = joint_pos_w[0] - Obj_Position[0];
@@ -828,13 +830,35 @@ namespace raisim {
                 joint_pos_o_temp[2] = joint_pos_w[2] - Obj_Position[2];
                 raisim::matvecmul(Obj_orientation, joint_pos_o_temp, joint_pos_o);
 
-                frame_y_in_obj[i * 3] = frame_y_o[0];
-                frame_y_in_obj[i * 3 + 1] = frame_y_o[1];
-                frame_y_in_obj[i * 3 + 2] = frame_y_o[2];
+//                frame_y_in_obj[i * 3] = frame_y_o[0];
+//                frame_y_in_obj[i * 3 + 1] = frame_y_o[1];
+//                frame_y_in_obj[i * 3 + 2] = frame_y_o[2];
                 joint_pos_in_obj[i * 3] = joint_pos_o[0];
                 joint_pos_in_obj[i * 3 + 1] = joint_pos_o[1];
                 joint_pos_in_obj[i * 3 + 2] = joint_pos_o[2];
             }
+
+
+            obDouble_r_ << target_center_dif,           // 3, hand center diff
+//                           gc_r_.segment(3, 3) - wrist_target_euler.e(),         // 3, wrist orientation diff
+//                           gc_r_.tail(gcDim_ - 6),      // (mirror) 45, generalized coordinate
+                           gc_r_.tail(gcDim_ - 3),
+//                obDouble_r_ << gc_r_,      // (mirror) 45, generalized coordinate
+                            right_hand_torque,
+//                            obj_pos_wrist,
+                            wrist_vel_in_wrist,
+                            wrist_qvel_in_wrist,
+                            contacts_r_af,
+                            impulses_r_af,
+                            joint_height_w;
+//                            obj_weight,
+//                            obj_vel_in_wrist,
+//                            obj_qvel_in_wrist,
+//                            contacts_r_non_af,
+//                            impulses_r_non_af;
+
+            obs_history.push_back(obDouble_r_);
+
            Eigen::Vector3d current_across_axis_w;
 
             current_across_axis_w = wrist_mat_r.e() * across_axis_wrist;
@@ -892,17 +916,29 @@ namespace raisim {
 
 
         void set_rootguidance() final {}
-        void switch_root_guidance(bool is_on) {}
+        void switch_root_guidance(bool is_on) {
+            lift = true;
+        }
         /// Since the episode lengths are fixed, this function is used to catch instabilities in simulation and reset the env in such cases
         bool isTerminalState(float& terminalReward) final {
             raisim::Vec<3> obj_current_pos;
             auto top_id = arctic->getBodyIdx("top");
             arctic->getPosition(top_id, obj_current_pos); //Obj_Position: object base position at this time
 
-            double displacement = (obj_current_pos.e() - obj_pos_init_.head(3)).squaredNorm();
-            if (displacement > 0.1){
-                terminalReward = -10;
-                return true;
+            if(lift){}
+            else{
+                double displacement = (obj_current_pos.e() - obj_pos_init_.head(3)).squaredNorm();
+                if (displacement > 0.1){
+                    terminalReward = -10;
+                    return true;
+                }
+            }
+
+
+            for(int i = 0; i < num_bodyparts ; i++){
+                if (joint_height_w[i] < 0.){
+                    return true;
+                }
             }
 
             if(obDouble_r_.hasNaN() || global_state_.hasNaN())
@@ -921,6 +957,7 @@ namespace raisim {
         bool visualizable_ = false;
         bool unseen = false;
         bool new_category = false;
+        bool lift = false;
         raisim::ArticulatedSystem* mano_;
         Eigen::VectorXd gc_r_, gv_r_, pTarget_r_, pTarget6_r_, vTarget_r_, gc_set_r_, gv_set_r_;
         Eigen::VectorXd obj_pos_init_;
@@ -929,8 +966,10 @@ namespace raisim {
 
         double affordance_contact_reward_r= 0.0;
         double not_affordance_contact_reward_r = 0.0;
+        double table_contact_reward_r = 0.0;
         double affordance_impulse_reward_r= 0.0;
         double not_affordance_impulse_reward_r = 0.0;
+        double table_impulse_reward_r = 0.0;
         double wrist_vel_reward_r = 0.0;
         double wrist_qvel_reward_r = 0.0;
         double obj_vel_reward_r = 0.0;
@@ -956,8 +995,9 @@ namespace raisim {
         Eigen::VectorXd finger_weights_contact, finger_weights_aff;
         Eigen::VectorXd contacts_r_af, impulses_r_af;
         Eigen::VectorXd contacts_r_non_af, impulses_r_non_af;
+        Eigen::VectorXd contacts_r_table, impulses_r_table;
         Eigen::VectorXd contact_body_idx_r_;
-        Eigen::VectorXd frame_y_in_obj, joint_pos_in_obj;
+        Eigen::VectorXd frame_y_in_obj, joint_pos_in_obj, joint_height_w;
         raisim::Vec<3> Position;
         raisim::Vec<3> wrist_vel, wrist_qvel;
         Eigen::Vector3d wrist_vel_in_wrist, wrist_qvel_in_wrist;

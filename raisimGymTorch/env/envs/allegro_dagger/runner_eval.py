@@ -5,7 +5,7 @@ from raisimGymTorch.env.bin import allegro_dagger as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
 from raisimGymTorch.env.bin.allegro_dagger import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random
+from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new
 from scipy.spatial.transform import Rotation as R
 from random import choice
 
@@ -54,6 +54,7 @@ parser.add_argument('-renew', '--renew', help='update labels every iteration', a
 parser.add_argument('-ln', '--log_name', type=str, default='single_obj')
 parser.add_argument('-mean', '--mean_pose', action="store_true")
 
+new_allegro = True
 
 args = parser.parse_args()
 weight_path = args.weight
@@ -119,7 +120,7 @@ obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
 
-ob_dim_r = 128
+ob_dim_r = 144
 # act_dim = env.num_acts
 act_dim = 22
 print('ob dim', ob_dim_r)
@@ -216,7 +217,21 @@ for update in range(args.num_iterations):
         obj_pose_reset[i, :] = [1., -0., 0.502, 1., -0., -0., 0., 0.]
         obj_pose_reset[i, 2] -= lowest_point
 
-        qpos_reset_r[i, -4] = 1.7
+        if new_allegro:
+            qpos_reset_r[i, 6:] = 0.2
+            qpos_reset_r[i, -4] = 1.0
+            qpos_reset_r[i, 7] = 0.8
+            qpos_reset_r[i, 11] = 0.8
+            qpos_reset_r[i, 15] = 0.8
+            qpos_reset_r[i, 19] = 0.8
+
+            # qpos_reset_r[i, -4] = 1.3
+            # qpos_reset_r[i, 7] = 0.8
+            # qpos_reset_r[i, 11] = 0.8
+            # qpos_reset_r[i, 15] = 0.8
+            # qpos_reset_r[i, 19] = 0.8
+        else:
+            qpos_reset_r[i, -4] = 1.7
 
         if np.linalg.norm(env.non_aff_mesh[i].centroid - fake_non_aff_center) < 0.01:
             non_aff_mesh = None
@@ -226,7 +241,12 @@ for update in range(args.num_iterations):
             contain_non_aff[i, 0] = 1.
 
         # rot, pos, bias = get_initial_pose_faive(env.aff_mesh[i], non_aff_mesh, "allegro")
-        rot, pos, bias = get_initial_pose_faive_random(env.aff_mesh[i], non_aff_mesh, "allegro")
+        # rot, pos, bias = get_initial_pose_faive_random(env.aff_mesh[i], non_aff_mesh, "allegro", top=True, easy=False)
+        if new_allegro:
+            rot, pos, bias = get_initial_pose_allegro_new(env.aff_mesh[i], non_aff_mesh, "allegro", top=True, easy=False)
+        else:
+            rot, pos, bias = get_initial_pose_faive_random(env.aff_mesh[i], non_aff_mesh, "allegro", top=True,
+                                                           easy=False)
 
         obj_mat = rotations.quat2mat(obj_pose_reset[i, 3:7])
         wrist_pose_obj = rotations.axisangle2euler(rot.reshape(-1, 3)).reshape(1, -1)
