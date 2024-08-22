@@ -1,0 +1,94 @@
+base:
+  use_wandb: False
+  # train and evalue saving path data_all/{project_name}/{task_name}****
+  project_name: "pt_allegro_table"
+  task_name: "new_demo"
+  # should not set r.pt or l.pt. and will not load retrain if set NULL. Use as 'raisim/raisimGymTorch/data_all' a relative path
+  teacher_pth: "" # [ONLY FOR DAGGER]
+  retrain_pth: "pt_allegro_table/2024-08-05-21-58-13/full_13500_"
+  eval_mode: True                    # true for evalue mode
+  fixed_mode: False                   # fixed object in urdf
+
+train:
+  datasets_name: "mixed_train_noaff"
+  datasets_specific_obj_name: ""      # NULL for all object, or specific object if set
+  iteration:  50001
+  grasp_step: 100
+  arti_step:  0           # set for artigrasp
+  trail_step: 60
+  log_interval: 20
+ 
+  # for dagger
+  dagger_mode: False
+  update_mlp: False
+  student_driven_ratio: 0.01
+  ppo_ratio:  0.5
+
+environment:
+  hand_type: 0            # 0 is right, 1 is left, 2 is both
+  history_len: 0         # observation history len, dagger will set 10 others may be 0
+  hand_joint_num:   16    # mano is 45, allegro is 16 (without 6Dof in wrist)
+  hand_body_num:    17    # mano is 21, allegro is 17
+  hand_contact_num: 13    # mano is 16, allegro is 13
+  step_encode_dim:  44    # used by dagger 
+  step_obs_dim:     93    # mano is 178, allegro is 93
+  ppo_obs_dim:      144   # step_obs_dim + aff_joint_distance(hand_body_num*3) + [nonaff_joint_distance(hand_body_num*3)]
+  prop_latent_dim:  26    # [ONLY FOR DAGGER] observation latent dim
+  gsdim:            115   # graspXL is 136
+  actiondim:        22    # mano is 51, allegro is 22 (hand_joint_num + 6Dof wrist)
+
+  render: True
+  eval_every_n: 20
+  update_every_n: 20
+  num_threads: 32
+  simulation_dt: 0.0025
+  control_dt: 0.01
+  max_time: 4.0
+  root_guided: True
+  visualize: True   # True for vis in raisim in evaluate mode
+  unseen: True
+  new_category: False
+  load_set: ""
+  hand_model_r: "allegro_low_friction.urdf"
+  hand_model_l: "allegro_low_friction.urdf"
+  finger_action_std: 0.015
+  rot_action_std: 0.01
+  reward:
+    affordance_contact_reward:
+      coeff: 1.0
+    not_affordance_contact_reward:
+      coeff: -0.0
+    table_contact_reward:
+      coeff: -1.0
+    affordance_impulse_reward:
+      coeff: 0.5
+    not_affordance_impulse_reward:
+      coeff: -0.0
+    table_impulse_reward:
+      coeff: -0.5
+    affordance_reward:
+      coeff: 0.3
+    not_affordance_reward:
+      coeff: -0.0
+    table_reward:
+      coeff: -0.01
+    direction_reward:
+      coeff: -0.1
+    center_reward:
+      coeff: -1.0
+    anatomy_reward:
+      coeff: -0.0
+    wrist_vel_reward_:
+      coeff: -0.001
+    wrist_qvel_reward_:
+      coeff: -0.0001
+    obj_vel_reward_:
+      coeff: -1.5
+    obj_qvel_reward_:
+      coeff: -0.01
+    torque:
+      coeff: -0.0
+
+architecture:
+  policy_net: [128, 128]
+  value_net: [128, 128]

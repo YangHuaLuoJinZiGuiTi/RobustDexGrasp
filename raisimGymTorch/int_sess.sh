@@ -1,0 +1,1 @@
+condor_submit_bid 7 -i -append request_cpus=60 -append request_gpus=1 -append request_memory=32000 -append 'requirements = CUDADeviceName=="Tesla V100-SXM2-32GB" || CUDADeviceName=="Quadro RTX 6000"'
