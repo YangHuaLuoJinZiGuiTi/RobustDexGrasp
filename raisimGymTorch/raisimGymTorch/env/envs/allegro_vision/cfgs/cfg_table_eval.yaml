@@ -5,12 +5,12 @@ base:
   task_name: "new_demo"
   # should not set r.pt or l.pt. and will not load retrain if set NULL. Use as 'raisim/raisimGymTorch/data_all' a relative path
   teacher_pth: "" # [ONLY FOR DAGGER]
-  retrain_pth: "pt_allegro_table/2024-08-05-21-58-13/full_13500_"
+  retrain_pth: "pt_allegro_table/2024-06-27-11-55-08/full_32000_"
   eval_mode: True                    # true for evalue mode
   fixed_mode: False                   # fixed object in urdf
 
 train:
-  datasets_name: "mixed_train_noaff"
+  datasets_name: "ycb_urdf_all"
   datasets_specific_obj_name: ""      # NULL for all object, or specific object if set
   iteration:  50001
   grasp_step: 100

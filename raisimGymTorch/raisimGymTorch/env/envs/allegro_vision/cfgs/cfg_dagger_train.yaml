@@ -10,7 +10,7 @@ base:
   fixed_mode: False                   # fixed object in urdf
 
 train:
-  datasets_name: "mixed_train_noaff"
+  datasets_name: "ycb_urdf_all"
   datasets_specific_obj_name: ""      # NULL for all object, or specific object if set
   iteration:  50001
   grasp_step: 100

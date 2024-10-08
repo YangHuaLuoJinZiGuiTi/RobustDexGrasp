@@ -255,7 +255,7 @@ for update in range(args.num_iterations):
                   np.zeros((num_envs, 1), 'float32'),
                   )
 
-    obs_new_r, dis_info = env.observe(contain_non_aff, allegro=True)
+    obs_new_r, dis_info = env.observe_vision(contain_non_aff, allegro=True)
     # show_point = dis_info[:, 17:].astype('float32').copy()
     # env.set_joint_sensor_visual(show_point)
 
@@ -274,7 +274,7 @@ for update in range(args.num_iterations):
 
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
-        obs_new_r, dis_info = env.observe(contain_non_aff, allegro=True)
+        obs_new_r, dis_info = env.observe_vision(contain_non_aff, allegro=True)
         # show_point = dis_info[:, 17:].astype('float32').copy()
         # env.set_joint_sensor_visual(show_point)
 

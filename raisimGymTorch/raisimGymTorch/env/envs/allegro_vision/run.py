@@ -552,8 +552,8 @@ def main():
             demo.update_cnt_ += 1
             continue
         
-        if demo.g_.cfg_.dagger_mode == False:
-            demo.obs()
+        # if demo.g_.cfg_.dagger_mode == False:
+        demo.obs()
             
         if True == demo.ppo_update():
             demo.update_cnt_ = demo.save_dict_cnt_

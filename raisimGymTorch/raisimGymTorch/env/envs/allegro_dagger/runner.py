@@ -468,7 +468,7 @@ for update in range(args.num_iterations):
         #     rewards_r[i]['action_loss'] = action_mse_loss
 
 
-    # obs_r, _ = env.observe_vision(contain_non_aff, allegro=True)
+    obs_r, _ = env.observe_vision(contain_non_aff, allegro=True)
     # # if swing_diverse:
     # #     obs_r = np.concatenate([obs_r, swing_random], axis=1)
     # obs_r = obs_r[:, :].astype('float32')

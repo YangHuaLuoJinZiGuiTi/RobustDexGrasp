@@ -13,7 +13,6 @@ import torch
 #from manopth.manolayer import ManoLayer
 import trimesh
 from bps_torch.bps import bps_torch
-import pandas as pd
 
 from raisimGymTorch.helper import rotations
 class RaisimGymVecEnvTest:
@@ -148,9 +147,10 @@ class RaisimGymVecEnvTest:
         self.obs_rms_r.count = count
         self.obs_rms_r.mean = np.loadtxt(mean_file_name_r, dtype=np.float32)
         self.obs_rms_r.var = np.loadtxt(var_file_name_r, dtype=np.float32)
-        self.obs_rms_l.count = count
-        self.obs_rms_l.mean = np.loadtxt(mean_file_name_l, dtype=np.float32)
-        self.obs_rms_l.var = np.loadtxt(var_file_name_l, dtype=np.float32)
+        if os.path.exists(mean_file_name_l) and os.path.exists(var_file_name_l):
+            self.obs_rms_l.count = count
+            self.obs_rms_l.mean = np.loadtxt(mean_file_name_l, dtype=np.float32)
+            self.obs_rms_l.var = np.loadtxt(var_file_name_l, dtype=np.float32)
         if cent_training:
             self.gs_rms.count = count
             self.gs_rms.mean = np.loadtxt(mean_file_name_g, dtype=np.float32)
@@ -165,6 +165,57 @@ class RaisimGymVecEnvTest:
         np.savetxt(var_file_name_r, self.obs_rms_r.var)
         np.savetxt(mean_file_name_l, self.obs_rms_l.mean)
         np.savetxt(var_file_name_l, self.obs_rms_l.var)
+
+
+    def observe_vision_partial(self, contain_non_aff, allegro=False):
+        self.wrapper.observe(self._observation_r, self._observation_l)
+        self.wrapper.get_global_state(self._global_state)
+
+        global_state = self._global_state.copy()
+
+        num_envs = global_state.shape[0]
+
+        if allegro:
+            joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+        else:
+            joints = torch.from_numpy(global_state[:, 66:129].reshape(num_envs, -1, 3)).to('cuda')
+
+        af_dists = torch.cdist(joints, self.affordance_pcd)
+        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+
+        dis_info = np.concatenate([min_dis_af.cpu().numpy()], axis=-1)
+
+        obs_r = self._observation_r.copy()
+        obj_euler_wrist = global_state[:, :3]
+        r_obj = obj_euler_wrist[:, np.newaxis].repeat(joints.shape[1], 1).reshape(-1, 3)
+        r_obj = R.from_euler('XYZ', r_obj, degrees=False)
+
+        visible_point = np.zeros_like(self.affordance_pcd.cpu().numpy())
+
+        for i in range(self.num_envs):
+            temp_points = self.affordance_pcd[i].cpu().numpy()
+            view_point = self.affordance_center[i].reshape(1, 3)
+            view_point[:, 2] += 0.1
+            view_point = view_point[:, np.newaxis].repeat(200, 1).reshape(-1, 3)
+            directions = temp_points - view_point
+            directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
+            locations, index_ray, index_tri = self.aff_mesh[i].ray.intersects_location(ray_origins=view_point,
+                                                                           ray_directions=directions,
+                                                                           multiple_hits=False)
+            visible_point[i, :] = locations
+
+        visible_point = torch.from_numpy(visible_point).to('cuda')
+        af_points = torch.gather(visible_point, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+
+        af_vec = af_points - joints
+        af_vec = r_obj.apply(af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
+
+        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+        dis_info = np.concatenate([dis_info, show_af_point], axis=-1)
+
+        obs_r = np.concatenate([obs_r, af_vec], axis=-1)
+        return obs_r, dis_info
+
 
 
     def observe_vision(self, contain_non_aff, allegro=False):

@@ -45,8 +45,8 @@ def load_param(weight_path, env, actor, critic, optimizer, data_dir, cfg):
     iteration_number = weight_path.rsplit('/', 1)[1].split('_', 1)[1].rsplit('.', 1)[0].split('_')[0]
     weight_dir = weight_path.rsplit('/', 1)[0] + '/'
 
-    mean_csv_path = weight_dir + 'mean_l' + iteration_number + '.csv'
-    var_csv_path = weight_dir + 'var_l' + iteration_number + '.csv'
+    # mean_csv_path = weight_dir + 'mean_r' + iteration_number + '.csv'
+    # var_csv_path = weight_dir + 'var_r' + iteration_number + '.csv'
     #items_to_save = [weight_path, mean_csv_path, var_csv_path, weight_dir + cfg, weight_dir + "Environment.hpp"]
     items_to_save = []
 
