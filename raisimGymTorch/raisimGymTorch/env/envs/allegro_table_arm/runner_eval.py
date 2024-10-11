@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
-from raisimGymTorch.env.bin import allegro_table as mano
+from raisimGymTorch.env.bin import allegro_table_arm as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.allegro_table import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new
+from raisimGymTorch.env.bin.allegro_table_arm import NormalSampler
+from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm
 from scipy.spatial.transform import Rotation as R
 from random import choice
 
@@ -22,35 +22,18 @@ import torch
 from datetime import datetime
 import argparse
 from raisimGymTorch.helper import rotations
+from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, transformRobotParameter
 import joblib
 import random
 import wandb
 import torch
 
 
-exp_name = "pt_allegro_table"
+exp_name = "pt_allegro_arm"
 
-
-# weight_saved = '2024-01-15-08-14-11/full_5700_r.pt'
-# weight_saved = '/../faive_fixed/2024-01-19-16-53-55/full_10200_r.pt'
-# weight_saved = '/../faive_fixed/2024-04-22-15-17-24/full_12000_r.pt'
-# weight_saved = '/../faive_floating/2024-04-24-09-34-42/full_6800_r.pt'
-# weight_saved = '2024-06-18-20-54-14/full_12200_r.pt'
-# weight_saved = '2024-06-19-14-15-49/full_15000_r.pt'
-# weight_saved = '2024-06-20-13-17-42/full_19200_r.pt'
-# weight_saved = '2024-06-24-16-43-08/full_31200_r.pt'
-# weight_saved = '2024-06-25-10-55-07/full_29000_r.pt'
-# weight_saved = '2024-06-25-11-14-07/full_30000_r.pt'
-# weight_saved = '2024-06-25-11-49-12/full_24000_r.pt'
-# weight_saved = '2024-06-25-12-36-42/full_24000_r.pt'
-# weight_saved = '2024-06-26-12-41-45/full_23500_r.pt'
-# weight_saved = '2024-06-26-12-44-03/full_23500_r.pt'
-# weight_saved = '2024-06-26-12-48-02/full_23500_r.pt'
-# weight_saved = '2024-06-26-12-51-36/full_23500_r.pt'
-# weight_saved = '2024-06-27-11-26-44/full_32000_r.pt'
-# weight_saved = '2024-06-27-11-41-22/full_32000_r.pt'
-weight_saved = '2024-06-27-11-55-08/full_32000_r.pt'
-# weight_saved = '2024-10-09-12-38-06/full_32000_r.pt'
+weight_saved = './../pt_allegro_table/2024-06-27-11-55-08/full_32000_r.pt'
+# weight_saved = '2024-10-09-17-02-07/full_1000_r.pt'
+# weight_saved = '2024-10-10-08-41-07/full_8500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -124,7 +107,6 @@ obj_ori_list = folder_names
 obj_item = choice(obj_ori_list)
 # obj_item = '037_scissors'
 
-
 # Environment definition
 env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
@@ -197,17 +179,8 @@ for update in range(args.num_iterations):
         with open(txt_file_path, 'r') as txt_file:
             lowest_point = float(txt_file.read())
 
-        if cat_name == 'large_scale_obj':
-            obj_state_path = os.path.join(directory_path, obj_item) + "/obj_stable_state.txt"
-            with open(obj_state_path, 'r') as obj_state_file:
-                obj_state = obj_state_file.read()
-            values_str = obj_state.strip('[]').split()
-            vector = np.array([float(value) for value in values_str[:-1]])
-            obj_pose_reset[i, :7] = vector[:7]
-            obj_pose_reset[i, 2] += 0.002
-        else:
-            obj_pose_reset[i, :] = [1., -0., 0.502, 1., -0., -0., 0., 0.]
-            obj_pose_reset[i, 2] -= lowest_point
+        obj_pose_reset[i, :] = [0.8, 0.2, 0.773, 1., -0., -0., 0., 0.]
+        obj_pose_reset[i, 2] -= lowest_point
 
         if new_allegro:
             qpos_reset_r[i, 6:] = 0.2
@@ -216,12 +189,6 @@ for update in range(args.num_iterations):
             qpos_reset_r[i, 11] = 0.8
             qpos_reset_r[i, 15] = 0.8
             qpos_reset_r[i, 19] = 0.8
-
-            # qpos_reset_r[i, -4] = 1.3
-            # qpos_reset_r[i, 7] = 0.8
-            # qpos_reset_r[i, 11] = 0.8
-            # qpos_reset_r[i, 15] = 0.8
-            # qpos_reset_r[i, 19] = 0.8
         else:
             qpos_reset_r[i, -4] = 1.7
 
@@ -235,22 +202,71 @@ for update in range(args.num_iterations):
 
         # rot, pos, bias = get_initial_pose_faive(env.aff_mesh[i], non_aff_mesh, "allegro")
         # rot, pos, bias = get_initial_pose_faive_random(env.aff_mesh[i], non_aff_mesh, "allegro", top=True, easy=False)
-        if new_allegro:
-            rot, pos, bias = get_initial_pose_allegro_new(env.aff_mesh[i], non_aff_mesh, "allegro", top=True, easy=False)
-        else:
-            rot, pos, bias = get_initial_pose_faive_random(env.aff_mesh[i], non_aff_mesh, "allegro", top=True,
-                                                           easy=False)
 
-        obj_mat = rotations.quat2mat(obj_pose_reset[i, 3:7])
-        wrist_pose_obj = rotations.axisangle2euler(rot.reshape(-1, 3)).reshape(1, -1)
-        wrist_mat = rotations.euler2mat(wrist_pose_obj)
-        wrist_in_world = np.matmul(obj_mat, wrist_mat)
-        wrist_pose = rotations.mat2euler(wrist_in_world)
-        qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat, pos[i, :])
-        qpos_reset_r[i, 3:6] = wrist_pose[i, :]
 
-        target_center[i, :] = bias[:]
-        object_center[i, :] = env.affordance_center[i]
+        get_meaningful_ik = False
+        while not get_meaningful_ik:
+            if new_allegro:
+                rot, pos, bias = get_initial_pose_allegro_arm(env.aff_mesh[i], non_aff_mesh,  top=True, easy=False)
+                # rot, pos, bias = get_initial_pose_allegro_new(env.aff_mesh[i], non_aff_mesh, "allegro", top=True, easy=False)
+            else:
+                rot, pos, bias = get_initial_pose_faive_random(env.aff_mesh[i], non_aff_mesh, "allegro", top=True,
+                                                               easy=False)
+
+            obj_mat = rotations.quat2mat(obj_pose_reset[i, 3:7])
+            wrist_pose_obj = rotations.axisangle2euler(rot.reshape(-1, 3)).reshape(1, -1)
+            wrist_mat = rotations.euler2mat(wrist_pose_obj)
+            wrist_in_world = np.matmul(obj_mat, wrist_mat)
+            wrist_pose = rotations.mat2euler(wrist_in_world)
+            qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat, pos[i, :])
+            qpos_reset_r[i, 3:6] = wrist_pose[i, :]
+
+            target_center[i, :] = bias[:]
+            object_center[i, :] = env.affordance_center[i]
+
+
+
+            wrist_bias = np.zeros((1,3))
+            wrist_bias[0, 0] = -0.0091
+            wrist_bias[0, 2] = -0.095
+            wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
+
+            ur5_to_world = np.eye(3)
+            ur5_to_world[0, 0] = -1
+            ur5_to_world[1, 1] = -1
+
+            pos_in_ur5 = np.zeros((3, 1))
+            pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0.55 + wrist_bias_in_world[0, 0]
+            pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0.75152 + wrist_bias_in_world[0, 1]
+            pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
+            pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
+
+            wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
+
+            gd = np.eye(4)
+            gd[:3, :3] = wrist_mat_in_ur5
+            gd[0, 3] = pos_in_ur5_new[0, 0]
+            gd[1, 3] = pos_in_ur5_new[1, 0]
+            gd[2, 3] = pos_in_ur5_new[2, 0]
+
+            theta0 = [-1.57, -1.57, 1.57, 0, 1.57, -1]
+            joint_weights = [6, 5, 4, 3, 2, 1]
+            ik = InverseKinematicsUR5()
+            ik.setJointWeights(joint_weights)
+            ik.setJointLimits(-3.14, 3.14)
+            qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+
+            if math.isnan(qpos_reset_r[i, 0]):
+                continue
+                # print("no meaningful ik")
+                # print(qpos_reset_r[i, :6])
+                # print(rot)
+            else:
+                get_meaningful_ik = True
+                # print(qpos_reset_r[i, :6])
+
+
+
 
 
     env.reset_state(qpos_reset_r,
@@ -279,9 +295,12 @@ for update in range(args.num_iterations):
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
 
+        time.sleep(10)
+
         action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
+        action_r[:, :6] = 0
 
         frame_start = time.time()
 

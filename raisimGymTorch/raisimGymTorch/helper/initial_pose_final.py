@@ -1427,7 +1427,7 @@ def get_initial_pose_faive_random(obj_mesh, non_aff_mesh, hand_type='faive', top
     # return rot12, pos, bias, opt_pos
 
 
-def get_initial_pose_allegro_new(obj_mesh, non_aff_mesh, hand_type='faive', top=False, easy=False):
+def get_initial_pose_allegro_new(obj_mesh, non_aff_mesh, top=False, easy=False):
     # sample 3000 points from the pytorch3d mesh
     points = obj_mesh.vertices if torch.is_tensor(obj_mesh.vertices) else torch.tensor(obj_mesh.vertices,
                                                                                        dtype=torch.float32).unsqueeze(0)
@@ -1524,6 +1524,83 @@ def get_initial_pose_allegro_new(obj_mesh, non_aff_mesh, hand_type='faive', top=
     return rot12, pos, bias
     # return rot12, pos, bias, opt_pos
 
+def get_initial_pose_allegro_arm(obj_mesh, non_aff_mesh, hand_type='faive', top=False, easy=False):
+    # sample 3000 points from the pytorch3d mesh
+    points = obj_mesh.vertices if torch.is_tensor(obj_mesh.vertices) else torch.tensor(obj_mesh.vertices,
+                                                                                       dtype=torch.float32).unsqueeze(0)
+    obj_pcd = points.detach().cpu().numpy()
+    aff_center = obj_mesh.centroid
+
+    x_axis = np.array([0, 1, 0])
+    y_axis = np.array([1, 0, 0])
+    z_axis = np.array([0, 0, 1])
+
+    rot_mat = [[0, -1, 0], [0, 0, 1], [-1, 0, 0]]
+    rot_mat = np.array(rot_mat).reshape(3, 3)
+
+    x_axis = np.matmul(rot_mat, x_axis)
+    y_axis = np.matmul(rot_mat, y_axis)
+    z_axis = np.matmul(rot_mat, z_axis)
+
+    x_axis = x_axis.reshape(3, )
+    y_axis = y_axis.reshape(3, )
+    z_axis = z_axis.reshape(3, )
+
+    got_sample = False
+    while not got_sample:
+        current_direction = np.random.uniform(-1, 1, (1, 3))
+        # current_direction[:, 2] = 100
+        if top:
+            current_direction[:, 2] = np.abs(current_direction[:, 2]) * (np.abs(current_direction[:, 2]) > 5) + 1 * (np.abs(current_direction[:, 2]) <= 5)
+        dir = current_direction / np.linalg.norm(current_direction, axis=1, keepdims=True)
+
+        supp_line = np.cross(z_axis, dir)
+        if np.linalg.norm(supp_line) == 0:
+            supp_line[0] = 1
+
+        axis_list = []
+
+        axis, lat_length, long_length = find_smallest_boundary_axis(obj_pcd[0], dir[0])
+        axis_list.append(axis)
+        axis_lat = axis.copy()
+
+        if lat_length > 0.18:
+            continue
+
+
+        axis = np.stack(axis_list, axis=0)
+        # long_length_list = np.stack(long_length_list, axis=0)
+
+        # rotate the x axis of the hand (grasping direction) to the target direction
+        rot = get_hand_rot(dir, vec_in_hand=x_axis)
+        rot_R = R.from_rotvec(rot)
+
+        y_axis = rot_R.apply(y_axis)
+        z_axis = rot_R.apply(z_axis)
+
+        # calculate the angle to rotate the y axis of the hand (grasping direction) to the direction vertical to target direction
+        angle = np.arccos((y_axis * axis).sum(axis=-1))[:, np.newaxis]
+        # angle[dir_mask] *= -1
+
+        offset = 2 * np.pi / 20
+        if not easy:
+            rand_offset = np.random.uniform(-np.pi, np.pi)
+        else:
+            rand_offset = 0
+        rot2_temp = dir * (angle + offset)
+        z_axis = R.from_rotvec(rot2_temp).apply(z_axis)
+
+        rot2 = dir * (angle + offset + rand_offset)
+        rot12 = comp_axis_angle(rot2, rot)
+
+        target = aff_center
+        pos = target + 0.3 * dir
+
+        bias = target
+        got_sample = True
+
+    return rot12, pos, bias
+    # return rot12, pos, bias, opt_pos
 
 
 # get the initial pose for shadow hand (comparison with UniDexGrasp)
