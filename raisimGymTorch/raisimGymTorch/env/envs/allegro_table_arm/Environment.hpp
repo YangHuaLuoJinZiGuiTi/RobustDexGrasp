@@ -94,6 +94,7 @@ namespace raisim {
             init_or_r_.setZero();  init_rot_r_.setZero(); init_root_r_.setZero();
             init_obj_rot_.setZero(); init_obj_or_.setZero(); init_obj_.setZero();
             wrist_mat_r_in_obj_init.setZero();
+            wrist_euler_in_obj_init.setZero();
             wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
             hand_center.setZero();
             afford_center.setZero();
@@ -102,12 +103,15 @@ namespace raisim {
             frame_y_in_obj.setZero(num_bodyparts*3);
             joint_pos_in_obj.setZero(num_bodyparts*3);
             joint_pos_in_world.setZero(num_bodyparts*3);
+            arm_joint_pos_in_world.setZero(6*3);
 
             joint_height_w.setZero(num_bodyparts);
+            arm_height_w.setZero(6);
 
             init_arcticCoord.setZero(8);
 
             contact_body_idx_r_.setZero(num_contacts);
+            contact_arm_idx.setZero(6);
 
             obj_pos_init_.setZero(8);
             Position.setZero();
@@ -121,6 +125,7 @@ namespace raisim {
             impulse_high.setZero(num_contacts); impulse_low.setZero(num_contacts);
 
             contacts_r_table.setZero(num_contacts); impulses_r_table.setZero(num_contacts);
+            contacts_arm_table.setZero(6); impulses_arm_table.setZero(6);
 
             pTarget_clipped_r.setZero(gcDim_);
 
@@ -155,7 +160,7 @@ namespace raisim {
             mano_r_->setGeneralizedCoordinate(Eigen::VectorXd::Zero(gcDim_));
 
             /// MUST BE DONE FOR ALL ENVIRONMENTS
-            obDim_r_ = 93;
+            obDim_r_ = 99;
             obDim_l_ = 1;
             gsDim_ = 118;
             obDouble_r_.setZero(obDim_r_);
@@ -185,6 +190,11 @@ namespace raisim {
             for(int i = 0; i < num_contacts ;i++){
                 contact_body_idx_r_[i] =  mano_r_->getBodyIdx(contact_bodies_r_[i]);
                 contactMapping_r_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_bodies_r_[i])),i));
+            }
+            
+            for(int i = 0; i < 6 ;i++){
+                contact_arm_idx[i] =  mano_r_->getBodyIdx(contact_arm_bodies[i]);
+                contactMapping_arm_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_arm_bodies[i])),i));
             }
 
             /// start visualization server
@@ -594,6 +604,7 @@ namespace raisim {
                        raisim::Mat<3,3> Obj_orientation_init_trans;
                        raisim::transpose(Obj_orientation_init, Obj_orientation_init_trans);
                        raisim::matmul(Obj_orientation_init_trans, wrist_mat_r, wrist_mat_r_in_obj_init);
+                       raisim::RotmatToEuler(wrist_mat_r_in_obj_init, wrist_euler_in_obj_init);
                        bias = Obj_orientation_init.e() * afford_center + Obj_Position_init.e() - hand_center_temp;
                        wrist_target_temp = wrist_pos_w.e() + bias;
                        wrist_target_o = Obj_orientation_init.e().transpose() * (wrist_target_temp - Obj_Position_init.e());
@@ -697,6 +708,9 @@ namespace raisim {
             }
             table_impulse_reward_r = impulses_r_table_clipped.cwiseProduct(finger_weights_contact).sum();
 
+            arm_table_contact_reward = contacts_arm_table.norm();
+            arm_table_impulse_reward = impulses_arm_table.norm();
+
             wrist_vel_reward_r = wrist_vel_in_wrist.squaredNorm();
             wrist_qvel_reward_r = wrist_qvel_in_wrist.squaredNorm();
 //            obj_vel_reward_r = obj_vel_in_wrist.squaredNorm();
@@ -704,14 +718,39 @@ namespace raisim {
             obj_vel_reward_r = Obj_linvel.e().squaredNorm();
             obj_qvel_reward_r = Obj_qvel.e().squaredNorm();
 
+//            arm_height_reward = -arm_height_w.norm();
+
+//            Eigen::VectorXd arm_height_for_reward;
+//            arm_height_for_reward.setZero(6);
+//            for(int i = 2; i < 6; i++){
+//                if(arm_height_w[i] < 0.15){
+//                    arm_height_for_reward[i] = 0.15 - arm_height_w[i];
+//                }
+//            }
+//            arm_height_reward = arm_height_for_reward.sum();
+
+           raisim::Mat<3,3> obj_rot_w_trans, wrist_mat_r_in_obj;
+           raisim::Vec<3> wrist_euler_in_obj;
+           mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
+           arctic->getOrientation(affordance_id, obj_rot_w);
+           raisim::transpose(obj_rot_w, obj_rot_w_trans);
+           raisim::matmul(obj_rot_w_trans, wrist_mat_r, wrist_mat_r_in_obj);
+           raisim::RotmatToEuler(wrist_mat_r_in_obj, wrist_euler_in_obj);
+
+           direction_reward = (wrist_euler_in_obj_init.e()-wrist_euler_in_obj.e()).norm();
+
 
             rewards_r_.record("affordance_contact_reward", std::max(0.0, affordance_contact_reward_r));
-            rewards_r_.record("not_affordance_contact_reward", std::max(0.0, not_affordance_contact_reward_r));
-            rewards_r_.record("table_contact_reward", std::max(0.0, table_contact_reward_r));
+//            rewards_r_.record("not_affordance_contact_reward", std::max(0.0, not_affordance_contact_reward_r));
 //            rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
             rewards_r_.record("affordance_impulse_reward", std::min(obj_weight * 5, affordance_impulse_reward_r));
-            rewards_r_.record("not_affordance_impulse_reward", std::max(0.0, not_affordance_impulse_reward_r));
+//            rewards_r_.record("not_affordance_impulse_reward", std::max(0.0, not_affordance_impulse_reward_r));
+            rewards_r_.record("table_contact_reward", std::max(0.0, table_contact_reward_r));
             rewards_r_.record("table_impulse_reward", std::max(0.0, table_impulse_reward_r));
+//            rewards_r_.record("arm_height_reward", std::min(0.0, arm_height_reward));
+            rewards_r_.record("arm_contact_reward", std::max(0.0, arm_table_contact_reward));
+            rewards_r_.record("arm_impulse_reward", std::max(0.0, arm_table_impulse_reward));
+            rewards_r_.record("direction_reward", std::max(0.0, direction_reward));
             rewards_r_.record("wrist_vel_reward_", std::max(0.0, wrist_vel_reward_r));
             rewards_r_.record("wrist_qvel_reward_", std::max(0.0, wrist_qvel_reward_r));
             rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
@@ -735,6 +774,8 @@ namespace raisim {
             contacts_r_table.setZero();
             impulses_r_non_af.setZero();
             contacts_r_non_af.setZero();
+            contacts_arm_table.setZero();
+            impulses_arm_table.setZero();
 
             raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
@@ -789,6 +830,12 @@ namespace raisim {
 //                std::cout << "contact body: " << contactMapping_r_[contact_table.getlocalBodyIndex()] << std::endl;
 //                std::cout << "contact name: " << contact_bodies_r_[contactMapping_r_[contact_table.getlocalBodyIndex()]] << std::endl;
                 impulses_r_table[contactMapping_r_[contact_table.getlocalBodyIndex()]] = contact_table.getImpulse().norm();
+            }
+
+            for(auto& contact_arm: mano_r_->getContacts()) {
+                if ((contact_arm.skip() || contact_arm.getPairObjectIndex() != arctic->getIndexInWorld()) && (contact_arm.skip() || contact_arm.getPairObjectIndex() != box->getIndexInWorld())) continue;
+                contacts_arm_table[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
+                impulses_arm_table[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = contact_arm.getImpulse().norm();
             }
 
 //            std::cout << "contacts_r_table: " << contacts_r_table.transpose() << std::endl;
@@ -874,6 +921,14 @@ namespace raisim {
             }
 
 
+            for(int i = 0; i < 6 ; i++){
+                mano_r_->getFramePosition(arm_parts[i], joint_pos_w);
+                arm_joint_pos_in_world[i * 3] = joint_pos_w[0];
+                arm_joint_pos_in_world[i * 3 + 1] = joint_pos_w[1];
+                arm_joint_pos_in_world[i * 3 + 2] = joint_pos_w[2];
+                arm_height_w[i] = joint_pos_w[2] - 0.771;
+            }
+
 //            obDouble_r_ << target_center_dif,           // 3, hand center diff
 ////                           gc_r_.segment(3, 3) - wrist_target_euler.e(),         // 3, wrist orientation diff
 ////                           gc_r_.tail(gcDim_ - 6),      // (mirror) 45, generalized coordinate
@@ -885,7 +940,8 @@ namespace raisim {
                             wrist_qvel.e(),
                             contacts_r_af,
                             impulses_r_af,
-                            joint_height_w;
+                            joint_height_w,
+                            arm_height_w;
 //                            obj_weight,
 //                            obj_vel_in_wrist,
 //                            obj_qvel_in_wrist,
@@ -963,10 +1019,19 @@ namespace raisim {
                 }
             }
 
+//            for(int i = 1; i < 5; i++){
+//                if (contacts_arm_table[i] == 1){
+//                    terminalReward = -10;
+////                    std::cout<<"contact link name: "<<contact_arm_bodies[i]<<std::endl;
+////                    std::cout<<"contact names: "<<mano_r_->getBodyNames()[contact_arm_idx[i]]<<std::endl;
+//                    return true;
+//                }
+//            }
+
             if(obDouble_r_.hasNaN() || global_state_.hasNaN())
             {
-                std::cout<<"NaN detected"<< obDouble_r_.transpose()<<std::endl;
-                std::cout<<"NaN detected"<< global_state_.transpose()<<std::endl;
+                std::cout<<"NaN detected"<< obDouble_r_.transpose()<<std::endl<<std::endl<<std::endl;
+                std::cout<<"NaN detected"<< global_state_.transpose()<<std::endl<<std::endl<<std::endl;
                 return true;
             }
 
@@ -984,6 +1049,7 @@ namespace raisim {
         Eigen::VectorXd gc_r_, gv_r_, pTarget_r_, vTarget_r_, gc_set_r_, gv_set_r_;
         Eigen::VectorXd obj_pos_init_;
         Eigen::VectorXd joint_pos_in_world;
+        Eigen::VectorXd arm_joint_pos_in_world;
         std::string load_set;
 
         double affordance_contact_reward_r= 0.0;
@@ -996,6 +1062,10 @@ namespace raisim {
         double wrist_qvel_reward_r = 0.0;
         double obj_vel_reward_r = 0.0;
         double obj_qvel_reward_r = 0.0;
+        double arm_height_reward = 0.0;
+        double arm_table_contact_reward = 0.0;
+        double arm_table_impulse_reward = 0.0;
+        double direction_reward = 0.0;
         double obj_weight = 0.0;
         double mano_weight = 0.0;
         double arm_Pgain = 3000.0;
@@ -1018,8 +1088,9 @@ namespace raisim {
         Eigen::VectorXd contacts_r_af, impulses_r_af;
         Eigen::VectorXd contacts_r_non_af, impulses_r_non_af;
         Eigen::VectorXd contacts_r_table, impulses_r_table;
-        Eigen::VectorXd contact_body_idx_r_;
-        Eigen::VectorXd frame_y_in_obj, joint_pos_in_obj, joint_height_w;
+        Eigen::VectorXd contacts_arm_table, impulses_arm_table;
+        Eigen::VectorXd contact_body_idx_r_, contact_arm_idx;
+        Eigen::VectorXd frame_y_in_obj, joint_pos_in_obj, joint_height_w, arm_height_w;
         raisim::Vec<3> Position;
         raisim::Vec<3> wrist_vel, wrist_qvel;
         Eigen::Vector3d wrist_vel_in_wrist, wrist_qvel_in_wrist;
@@ -1035,6 +1106,7 @@ namespace raisim {
         raisim::ArticulatedSystem *arctic, *mano_r_;
         raisim::ArticulatedSystemVisual *arcticVisual;
         raisim::Mat<3,3> Obj_orientation, Obj_orientation_temp, Obj_orientation_init;
+        raisim::Vec<3> wrist_euler_in_obj_init;
         raisim::Vec<4> obj_quat;
         raisim::Vec<3> Obj_Position, Obj_Position_init, Obj_qvel, Obj_linvel;
         Eigen::Vector3d obj_vel_in_wrist, obj_qvel_in_wrist;
@@ -1072,7 +1144,8 @@ namespace raisim {
                                               "link_9.0", "link_10.0", "link_11.0",
                                               "link_13.0", "link_14.0", "link_15.0"};
 
-//       std::string arm_contact_bodies
+        std::string arm_parts[6] = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
+       std::string contact_arm_bodies[6] = {"shoulder_link", "upper_arm_link", "forearm_link", "wrist_1_link", "wrist_2_link", "wrist_3_link"};
 
         Eigen::VectorXd mean_pose;
 
@@ -1089,6 +1162,7 @@ namespace raisim {
 
         std::map<int,int> contactMapping_r_;
         std::map<int,int> contactMapping_l_;
+        std::map<int,int> contactMapping_arm_;
         std::string resourceDir_;
         std::vector<raisim::Vec<2>> joint_limits_;
         raisim::PolyLine *line;

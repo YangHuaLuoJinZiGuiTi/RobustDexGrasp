@@ -18,41 +18,43 @@ environment:
   finger_action_std: 0.015
   rot_action_std: 0.01
   reward:
+    affordance_reward:
+      coeff: 0.3
+#    not_affordance_reward:
+#      coeff: -0.0
     affordance_contact_reward:
       coeff: 1.0
-    not_affordance_contact_reward:
-      coeff: -0.0
-
-
-    table_contact_reward:
-      coeff: -1.0
-
+#    not_affordance_contact_reward:
+#      coeff: -0.0
     affordance_impulse_reward:
       coeff: 0.5
-    not_affordance_impulse_reward:
-      coeff: -0.0
+#    not_affordance_impulse_reward:
+#      coeff: -0.0
 
+
+    table_reward:
+      coeff: -0.002
+    table_contact_reward:
+      coeff: -1.0
     table_impulse_reward:
       coeff: -0.5
 
-    affordance_reward:
-      coeff: 0.3
-    not_affordance_reward:
-      coeff: -0.0
-
-    table_reward:
-      coeff: -0.01
+    arm_height_reward:
+#      coeff: -0.03
+      coeff: -0.02
+    arm_contact_reward:
+#      coeff: -3.0
+      coeff: -0.1
+    arm_impulse_reward:
+#      coeff: -1.0
+      coeff: -0.1
 
     direction_reward:
-      coeff: -0.1
+      coeff: -0.02
 #          coeff: -0.0
     center_reward:
       coeff: -1.0
     #      coeff: -0.0
-
-
-    anatomy_reward:
-      coeff: -0.0
 
 
     wrist_vel_reward_:
@@ -69,6 +71,9 @@ environment:
 
 
 
+
+    anatomy_reward:
+      coeff: -0.0
     torque:
       coeff: -0.0
 

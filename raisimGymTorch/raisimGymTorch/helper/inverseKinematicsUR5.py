@@ -306,5 +306,5 @@ class InverseKinematicsUR5:
 				print('Closest IK solution: ', Q[closest_ik_index,:])
 			return Q[closest_ik_index,:]
 		else:
-			print("no solution found")
+			# print("no solution found")
 			return None

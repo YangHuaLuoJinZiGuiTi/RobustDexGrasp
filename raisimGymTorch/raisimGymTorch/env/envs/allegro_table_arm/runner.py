@@ -126,7 +126,7 @@ env.load_multi_articulated(obj_path_list)
 
 
 
-ob_dim_r = 144
+ob_dim_r = 150
 act_dim = 22
 print('ob dim', ob_dim_r)
 print('act dim', act_dim)
@@ -179,10 +179,10 @@ for i in range(4):
 finger_weights /= finger_weights.sum(axis=1).reshape(-1, 1)
 finger_weights *= 17.0
 affordance_reward_r = np.zeros((num_envs, 1))
-not_affordance_reward_r = np.zeros((num_envs, 1))
-direction_reward_r = np.zeros((num_envs, 1))
+# not_affordance_reward_r = np.zeros((num_envs, 1))
 center_reward_r = np.zeros((num_envs, 1))
 table_reward_r = np.zeros((num_envs, 1))
+arm_height_reward_r = np.zeros((num_envs, 1))
 
 
 qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -251,7 +251,7 @@ for update in range(args.num_iterations):
         while not get_meaningful_ik:
             if new_allegro:
                 rot, pos, bias = get_initial_pose_allegro_arm(env.aff_mesh[i], non_aff_mesh, top=True, easy=False)
-                # rot, pos, bias = get_initial_pose_allegro_new(env.aff_mesh[i], non_aff_mesh, "allegro", top=True, easy=False)
+
             else:
                 rot, pos, bias = get_initial_pose_faive_random(env.aff_mesh[i], non_aff_mesh, "allegro", top=True,
                                                                easy=False)
@@ -261,8 +261,8 @@ for update in range(args.num_iterations):
             wrist_mat = rotations.euler2mat(wrist_pose_obj)
             wrist_in_world = np.matmul(obj_mat, wrist_mat)
             wrist_pose = rotations.mat2euler(wrist_in_world)
-            qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat, pos[i, :])
-            qpos_reset_r[i, 3:6] = wrist_pose[i, :]
+            qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat, pos[0, :])
+            qpos_reset_r[i, 3:6] = wrist_pose[0, :]
 
             target_center[i, :] = bias[:]
             object_center[i, :] = env.affordance_center[i]
@@ -291,11 +291,15 @@ for update in range(args.num_iterations):
             gd[2, 3] = pos_in_ur5_new[2, 0]
 
             theta0 = [-1.57, -1.57, 1.57, 0, 1.57, -1]
-            joint_weights = [6, 5, 4, 3, 2, 1]
+            joint_weights = [1, 1, 1, 1, 1, 1]
             ik = InverseKinematicsUR5()
             ik.setJointWeights(joint_weights)
             ik.setJointLimits(-3.14, 3.14)
-            qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+            if ik.findClosestIK(gd, theta0) is None:
+                continue
+            else:
+                qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+                # print("found a solution")
 
             if math.isnan(qpos_reset_r[i, 0]):
                 continue
@@ -331,10 +335,10 @@ for update in range(args.num_iterations):
     rewards_r_sum = env.get_reward_info_r()
     for i in range(len(rewards_r_sum)):
         rewards_r_sum[i]['affordance_reward'] = 0
-        rewards_r_sum[i]['not_affordance_reward'] = 0
-        rewards_r_sum[i]['direction_reward'] = 0
+        # rewards_r_sum[i]['not_affordance_reward'] = 0
         rewards_r_sum[i]['center_reward'] = 0
         rewards_r_sum[i]['table_reward'] = 0
+        rewards_r_sum[i]['arm_height_reward'] = 0
 
         for k in rewards_r_sum[i].keys():
             rewards_r_sum[i][k] = 0
@@ -360,7 +364,6 @@ for update in range(args.num_iterations):
 
         global_state = env.get_global_state()
 
-        direction_loss = np.sum(np.square(global_state[:, 112:115]), axis=1)
         abs_dis = np.linalg.norm(global_state[:, 115:118], axis=1)
         # if distance > 0.1 then give center reward otherwise set to 0
         center_loss = (abs_dis > 0.07) * (np.square(abs_dis - 0.07))
@@ -369,43 +372,47 @@ for update in range(args.num_iterations):
         affordance_reward_r = - np.sum((dis_info[:, :17]) * finger_weights, axis=1)
         # non_affordance_reward_r = - np.sum((dis_info[:, 17:]) * finger_weights, axis=1)
         table_reward_r = - np.sum(np.log(np.maximum(np.abs(obs_new_r[:, 76:93]), 0.01*np.ones_like(np.abs(obs_new_r[:, 76:93])))) * finger_weights * (np.abs(obs_new_r[:, 76:93]) < 0.03), axis=1)
+        arm_height_reward_r = - np.sum(np.log(10 * np.clip(obs_new_r[:, 95:99], a_min=0.001 , a_max=0.1)), axis=1)
 
 
         for i in range(num_envs):
             rewards_r[i]['affordance_reward'] = affordance_reward_r[i] * cfg['environment']['reward']['affordance_reward']['coeff']
-            rewards_r[i]['not_affordance_reward'] = 0
-            rewards_r[i]['direction_reward'] = direction_loss[i] * cfg['environment']['reward']['direction_reward']['coeff']
+            # rewards_r[i]['not_affordance_reward'] = 0
             rewards_r[i]['center_reward'] = center_loss[i] * cfg['environment']['reward']['center_reward']['coeff']
             rewards_r[i]['table_reward'] = table_reward_r[i] * cfg['environment']['reward']['table_reward']['coeff']
-            obj_vel_pul = rewards_r[i]['obj_vel_reward_']
-            if obj_vel_pul < -0.75:
-                obj_vel_pul = (obj_vel_pul + 0.75) / 4.0 - 0.75
-            if obj_vel_pul < -1.0:
-                obj_vel_pul = -1.0
-            obj_qvel_pul = rewards_r[i]['obj_qvel_reward_']
-            if obj_qvel_pul < -0.75:
-                obj_qvel_pul = (obj_qvel_pul + 0.75) / 4.0 - 0.75
-            if obj_qvel_pul < -1.0:
-                obj_qvel_pul = -1.0
+            rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
+            # obj_vel_pul = rewards_r[i]['obj_vel_reward_']
+            # if obj_vel_pul < -0.75:
+            #     obj_vel_pul = (obj_vel_pul + 0.75) / 4.0 - 0.75
+            # if obj_vel_pul < -1.0:
+            #     obj_vel_pul = -1.0
+            # obj_qvel_pul = rewards_r[i]['obj_qvel_reward_']
+            # if obj_qvel_pul < -0.75:
+            #     obj_qvel_pul = (obj_qvel_pul + 0.75) / 4.0 - 0.75
+            # if obj_qvel_pul < -1.0:
+            #     obj_qvel_pul = -1.0
+            #
+            # wrist_vel_pul = rewards_r[i]['wrist_vel_reward_']
+            # if wrist_vel_pul < -0.75:
+            #     wrist_vel_pul = (wrist_vel_pul + 0.75) / 4.0 - 0.75
+            # if wrist_vel_pul < -1.0:
+            #     wrist_vel_pul = -1.0
+            # wrist_qvel_pul = rewards_r[i]['wrist_qvel_reward_']
+            # if wrist_qvel_pul < -0.75:
+            #     wrist_qvel_pul = (wrist_qvel_pul + 0.75) / 4.0 - 0.75
+            # if wrist_qvel_pul < -1.0:
+            #     wrist_qvel_pul = -1.0
 
-            wrist_vel_pul = rewards_r[i]['wrist_vel_reward_']
-            if wrist_vel_pul < -0.75:
-                wrist_vel_pul = (wrist_vel_pul + 0.75) / 4.0 - 0.75
-            if wrist_vel_pul < -1.0:
-                wrist_vel_pul = -1.0
-            wrist_qvel_pul = rewards_r[i]['wrist_qvel_reward_']
-            if wrist_qvel_pul < -0.75:
-                wrist_qvel_pul = (wrist_qvel_pul + 0.75) / 4.0 - 0.75
-            if wrist_qvel_pul < -1.0:
-                wrist_qvel_pul = -1.0
+            rewards_r[i]['reward_sum'] = (
+                        rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['center_reward'] +
+                        rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'])
 
-            rewards_r[i]['reward_sum'] = (rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['direction_reward'] + rewards_r[i]['center_reward'] + rewards_r[i]['table_reward']
-                                          - rewards_r[i]['obj_vel_reward_'] - rewards_r[i]['obj_qvel_reward_'] + obj_vel_pul + obj_qvel_pul + rewards_r[i]['not_affordance_reward'] - rewards_r[i]['wrist_vel_reward_'] - rewards_r[i]['wrist_qvel_reward_'] + wrist_vel_pul + wrist_qvel_pul)
-            rewards_r[i]['obj_vel_reward_'] = obj_vel_pul
-            rewards_r[i]['obj_qvel_reward_'] = obj_qvel_pul
-            rewards_r[i]['wrist_vel_reward_'] = wrist_vel_pul
-            rewards_r[i]['wrist_qvel_reward_'] = wrist_qvel_pul
-            # rewards_r[i]['reward_sum'] = rewards_r[i]['reward_sum'] + rewards_r[i]['pca_reward'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['not_affordance_reward'] + rewards_r[i]['anatomy_reward'] + rewards_r[i]['direction_reward'] + rewards_r[i]['finger_tip_reward']
+            # rewards_r[i]['reward_sum'] = (rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['center_reward'] + rewards_r[i]['table_reward']
+            #                               - rewards_r[i]['obj_vel_reward_'] - rewards_r[i]['obj_qvel_reward_'] + obj_vel_pul + obj_qvel_pul + rewards_r[i]['not_affordance_reward'] - rewards_r[i]['wrist_vel_reward_'] - rewards_r[i]['wrist_qvel_reward_'] + wrist_vel_pul + wrist_qvel_pul)
+            # rewards_r[i]['obj_vel_reward_'] = obj_vel_pul
+            # rewards_r[i]['obj_qvel_reward_'] = obj_qvel_pul
+            # rewards_r[i]['wrist_vel_reward_'] = wrist_vel_pul
+            # rewards_r[i]['wrist_qvel_reward_'] = wrist_qvel_pul
             reward_r[i] = rewards_r[i]['reward_sum']
         reward_r.clip(min=reward_clip)
 

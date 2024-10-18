@@ -31,9 +31,16 @@ import torch
 
 exp_name = "pt_allegro_arm"
 
-weight_saved = './../pt_allegro_table/2024-06-27-11-55-08/full_32000_r.pt'
+# weight_saved = './../pt_allegro_table/2024-06-27-11-55-08/full_32000_r.pt'
 # weight_saved = '2024-10-09-17-02-07/full_1000_r.pt'
 # weight_saved = '2024-10-10-08-41-07/full_8500_r.pt'
+# weight_saved = '2024-10-11-15-11-44/full_33000_r.pt'
+# weight_saved = '2024-10-11-15-59-16/full_33000_r.pt'
+# weight_saved = '2024-10-15-12-20-24/full_3500_r.pt'
+# weight_saved = '2024-10-15-12-42-54/full_5000_r.pt'
+# weight_saved = '2024-10-15-13-26-23/full_3500_r.pt'
+# weight_saved = '2024-10-15-13-57-56/full_21500_r.pt'
+weight_saved = '2024-10-15-15-08-23/full_22000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -117,7 +124,7 @@ obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
 
-ob_dim_r = 144
+ob_dim_r = 150
 # act_dim = env.num_acts
 act_dim = 22
 print('ob dim', ob_dim_r)
@@ -250,11 +257,15 @@ for update in range(args.num_iterations):
             gd[2, 3] = pos_in_ur5_new[2, 0]
 
             theta0 = [-1.57, -1.57, 1.57, 0, 1.57, -1]
-            joint_weights = [6, 5, 4, 3, 2, 1]
+            joint_weights = [1, 1, 1, 1, 1, 1]
             ik = InverseKinematicsUR5()
             ik.setJointWeights(joint_weights)
             ik.setJointLimits(-3.14, 3.14)
-            qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+            if ik.findClosestIK(gd, theta0) is None:
+                continue
+            else:
+                qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+                # print("found a solution")
 
             if math.isnan(qpos_reset_r[i, 0]):
                 continue
@@ -295,12 +306,12 @@ for update in range(args.num_iterations):
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
 
-        time.sleep(10)
+        # time.sleep(10)
 
         action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
-        action_r[:, :6] = 0
+        # action_r[:, :6] = 0
 
         frame_start = time.time()
 
