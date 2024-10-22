@@ -184,6 +184,9 @@ class RaisimGymVecEnv:
     def set_goals(self, obj_angle, obj_pos, ee_pos_r, ee_pos_l, pose_r, pose_l, qpos_r, qpos_l, contact_r, contact_l):
         self.wrapper.set_goals(obj_angle, obj_pos, ee_pos_r, ee_pos_l, pose_r, pose_l, qpos_r, qpos_l, contact_r, contact_l)
 
+    def update_target(self, target_center):
+        self.wrapper.update_target(target_center)
+
     def set_obj_goal(self, obj_angle, obj_pos):
         self.wrapper.set_obj_goal(obj_angle, obj_pos)
 

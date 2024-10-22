@@ -132,6 +132,7 @@ class VectorizedEnvironment {
                                           );
     }
 
+
     void set_goals_r2(Eigen::Ref<EigenRowMajorMat> &obj_pos_r,
                       Eigen::Ref<EigenRowMajorMat> &ee_pos_r,
                       Eigen::Ref<EigenRowMajorMat> &pose_r,
@@ -178,27 +179,34 @@ class VectorizedEnvironment {
                                            );
     }
 
+
+    void update_target(Eigen::Ref<EigenRowMajorMat> &target_center) {
+#pragma omp parallel for
+        for (int i = 0; i < num_envs_; i++)
+            environments_[i]->update_target(target_center.row(i));
+    }
+
     void set_goals(Eigen::Ref<EigenRowMajorMat> &obj_angle,
-                   Eigen::Ref<EigenRowMajorMat> &obj_pos, 
-                   Eigen::Ref<EigenRowMajorMat> &ee_pos_r, 
-                   Eigen::Ref<EigenRowMajorMat> &ee_pos_l, 
+                   Eigen::Ref<EigenRowMajorMat> &obj_pos,
+                   Eigen::Ref<EigenRowMajorMat> &ee_pos_r,
+                   Eigen::Ref<EigenRowMajorMat> &ee_pos_l,
                    Eigen::Ref<EigenRowMajorMat> &pose_r,
                    Eigen::Ref<EigenRowMajorMat> &pose_l,
                    Eigen::Ref<EigenRowMajorMat> &qpos_r,
-                   Eigen::Ref<EigenRowMajorMat> &qpos_l, 
-                   Eigen::Ref<EigenRowMajorMat> &contact_r, 
+                   Eigen::Ref<EigenRowMajorMat> &qpos_l,
+                   Eigen::Ref<EigenRowMajorMat> &contact_r,
                    Eigen::Ref<EigenRowMajorMat> &contact_l) {
 #pragma omp parallel for
         for (int i = 0; i < num_envs_; i++)
             environments_[i]->set_goals(obj_angle.row(i),
-                                        obj_pos.row(i), 
-                                        ee_pos_r.row(i), 
-                                        ee_pos_l.row(i), 
-                                        pose_r.row(i), 
-                                        pose_l.row(i), 
+                                        obj_pos.row(i),
+                                        ee_pos_r.row(i),
+                                        ee_pos_l.row(i),
+                                        pose_r.row(i),
+                                        pose_l.row(i),
                                         qpos_r.row(i),
                                         qpos_l.row(i),
-                                        contact_r.row(i), 
+                                        contact_r.row(i),
                                         contact_l.row(i)
                                         );
     }

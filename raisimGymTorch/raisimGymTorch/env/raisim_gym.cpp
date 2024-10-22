@@ -42,6 +42,7 @@ PYBIND11_MODULE(RAISIMGYM_TORCH_ENV_NAME, m) {
     .def("control_switch_all", &VectorizedEnvironment<ENVIRONMENT>::control_switch_all)
     .def("step", &VectorizedEnvironment<ENVIRONMENT>::step)
     .def("step2", &VectorizedEnvironment<ENVIRONMENT>::step2)
+    .def("update_target", &VectorizedEnvironment<ENVIRONMENT>::update_target)
     .def("reset_right_hand", &VectorizedEnvironment<ENVIRONMENT>::reset_right_hand)
     .def("step_imitate", &VectorizedEnvironment<ENVIRONMENT>::step_imitate)
     .def("setSeed", &VectorizedEnvironment<ENVIRONMENT>::setSeed)

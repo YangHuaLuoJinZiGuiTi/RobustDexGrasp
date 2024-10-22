@@ -59,6 +59,7 @@ class RaisimGymEnv {
                          const Eigen::Ref<EigenVec>& qpos_l,
                          const Eigen::Ref<EigenVec>& contact_r,
                          const Eigen::Ref<EigenVec>& contact_l) = 0;
+  virtual void update_target(const Eigen::Ref<EigenVec>& target_center){};
   virtual void observe(Eigen::Ref<EigenVec> ob_r, Eigen::Ref<EigenVec> ob_l) = 0;
   virtual void set_rootguidance() = 0;
   virtual float* step(const Eigen::Ref<EigenVec>& action_r, const Eigen::Ref<EigenVec>& action_l) = 0;
