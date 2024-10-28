@@ -3,8 +3,8 @@ from ruamel.yaml import YAML, dump, RoundTripDumper
 from raisimGymTorch.env.bin import arm_rand_new as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.arm_rand import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_arm
+from raisimGymTorch.env.bin.arm_rand_new import NormalSampler
+from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test
 
 import os
 import math
@@ -111,6 +111,7 @@ for i in range(3):
 if args.log_name is None:
     num_envs = 2
     obj_list = choices(obj_list, k=num_envs)
+    # obj_list = obj_list[:2]
     cfg['environment']['visualize'] = True
 
 
@@ -126,13 +127,13 @@ env.load_multi_articulated(obj_path_list)
 
 
 
-ob_dim_r = 153
+ob_dim_r = 162
 act_dim = 22
 print('ob dim', ob_dim_r)
 print('act dim', act_dim)
 
 # Training
-trail_steps = 30
+trail_steps = 80
 reward_clip = -2.0
 grasp_steps = 100
 n_steps_r = grasp_steps + trail_steps
@@ -151,7 +152,7 @@ test_dir = False
 
 saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir + "/" + task_name,
                            save_items=[task_path + "/cfgs/" + args.cfg, task_path + "/Environment.hpp",
-                                       task_path + "/runner.py", task_path + "/../../RaisimGymVecEnvOther.py"], test_dir=test_dir)
+                                       task_path + "/runner.py", task_path + "/runner_eval.py", task_path + "/../../RaisimGymVecEnvOther.py"], test_dir=test_dir)
 
 
 ppo_r = PPO.PPO(actor=actor_r,
@@ -179,7 +180,6 @@ for i in range(4):
 finger_weights /= finger_weights.sum(axis=1).reshape(-1, 1)
 finger_weights *= 17.0
 affordance_reward_r = np.zeros((num_envs, 1))
-# not_affordance_reward_r = np.zeros((num_envs, 1))
 center_reward_r = np.zeros((num_envs, 1))
 table_reward_r = np.zeros((num_envs, 1))
 arm_height_reward_r = np.zeros((num_envs, 1))
@@ -188,6 +188,12 @@ arm_height_reward_r = np.zeros((num_envs, 1))
 qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
 qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')
 obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')
+
+lowest_points = np.zeros((num_envs, 1), dtype='float32')
+for i in range(num_envs):
+    txt_file_path = os.path.join(directory_path, obj_list[i]) + "/lowest_point_new.txt"
+    with open(txt_file_path, 'r') as txt_file:
+        lowest_points[i] = float(txt_file.read())
 
 for update in range(args.num_iterations):
     start = time.time()
@@ -206,34 +212,117 @@ for update in range(args.num_iterations):
         env.save_scaling(saver.data_dir, str(update))
 
     target_center = np.zeros_like(env.affordance_center)
-    fake_non_aff_center = [0.346408, 0.346408, 0.346408]
-    contain_non_aff = np.zeros((num_envs, 1), dtype='float32')
 
-    qpos_reset_r[:, :6] = [-1.57, -1.57, 1., 0.57, 1.57, -1]
     qpos_reset_r[:, 6:] = 0.2
     qpos_reset_r[:, -4] = 1.57
     qpos_reset_r[:, 7] = 0.8
     qpos_reset_r[:, 11] = 0.8
     qpos_reset_r[:, 15] = 0.8
-    qpos_reset_r[:, 19] = 0.8
-
-    obj_pose_reset[:, 0] = np.random.uniform(0.5, 1.1, num_envs)
-    obj_pose_reset[:, 1] = np.random.uniform(0.0, 0.4, num_envs)
-    obj_pose_reset[:, 2] = 0.773
-    obj_pose_reset[:, 3:] = [1., -0., -0., 0., 0.]
-
-    axis_angles = np.zeros((num_envs, 3))
-    axis_angles[:, 2] = np.random.uniform(-np.pi, np.pi, num_envs)
-    quats = rotations.axisangle2quat(axis_angles)
-    obj_pose_reset[:, 3:7] = quats
+    qpos_reset_r[:, 19] = 0
+    qpos_reset_r[:, 20] = -0.5
+    # obj_pose_reset[:, 0] = np.random.uniform(0.5, 1.1, num_envs)
+    # obj_pose_reset[:, 1] = np.random.uniform(0.0, 0.4, num_envs)
+    # obj_pose_reset[:, 2] = 0.773
+    # obj_pose_reset[:, 3:] = [1., -0., -0., 0., 0.]
+    #
+    # axis_angles = np.zeros((num_envs, 3))
+    # axis_angles[:, 2] = np.random.uniform(-np.pi, np.pi, num_envs)
+    # quats = rotations.axisangle2quat(axis_angles)
+    # obj_pose_reset[:, 3:7] = quats
+    #
+    # hand_center_w = np.zeros((num_envs, 3))
+    # hand_center_w[:, 0] = 0.711334
+    # hand_center_w[:, 1] = 0.243815
+    # hand_center_w[:, 2] = 1.34026
+    #
+    # obj_aff_center_in_obj = env.affordance_center.copy()
+    # obj_mat = rotations.quat2mat(quats)
 
     for i in range(num_envs):
-        lowest_point = 0.
-        txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
-        with open(txt_file_path, 'r') as txt_file:
-            lowest_point = float(txt_file.read())
+        get_meaningful_ik = False
+        while not get_meaningful_ik:
+            obj_pose_reset[i, 0] = np.random.uniform(0.5, 1.1)
+            obj_pose_reset[i, 1] = np.random.uniform(0.0, 0.4)
+            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+            obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
-        obj_pose_reset[i, 2] -= lowest_point
+            axis_angles = np.zeros((1, 3))
+            axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+            quats = rotations.axisangle2quat(axis_angles)
+            obj_pose_reset[i, 3:7] = quats
+
+            hand_center_w = np.zeros((1, 3))
+            # hand_center_w[0, 0] = 0.711334
+            # hand_center_w[0, 1] = 0.243815
+            # hand_center_w[0, 2] = 1.34026
+            hand_center_w[0, 0] = 0.669872
+            hand_center_w[0, 1] = 0.141735
+            hand_center_w[0, 2] = 1.5   #1.11052
+
+            obj_aff_center_in_obj = env.affordance_center[i].copy()
+            obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
+            obj_aff_center_in_world = np.matmul(obj_mat_single, obj_aff_center_in_obj.T).T
+            obj_aff_center_in_world = obj_aff_center_in_world + obj_pose_reset[i, :3]
+            hand_dir_x = hand_center_w - obj_aff_center_in_world
+
+            hand_dir_x = hand_dir_x / np.linalg.norm(hand_dir_x, axis=1, keepdims=True)
+            hand_dir_x_in_obj = np.matmul(obj_mat_single.T, hand_dir_x.T).T
+
+            rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], hand_dir_x_in_obj,
+                                                                 env.affordance_center[i], top=False)
+            if rot is None:
+                hand_dir_x_in_obj[0, :] = 0
+                hand_dir_x_in_obj[0, 2] = 1
+                rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], hand_dir_x_in_obj,
+                                                                     env.affordance_center[i], top=True)
+
+            # wrist_pose_obj = rotations.axisangle2euler(rot.reshape(-1, 3)).reshape(1, -1)
+            # wrist_mat = rotations.euler2mat(wrist_pose_obj)
+            wrist_mat = rot
+            wrist_in_world = np.matmul(obj_mat_single, wrist_mat)
+            wrist_pose = rotations.mat2euler(wrist_in_world)
+            qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
+            # qpos_reset_r[i, 3:6] = wrist_pose[0, :]
+
+            target_center[i, :] = target[:]
+
+            wrist_bias = np.zeros((1, 3))
+            wrist_bias[0, 0] = -0.0091
+            wrist_bias[0, 2] = -0.085
+            wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
+
+            ur5_to_world = np.eye(3)
+            ur5_to_world[0, 0] = -1
+            ur5_to_world[1, 1] = -1
+
+            pos_in_ur5 = np.zeros((3, 1))
+            pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0.55 + wrist_bias_in_world[0, 0]
+            pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0.75152 + wrist_bias_in_world[0, 1]
+            pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
+            pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
+
+            wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
+
+            gd = np.eye(4)
+            gd[:3, :3] = wrist_mat_in_ur5
+            gd[0, 3] = pos_in_ur5_new[0, 0]
+            gd[1, 3] = pos_in_ur5_new[1, 0]
+            gd[2, 3] = pos_in_ur5_new[2, 0]
+
+            theta0 = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
+            joint_weights = [1, 1, 1, 1, 1, 1]
+            ik = InverseKinematicsUR5()
+            ik.setJointWeights(joint_weights)
+            ik.setJointLimits(-3.14, 3.14)
+            if ik.findClosestIK(gd, theta0) is None:
+                continue
+            else:
+                qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+
+            if math.isnan(qpos_reset_r[i, 0]):
+                continue
+            else:
+                get_meaningful_ik = True
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -242,8 +331,7 @@ for update in range(args.num_iterations):
                     obj_pose_reset,
                     )
 
-    obs_new_r, dis_info = env.observe_vision_new(contain_non_aff)
-    target_center = dis_info[:, 68:71].astype('float32')
+    obs_new_r, dis_info = env.observe_vision_new()
     env.update_target(target_center)
     rewards_r_sum = env.get_reward_info_r()
     for i in range(len(rewards_r_sum)):
@@ -265,10 +353,9 @@ for update in range(args.num_iterations):
 
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
-        obs_new_r, dis_info = env.observe_vision_new(contain_non_aff)
+        obs_new_r, dis_info = env.observe_vision_new()
         obs_new_r = obs_new_r[:].astype('float32')
-        target_center = dis_info[:, 68:71].astype('float32')
-        env.update_target(target_center)
+        # env.update_target(target_center)
 
         global_state = env.get_global_state()
 
@@ -278,13 +365,11 @@ for update in range(args.num_iterations):
 
         rewards_r = env.get_reward_info_r()
         affordance_reward_r = - np.sum((dis_info[:, :17]) * finger_weights, axis=1)
-        # non_affordance_reward_r = - np.sum((dis_info[:, 17:]) * finger_weights, axis=1)
         table_reward_r = - np.sum(np.log(np.maximum(np.abs(obs_new_r[:, 76:93]), 0.01*np.ones_like(np.abs(obs_new_r[:, 76:93])))) * finger_weights * (np.abs(obs_new_r[:, 76:93]) < 0.03), axis=1)
         arm_height_reward_r = - np.sum(np.log(20 * np.clip(obs_new_r[:, 95:99], a_min=0.001 , a_max=0.05)), axis=1)
 
         for i in range(num_envs):
             rewards_r[i]['affordance_reward'] = affordance_reward_r[i] * cfg['environment']['reward']['affordance_reward']['coeff']
-            # rewards_r[i]['not_affordance_reward'] = 0
             rewards_r[i]['center_reward'] = center_loss[i] * cfg['environment']['reward']['center_reward']['coeff']
             rewards_r[i]['table_reward'] = table_reward_r[i] * cfg['environment']['reward']['table_reward']['coeff']
             rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
@@ -302,7 +387,7 @@ for update in range(args.num_iterations):
 
         ppo_r.step(value_obs=obs_r, rews=reward_r, dones=dones)
 
-    obs_r, _ = env.observe_vision_new(contain_non_aff)
+    obs_r, _ = env.observe_vision_new()
 
     obs_r = obs_r[:, :].astype('float32')
 

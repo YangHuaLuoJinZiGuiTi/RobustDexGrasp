@@ -19,11 +19,11 @@ environment:
   rot_action_std: 0.01
   reward:
     affordance_reward:
-      coeff: 0.3
+      coeff: 0.5
 #    not_affordance_reward:
 #      coeff: -0.0
     affordance_contact_reward:
-      coeff: 1.0
+      coeff: 1.5
 #    not_affordance_contact_reward:
 #      coeff: -0.0
     affordance_impulse_reward:
@@ -33,7 +33,7 @@ environment:
 
 
     table_reward:
-      coeff: -0.002
+      coeff: -0.01
     table_contact_reward:
       coeff: -1.0
     table_impulse_reward:
@@ -50,13 +50,9 @@ environment:
       coeff: -0.1
 
     direction_reward:
-#      coeff: -0.02
-          coeff: -3.0
+      coeff: -0.1
     center_reward:
       coeff: -1.0
-    #      coeff: -0.0
-    cross_reward:
-      coeff: -2.0
     obj_displacement_reward:
       coeff: -1.0
 

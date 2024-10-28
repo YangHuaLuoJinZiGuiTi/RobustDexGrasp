@@ -669,6 +669,8 @@ namespace raisim {
             hand_center_w[1] += wrist_pos_w[1];
             hand_center_w[2] += wrist_pos_w[2];
 
+//            std::cout<<"hand_center_w "<<hand_center_w<<std::endl;
+
             if (visualizable_){
                 aff_center_visual[5]->setPosition(hand_center_w);
             }

@@ -132,7 +132,7 @@ print('ob dim', ob_dim_r)
 print('act dim', act_dim)
 
 # Training
-trail_steps = 30
+trail_steps = 80
 reward_clip = -2.0
 grasp_steps = 100
 n_steps_r = grasp_steps + trail_steps
@@ -211,7 +211,7 @@ for update in range(args.num_iterations):
     fake_non_aff_center = [0.346408, 0.346408, 0.346408]
     contain_non_aff = np.zeros((num_envs, 1), dtype='float32')
 
-    qpos_reset_r[:, :6] = [-1.57, -1.57, 1., 0.57, 1.57, -1]
+    qpos_reset_r[:, :6] = [-1.57, -1.57, 1.57, 0., 1.57, -1]
     qpos_reset_r[:, 6:] = 0.2
     qpos_reset_r[:, -4] = 1.57
     qpos_reset_r[:, 7] = 0.8
@@ -232,7 +232,7 @@ for update in range(args.num_iterations):
     for i in range(num_envs):
     #     # got_proper_initial_pose = False
         lowest_point = 0.
-        txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
+        txt_file_path = os.path.join(directory_path, obj_list[i]) + "/lowest_point_new.txt"
         with open(txt_file_path, 'r') as txt_file:
             lowest_point = float(txt_file.read())
 

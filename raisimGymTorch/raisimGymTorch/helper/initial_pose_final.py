@@ -1602,6 +1602,92 @@ def get_initial_pose_allegro_arm(obj_mesh, non_aff_mesh, hand_type='faive', top=
     return rot12, pos, bias
     # return rot12, pos, bias, opt_pos
 
+def get_initial_pose_allegro_arm_rand(obj_mesh, x_dir, aff_center, top=False):
+    # sample 3000 points from the pytorch3d mesh
+    points = obj_mesh.vertices if torch.is_tensor(obj_mesh.vertices) else torch.tensor(obj_mesh.vertices,
+                                                                                       dtype=torch.float32).unsqueeze(0)
+    obj_pcd = points.detach().cpu().numpy()
+
+    x_axis = np.array([0, 1, 0])
+    y_axis = np.array([1, 0, 0])
+    z_axis = np.array([0, 0, 1])
+
+    rot_mat = [[0, -1, 0], [0, 0, 1], [-1, 0, 0]]
+    rot_mat = np.array(rot_mat).reshape(3, 3)
+
+    x_axis = np.matmul(rot_mat, x_axis)
+    y_axis = np.matmul(rot_mat, y_axis)
+    z_axis = np.matmul(rot_mat, z_axis)
+
+    x_axis = x_axis.reshape(3, )
+    y_axis = y_axis.reshape(3, )
+    z_axis = z_axis.reshape(3, )
+
+    got_sample = False
+    while not got_sample:
+        dir = x_dir
+
+        supp_line = np.cross(z_axis, dir)
+        if np.linalg.norm(supp_line) == 0:
+            supp_line[0] = 1
+
+        axis_list = []
+        axis, lat_length, long_length = find_smallest_boundary_axis(obj_pcd[0], dir[0])
+        axis_list.append(axis)
+        axis_lat = axis.copy()
+        if (lat_length > 0.18) and (top is False):
+            return None, None, None
+        axis = np.stack(axis_list, axis=0)
+
+        # rotate the x axis of the hand (grasping direction) to the target direction
+        rot = get_hand_rot(dir, vec_in_hand=x_axis)
+        rot_R = R.from_rotvec(rot)
+
+        y_axis = rot_R.apply(y_axis)
+        z_axis = rot_R.apply(z_axis)
+
+        # calculate the angle to rotate the y axis of the hand (grasping direction) to the direction vertical to target direction
+        angle = np.arccos((y_axis * axis).sum(axis=-1))[:, np.newaxis]
+        # angle[dir_mask] *= -1
+
+        offset = 2 * np.pi / 20
+        rot2_temp = dir * (angle + offset)
+        z_axis = R.from_rotvec(rot2_temp).apply(z_axis)
+        rot2 = dir * (angle + offset)
+        rot12 = comp_axis_angle(rot2, rot)
+        ray_origins = aff_center + 0.5 * dir
+        locations, index_ray, index_tri = obj_mesh.ray.intersects_location(ray_origins=ray_origins,
+                                                                           ray_directions=-dir,
+                                                                           multiple_hits=False)
+        # target = locations + 0.01 * (aff_center - locations) / np.linalg.norm(aff_center - locations)
+        target = locations
+        pos = target + 0.3 * dir
+        got_sample = True
+
+    return rot12, pos, target
+
+def get_initial_pose_allegro_arm_rand_test(obj_mesh, x_dir, aff_center, top=False):
+    points = obj_mesh.vertices if torch.is_tensor(obj_mesh.vertices) else torch.tensor(obj_mesh.vertices,
+                                                                                       dtype=torch.float32).unsqueeze(0)
+    obj_pcd = points.detach().cpu().numpy()
+    dir = x_dir.copy()
+
+    axis, lat_length, long_length = find_smallest_boundary_axis(obj_pcd[0], dir[0])
+    if (lat_length > 0.18) and (top is False):
+        return None, None, None
+    z_dir = axis.reshape(1,3)
+    y_dir = np.cross(dir, z_dir)
+
+    rot_mat= -np.stack((dir, y_dir, z_dir), axis=-1)
+    ray_origins = aff_center + 0.5 * dir
+    locations, index_ray, index_tri = obj_mesh.ray.intersects_location(ray_origins=ray_origins,
+                                                                       ray_directions=-dir,
+                                                                       multiple_hits=False)
+    target = locations + 0.01 * (aff_center - locations) / np.linalg.norm(aff_center - locations)
+    # target = aff_center
+    pos = target + 0.25 * dir
+
+    return rot_mat, pos, target
 
 # get the initial pose for shadow hand (comparison with UniDexGrasp)
 def get_initial_pose_shadow_easy(obj_mesh, non_aff_mesh, hand_type='faive'):

@@ -76,7 +76,7 @@ namespace raisim {
            hand_center.setZero();
            hand_center[0] = 0.08; // *2  0.107592      *1  0.0924603
            hand_center[1] = 0.01; //    -0.000996807       0.00117149
-           hand_center[2] = 0.095; //    0.08785           0.10541
+           hand_center[2] = 0.085; //    0.08785           0.10541
 
 
             /// get actuation dimensions
@@ -88,7 +88,7 @@ namespace raisim {
             gc_set_r_.setZero(gcDim_); gv_set_r_.setZero(gvDim_);
 
             /// initialize all variables
-            pTarget_r_.setZero(gcDim_); vTarget_r_.setZero(gvDim_); 
+            pTarget_r_.setZero(gcDim_); vTarget_r_.setZero(gvDim_);
             actionDim_ = gcDim_;
             actionMean_r_.setZero(actionDim_);
             actionStd_r_.setOnes(actionDim_);
@@ -98,8 +98,9 @@ namespace raisim {
 
             init_or_r_.setZero();  init_rot_r_.setZero(); init_root_r_.setZero();
             init_obj_rot_.setZero(); init_obj_or_.setZero(); init_obj_.setZero();
-//            wrist_mat_r_in_obj_init.setZero();
-//            wrist_euler_in_obj_init.setZero();
+            wrist_mat_r_in_obj_init.setZero();
+            wrist_euler_in_obj_init.setZero();
+            wrist_euler_init.setZero();
             wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
             afford_center.setZero();
 //            wrist_target_o.setZero();
@@ -131,6 +132,7 @@ namespace raisim {
 
             contacts_r_table.setZero(num_contacts); impulses_r_table.setZero(num_contacts);
             contacts_arm_table.setZero(6); impulses_arm_table.setZero(6);
+            contacts_arm_all.setZero(6);
 
             pTarget_clipped_r.setZero(gcDim_);
 
@@ -165,7 +167,7 @@ namespace raisim {
             mano_r_->setGeneralizedCoordinate(Eigen::VectorXd::Zero(gcDim_));
 
             /// MUST BE DONE FOR ALL ENVIRONMENTS
-            obDim_r_ = 99;
+            obDim_r_ = 111;
             obDim_l_ = 1;
             gsDim_ = 124;
             obDouble_r_.setZero(obDim_r_);
@@ -196,7 +198,7 @@ namespace raisim {
                 contact_body_idx_r_[i] =  mano_r_->getBodyIdx(contact_bodies_r_[i]);
                 contactMapping_r_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_bodies_r_[i])),i));
             }
-            
+
             for(int i = 0; i < 6 ;i++){
                 contact_arm_idx[i] =  mano_r_->getBodyIdx(contact_arm_bodies[i]);
                 contactMapping_arm_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_arm_bodies[i])),i));
@@ -410,99 +412,6 @@ namespace raisim {
             mano_r_->setGeneralizedForce(Eigen::VectorXd::Zero(gcDim_));
             arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
 
-            /// set initial hand pose (20 DoF) and velocity (20 DoF)
-//            gc_set_r_.head(6).setZero();
-//            gc_set_r_.tail(gcDim_-6) = init_state_r.tail(gcDim_-6).cast<double>(); //.cast<double>();
-
-
-
-//            Eigen::Vector3d correcteuler;
-//            correcteuler.setZero();
-//            correcteuler[0] = 1.57;
-//            correcteuler[1] = 1.57;
-//            raisim::Mat<3,3> correctRot;
-//            raisim::Vec<4> correctquat;
-//            raisim::eulerToQuat(correcteuler,correctquat);
-//            raisim::quatToRotMat(correctquat,correctRot);
-//
-//            raisim::Vec<3> BiasEuler;
-//            raisim::Mat<3,3> BiasRot;
-//            BiasEuler.setZero();
-//            BiasEuler[2] = 3.14;    // situation 1 也是 sim UR5
-//            raisim::eulerToQuat(BiasEuler,correctquat);
-//            raisim::quatToRotMat(correctquat,BiasRot);
-//
-//            raisim::Mat<3,3> nextRot;
-//            raisim::matmul(BiasRot, correctRot, nextRot);   //
-//
-//            raisim::Mat<3,3> correctRot_init;
-//            raisim::matmul(init_rot_r_, nextRot, correctRot_init);    //
-//
-//            raisim::Vec<3> world2platformEuler;
-//            raisim::Mat<3,3> world2platformMat, world2platformMat_or;
-//            world2platformEuler.setZero();
-//            world2platformEuler[2] = -1.57;
-//            raisim::Vec<4> world2platformQuat;
-//            raisim::eulerToQuat(world2platformEuler,world2platformQuat);
-//            raisim::quatToRotMat(world2platformQuat,world2platformMat);
-//            raisim::transpose(world2platformMat, world2platformMat_or);
-//
-//            raisim::Mat<3,3> correctRot_init_temp;
-//            raisim::Vec<3> correctEuler_init;
-//            correctRot_init_temp.setZero();
-//            raisim::matmul(world2platformMat_or, correctRot_init, correctRot_init_temp);
-//            raisim::RotmatToEuler(correctRot_init_temp,correctEuler_init);
-//
-//            raisim::Vec<3> ee_euler;
-//            raisim::Vec<4> ee_quat;
-//            ee_euler[0] = correctEuler_init[0];
-//            ee_euler[1] = correctEuler_init[1];
-//            ee_euler[2] = correctEuler_init[2];
-//            raisim::eulerToQuat(ee_euler,ee_quat);
-//
-//            std::vector<double> ur5_reset;
-//            ur5_reset.resize(7);
-//            ur5_reset[0] = ee_quat[0];
-//            ur5_reset[1] = ee_quat[1];
-//            ur5_reset[2] = ee_quat[2];
-//            ur5_reset[3] = ee_quat[3];
-//
-//            raisim::Vec<3> ur5endpos_in_wrist;
-//            ur5endpos_in_wrist.setZero();
-//            ur5endpos_in_wrist[0] = -0.0091;
-//            ur5endpos_in_wrist[1] = 0.0;
-//            ur5endpos_in_wrist[2] = -0.023313;
-//            raisim::Vec<3> ur5endpos_in_world;
-//            raisim::matmul(correctRot_init, ur5endpos_in_wrist, ur5endpos_in_world);
-//            ur5endpos_in_world[0] += init_state_r[0];
-//            ur5endpos_in_world[1] += init_state_r[1];
-//            ur5endpos_in_world[2] += init_state_r[2];
-//
-//            raisim::Vec<3> ur5_reset_temp, ur5_reset_world;
-//            ur5_reset_temp.setZero();
-//            ur5_reset_world[0] = ur5endpos_in_world[0]-base_pos[0];    // init_state_sim2real → ur5endpos_in_world
-//            ur5_reset_world[1] = ur5endpos_in_world[1]-base_pos[1];    // init_state_sim2real → ur5endpos_in_world
-//            ur5_reset_world[2] = ur5endpos_in_world[2]-0.771;    // init_state_sim2real → ur5endpos_in_world
-//            raisim::matvecmul(world2platformMat_or, ur5_reset_world, ur5_reset_temp);
-//            ur5_reset[4] = ur5_reset_temp[0];
-//            ur5_reset[5] = ur5_reset_temp[1];
-//            ur5_reset[6] = ur5_reset_temp[2];
-
-//            std::vector<double> ur5_resetIKJoint = ur5.inverse(ur5_reset);
-//            std::cout<<"found ik solution"<<ur5_resetIKJoint[0]<<" "<<ur5_resetIKJoint[1]<<" "<<ur5_resetIKJoint[2]<<" "<<ur5_resetIKJoint[3]<<" "<<ur5_resetIKJoint[4]<<" "<<ur5_resetIKJoint[5]<<" "<<std::endl;
-//            gc_set_r_[0] = ur5_resetIKJoint[0];
-//            gc_set_r_[1] = ur5_resetIKJoint[1];
-//            gc_set_r_[2] = ur5_resetIKJoint[2];
-//            gc_set_r_[3] = ur5_resetIKJoint[3];
-//            gc_set_r_[4] = ur5_resetIKJoint[4];
-//            gc_set_r_[5] = ur5_resetIKJoint[5];
-//
-//
-//            gc_set_r_.tail(gcDim_-6) = init_state_r.tail(gcDim_-6).cast<double>();
-
-
-
-
             gc_set_r_ = init_state_r.cast<double>(); //.cast<double>();
             gv_set_r_ = init_vel_r.cast<double>(); //.cast<double>();
             mano_r_->setState(gc_set_r_, gv_set_r_);
@@ -551,6 +460,16 @@ namespace raisim {
 
             updateObservation();
 
+           auto affordance_id = arctic->getBodyIdx("top");
+           arctic->getOrientation(affordance_id, Obj_orientation_init);
+           raisim::Mat<3,3> wrist_mat_r;
+           mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
+           raisim::Mat<3,3> Obj_orientation_init_trans;
+           raisim::transpose(Obj_orientation_init, Obj_orientation_init_trans);
+           raisim::matmul(Obj_orientation_init_trans, wrist_mat_r, wrist_mat_r_in_obj_init);
+           raisim::RotmatToEuler(wrist_mat_r_in_obj_init, wrist_euler_in_obj_init);
+           raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
+
         }
 
         void update_target(const Eigen::Ref<EigenVec>& target_center) final {
@@ -566,73 +485,7 @@ namespace raisim {
                        const Eigen::Ref<EigenVec>& goal_qpos_r,
                        const Eigen::Ref<EigenVec>& goal_qpos_l,
                        const Eigen::Ref<EigenVec>& goal_contacts_r,
-                       const Eigen::Ref<EigenVec>& goal_contacts_l) final {
-
-//                       afford_center = target_center.cast<double>();
-//                       obj_center_o = obj_center.cast<double>();
-//                       hand_center.setZero();
-//                       hand_center[0] = 0.1; //0.107592    0.0924603
-//                       hand_center[1] = 0.01; //-0.000996807      0.00117149
-//                       hand_center[2] = 0.095; // 0.08785      0.10541
-
-//                       Eigen::Vector3d hand_center_temp;
-//                       hand_center_temp.setZero();
-//                       raisim::Vec<3> sphere_pos;
-//                       for(int i = 0; i < 3 ; i++){
-//                           mano_r_->getFramePosition(body_parts_r_[i*4+2], sphere_pos);
-//                           hand_center_temp[0] += sphere_pos.e()[0];
-//                           hand_center_temp[1] += sphere_pos.e()[1];
-//                           hand_center_temp[2] += sphere_pos.e()[2];
-//                       }
-//                       hand_center_temp /= 3;
-//                       mano_r_->getFramePosition(body_parts_r_[16], sphere_pos);
-//
-//                       Eigen::Vector3d finger_center;
-//                       finger_center.setZero();
-//                       finger_center[0] = hand_center_temp[0];
-//                       finger_center[1] = hand_center_temp[1];
-//                       finger_center[2] = hand_center_temp[2];
-//
-//                       hand_center_temp[0] += sphere_pos.e()[0];
-//                       hand_center_temp[1] += sphere_pos.e()[1];
-//                       hand_center_temp[2] += sphere_pos.e()[2];
-//                       hand_center_temp /= 2;
-//
-////                       init_center = hand_center_temp;
-//
-////                       Eigen::Vector3d across_axis_w;
-////                       across_axis_w = finger_center - hand_center_temp;
-////                       across_axis_w = across_axis_w / across_axis_w.norm();
-//
-//                       raisim::Vec<3> wrist_pos_w;
-//                       raisim::Mat<3,3> wrist_mat_r;
-//                       mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
-//                       mano_r_->getFramePosition(body_parts_r_[0], wrist_pos_w);
-//
-////                       Eigen::Vector3d bias, wrist_target_temp;
-////                       auto affordance_id = arctic->getBodyIdx("top");
-////                       arctic->getPosition(affordance_id, Obj_Position_init);
-////                       arctic->getOrientation(affordance_id, Obj_orientation_init);
-////                       raisim::Mat<3,3> Obj_orientation_init_trans;
-////                       raisim::transpose(Obj_orientation_init, Obj_orientation_init_trans);
-////                       raisim::matmul(Obj_orientation_init_trans, wrist_mat_r, wrist_mat_r_in_obj_init);
-////                       raisim::RotmatToEuler(wrist_mat_r_in_obj_init, wrist_euler_in_obj_init);
-////                       bias = Obj_orientation_init.e() * afford_center + Obj_Position_init.e() - hand_center_temp;
-////                       wrist_target_temp = wrist_pos_w.e() + bias;
-////                       wrist_target_o = Obj_orientation_init.e().transpose() * (wrist_target_temp - Obj_Position_init.e());
-//
-//                       hand_center_temp[0] = hand_center_temp[0] - wrist_pos_w[0];
-//                       hand_center_temp[1] = hand_center_temp[1] - wrist_pos_w[1];
-//                       hand_center_temp[2] = hand_center_temp[2] - wrist_pos_w[2];
-//                       hand_center = wrist_mat_r.e().transpose() * hand_center_temp;
-//                       std::cout<<"hand center: "<<hand_center<<std::endl;
-
-//                       Eigen::Vector3d grasp_axis_w;
-//                       grasp_axis_w = hand_center_temp / hand_center_temp.norm();
-//                       grasp_axis_o = Obj_orientation_init.e().transpose() * grasp_axis_w;
-//                       across_axis_o = Obj_orientation_init.e().transpose() * across_axis_w;
-//                       across_axis_wrist = wrist_mat_r.e().transpose() * across_axis_w;
-                       }
+                       const Eigen::Ref<EigenVec>& goal_contacts_l) final {}
 
         /// This function takes an environment step given an action (26DoF) input
         // action_l in left-hand coord
@@ -734,47 +587,23 @@ namespace raisim {
             obj_vel_reward_r = Obj_linvel.e().squaredNorm();
             obj_qvel_reward_r = Obj_qvel.e().squaredNorm();
 
-            Eigen::Vector3d center_diff, center_diff_dir;
-            center_diff = target_center_dif + hand_center;
-            center_diff[2] -= 0.105; //compensate the bias of the joint center (middle finger joint pos in wrist frame)
-            center_diff_dir = center_diff.normalized();
-            direction_reward = -center_diff_dir[0] + 0.8; // angle with wrist y axis
 
-//            std::cout<<"direction reward"<<direction_reward<<std::endl;
+           raisim::Mat<3,3> obj_rot_w_trans, wrist_mat_r_in_obj;
+           raisim::Vec<3> wrist_euler_in_obj;
+           mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
+           arctic->getOrientation(affordance_id, obj_rot_w);
+           raisim::transpose(obj_rot_w, obj_rot_w_trans);
+           raisim::matmul(obj_rot_w_trans, wrist_mat_r, wrist_mat_r_in_obj);
+           raisim::RotmatToEuler(wrist_mat_r_in_obj, wrist_euler_in_obj);
 
-//            arm_height_reward = -arm_height_w.norm();
-
-//            Eigen::VectorXd arm_height_for_reward;
-//            arm_height_for_reward.setZero(6);
-//            for(int i = 2; i < 6; i++){
-//                if(arm_height_w[i] < 0.15){
-//                    arm_height_for_reward[i] = 0.15 - arm_height_w[i];
-//                }
-//            }
-//            arm_height_reward = arm_height_for_reward.sum();
-
-//           raisim::Mat<3,3> obj_rot_w_trans, wrist_mat_r_in_obj;
-//           raisim::Vec<3> wrist_euler_in_obj;
-//           mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
-//           arctic->getOrientation(affordance_id, obj_rot_w);
-//           raisim::transpose(obj_rot_w, obj_rot_w_trans);
-//           raisim::matmul(obj_rot_w_trans, wrist_mat_r, wrist_mat_r_in_obj);
-//           raisim::RotmatToEuler(wrist_mat_r_in_obj, wrist_euler_in_obj);
-
-//           direction_reward = (wrist_euler_in_obj_init.e()-wrist_euler_in_obj.e()).norm();
-
-
-
+           direction_reward = (wrist_euler_in_obj_init.e()-wrist_euler_in_obj.e()).norm();
 
 
             rewards_r_.record("affordance_contact_reward", std::max(0.0, affordance_contact_reward_r));
-//            rewards_r_.record("not_affordance_contact_reward", std::max(0.0, not_affordance_contact_reward_r));
-//            rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
-            rewards_r_.record("affordance_impulse_reward", std::min(obj_weight * 5, affordance_impulse_reward_r));
-//            rewards_r_.record("not_affordance_impulse_reward", std::max(0.0, not_affordance_impulse_reward_r));
+//            rewards_r_.record("affordance_impulse_reward", std::min(obj_weight * 5, affordance_impulse_reward_r));
+            rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
             rewards_r_.record("table_contact_reward", std::max(0.0, table_contact_reward_r));
             rewards_r_.record("table_impulse_reward", std::max(0.0, table_impulse_reward_r));
-//            rewards_r_.record("arm_height_reward", std::min(0.0, arm_height_reward));
             rewards_r_.record("obj_displacement_reward", std::max(0.0, obj_displacement_reward));
             rewards_r_.record("arm_contact_reward", std::max(0.0, arm_table_contact_reward));
             rewards_r_.record("arm_impulse_reward", std::max(0.0, arm_table_impulse_reward));
@@ -804,6 +633,7 @@ namespace raisim {
             contacts_r_non_af.setZero();
             contacts_arm_table.setZero();
             impulses_arm_table.setZero();
+            contacts_arm_all.setZero();
 
             raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
@@ -866,8 +696,13 @@ namespace raisim {
                 impulses_arm_table[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = contact_arm.getImpulse().norm();
             }
 
-//            std::cout << "contacts_r_table: " << contacts_r_table.transpose() << std::endl;
-//            std::cout << "impulses_r_table: " << impulses_r_table.transpose() << std::endl;
+            for(auto& contact_arm: mano_r_->getContacts()) {
+//                if (contact_arm.skip()) continue;
+                contacts_arm_all[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
+            }
+//
+//            std::cout << "contacts_arm_all: " << contacts_arm_all.transpose() << std::endl;
+////            std::cout << "impulses_r_table: " << impulses_r_table.transpose() << std::endl;
 
             for(int i=0; i<num_contacts; i++){
                 if (contacts_r_non_af[i] == 1){
@@ -887,16 +722,38 @@ namespace raisim {
 
             raisim::Vec<3> obj_pos_w, afford_center_w, wrist_pos_w;
             raisim::Mat<3,3> obj_rot_w;
-            Eigen::Vector3d target_center, target_center_wrist;
+            Eigen::Vector3d target_center, target_center_wrist, target_center_dif_world;
             arctic->getPosition(affordance_id, obj_pos_w);
             arctic->getOrientation(affordance_id, obj_rot_w);
             raisim::matvecmul(obj_rot_w, afford_center, afford_center_w);
             mano_r_->getFramePosition(body_parts_r_[0], wrist_pos_w);
-            target_center[0] = afford_center_w[0] + obj_pos_w[0] - wrist_pos_w[0];
-            target_center[1] = afford_center_w[1] + obj_pos_w[1] - wrist_pos_w[1];
-            target_center[2] = afford_center_w[2] + obj_pos_w[2] - wrist_pos_w[2];
-            target_center_wrist = wrist_mat_r.e().transpose() * target_center;
-            target_center_dif = target_center_wrist - hand_center;
+            target_center[0] = afford_center_w[0] + obj_pos_w[0];
+            target_center[1] = afford_center_w[1] + obj_pos_w[1];
+            target_center[2] = afford_center_w[2] + obj_pos_w[2];
+
+            Eigen::Vector3d hand_center_w, hand_center_robot;
+            hand_center_w = wrist_mat_r.e() * hand_center;
+            hand_center_w[0] += wrist_pos_w[0];
+            hand_center_w[1] += wrist_pos_w[1];
+            hand_center_w[2] += wrist_pos_w[2];
+
+            hand_center_robot[0] = hand_center_w[0] - base_pos[0];
+            hand_center_robot[1] = hand_center_w[1] - base_pos[1];
+            hand_center_robot[2] = hand_center_w[2] - base_pos[2];
+
+            target_center_dif_world = target_center - hand_center_w;
+            target_center_dif = wrist_mat_r.e().transpose() * target_center_dif_world;
+
+//            std::cout<<"hand_center_robot: "<<hand_center_robot.transpose()<<std::endl;
+//            std::cout<<"target_center_dif_world: "<<target_center_dif_world.transpose()<<std::endl;
+//            std::cout<<"target_center_dif: "<<target_center_dif.transpose()<<std::endl;
+//            target_center_wrist[0] = target_center[0] - wrist_pos_w[0];
+//            target_center_wrist[1] = target_center[1] - wrist_pos_w[1];
+//            target_center_wrist[2] = target_center[2] - wrist_pos_w[2];
+//            target_center_wrist = wrist_mat_r.e().transpose() * target_center_wrist;
+//            target_center_dif = target_center_wrist - hand_center;
+//            target_center_dif_world = wrist_mat_r.e() * target_center_dif;
+
 
 //            raisim::Mat<3,3> target_wrist_in_obj, target_wrist_in_world, target_wrist_in_wrist;
 //            raisim::matmul(obj_rot_w, wrist_mat_r_in_obj_init, target_wrist_in_world);
@@ -957,6 +814,12 @@ namespace raisim {
                 arm_height_w[i] = joint_pos_w[2] - 0.771;
             }
 
+            raisim::Vec<3> wrist_euler_current;
+            raisim::RotmatToEuler(wrist_mat_r, wrist_euler_current);
+            Eigen::Vector3d euler_diff;
+            euler_diff = wrist_euler_current.e() - wrist_euler_init.e();
+
+//            std::cout<<"wrist euler diff: "<<euler_diff<<std::endl;
 //            obDouble_r_ << target_center_dif,           // 3, hand center diff
 ////                           gc_r_.segment(3, 3) - wrist_target_euler.e(),         // 3, wrist orientation diff
 ////                           gc_r_.tail(gcDim_ - 6),      // (mirror) 45, generalized coordinate
@@ -969,28 +832,14 @@ namespace raisim {
                             contacts_r_af,
                             impulses_r_af,
                             joint_height_w,
-                            arm_height_w;
-//                            obj_weight,
-//                            obj_vel_in_wrist,
-//                            obj_qvel_in_wrist,
-//                            contacts_r_non_af,
-//                            impulses_r_non_af;
+                            arm_height_w,
+                            target_center_dif_world,
+                            hand_center_robot,
+                            euler_diff,
+                            wrist_euler_current;
+//                            target_center,
+//                            euler_diff;
 
-
-//           Eigen::Vector3d current_across_axis_w;
-//
-//            current_across_axis_w = wrist_mat_r.e() * across_axis_wrist;
-//
-//           Eigen::Vector3d current_grasp_axis_w;
-//           current_grasp_axis_w = wrist_mat_r.e() * hand_center;
-//           current_grasp_axis_w = current_grasp_axis_w / current_grasp_axis_w.norm();
-
-//           Eigen::Vector3d current_grasp_axis_o, current_across_axis_o;
-//           current_grasp_axis_o = obj_rot_w.e().transpose() * current_grasp_axis_w;
-//           current_across_axis_o = obj_rot_w.e().transpose() * current_across_axis_w;
-
-//           float across_mul = 0;
-//           across_mul = current_across_axis_o.dot(across_axis_o);
 
            raisim::Vec<3> obj_pose;
            raisim::RotmatToEuler(Obj_orientation_temp, obj_pose);
@@ -1002,6 +851,7 @@ namespace raisim {
             wrist_pos_obj_temp[1] = wrist_pos_w[1] - obj_pos_w[1];
             wrist_pos_obj_temp[2] = wrist_pos_w[2] - obj_pos_w[2];
             raisim::matvecmul(Obj_orientation, wrist_pos_obj_temp, wrist_pos_obj);
+
 //            global_state_ << wrist_pos_r_o.e(),
 //                             euler_r_o.e(),
 //            global_state_ << obj_pose.e(),
@@ -1127,7 +977,7 @@ namespace raisim {
         Eigen::VectorXd contacts_r_af, impulses_r_af;
         Eigen::VectorXd contacts_r_non_af, impulses_r_non_af;
         Eigen::VectorXd contacts_r_table, impulses_r_table;
-        Eigen::VectorXd contacts_arm_table, impulses_arm_table;
+        Eigen::VectorXd contacts_arm_table, impulses_arm_table, contacts_arm_all;
         Eigen::VectorXd contact_body_idx_r_, contact_arm_idx;
         Eigen::VectorXd frame_y_in_obj, joint_pos_in_obj, joint_height_w, arm_height_w;
         raisim::Vec<3> Position;
@@ -1145,7 +995,7 @@ namespace raisim {
         raisim::ArticulatedSystem *arctic, *mano_r_;
         raisim::ArticulatedSystemVisual *arcticVisual;
         raisim::Mat<3,3> Obj_orientation, Obj_orientation_temp, Obj_orientation_init;
-//        raisim::Vec<3> wrist_euler_in_obj_init;
+        raisim::Vec<3> wrist_euler_in_obj_init, wrist_euler_init;
         raisim::Vec<4> obj_quat;
         raisim::Vec<3> Obj_Position, Obj_Position_init, Obj_qvel, Obj_linvel;
         Eigen::Vector3d obj_vel_in_wrist, obj_qvel_in_wrist;

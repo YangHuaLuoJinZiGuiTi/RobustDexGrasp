@@ -4,8 +4,8 @@ from ruamel.yaml import YAML, dump, RoundTripDumper
 from raisimGymTorch.env.bin import arm_rand_new as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.arm_rand import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm
+from raisimGymTorch.env.bin.arm_rand_new import NormalSampler
+from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test
 from scipy.spatial.transform import Rotation as R
 from random import choice
 
@@ -31,18 +31,21 @@ import torch
 
 exp_name = "arm_rand"
 
-# weight_saved = '2024-10-18-13-14-05/full_38500_r.pt'
-# weight_saved = '2024-10-18-13-38-36/full_23000_r.pt'
-# weight_saved = '2024-10-18-14-45-26/full_21000_r.pt'
-# weight_saved = '2024-10-18-14-49-50/full_29000_r.pt'
-# weight_saved = '2024-10-18-15-10-50/full_22000_r.pt'
-# weight_saved = '2024-10-18-17-44-18/full_15000_r.pt'
-# weight_saved = '2024-10-18-18-11-15/full_18000_r.pt'
-# weight_saved = '2024-10-18-18-58-19/full_13500_r.pt'
-# weight_saved = '2024-10-21-14-59-16/full_8000_r.pt'
-# weight_saved = '2024-10-21-15-15-59/full_7500_r.pt'
-# weight_saved = '2024-10-21-15-37-28/full_11000_r.pt'
-weight_saved = '2024-10-21-16-45-10/full_9500_r.pt'
+# weight_saved = '2024-10-22-16-46-35/full_24500_r.pt'
+# weight_saved = '2024-10-23-08-13-36/full_20000_r.pt'
+# weight_saved = '2024-10-23-08-21-47/full_20000_r.pt'
+# weight_saved = '2024-10-23-08-34-20/full_20000_r.pt'
+# weight_saved = '2024-10-23-09-52-39/full_17500_r.pt'
+# weight_saved = '2024-10-23-12-15-12/full_15500_r.pt'
+# weight_saved = '2024-10-23-14-33-50/full_14500_r.pt'
+# weight_saved = '2024-10-23-15-05-08/full_12500_r.pt'
+# weight_saved = '2024-10-23-17-15-16/full_21000_r.pt'
+# weight_saved = '2024-10-23-17-22-34/full_21000_r.pt'
+# weight_saved = '2024-10-25-17-09-30/full_23000_r.pt'
+# weight_saved = '2024-10-25-17-16-54/full_23000_r.pt'
+# weight_saved = '2024-10-26-15-58-30/full_40000_r.pt'
+# weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
+weight_saved = '2024-10-26-17-02-58/full_17000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -113,8 +116,28 @@ folder_names = [item for item in items if os.path.isdir(os.path.join(directory_p
 obj_path_list = []
 obj_ori_list = folder_names
 
-obj_item = choice(obj_ori_list)
+# obj_item = choice(obj_ori_list)
+# obj_item = '002_master_chef_can'
+# obj_item = '003_cracker_box'
+# obj_item = '004_sugar_box'
+# obj_item = '005_tomato_soup_can'
+# obj_item = '006_mustard_bottle'
+obj_item = '007_tuna_fish_can'
+# obj_item = '008_pudding_box'
+# obj_item = '009_gelatin_box'
+# obj_item = '010_potted_meat_can'
+# obj_item = '011_banana'
+# obj_item = '019_pitcher_base'
+# obj_item = '021_bleach_cleanser'
+# obj_item = '024_bowl'
+# obj_item = '025_mug'
+# obj_item = '035_power_drill'
+# obj_item = '036_wood_block'
 # obj_item = '037_scissors'
+# obj_item = '040_large_marker'
+# obj_item = '051_large_clamp'
+# obj_item = '052_extra_large_clamp'
+# obj_item = '061_foam_brick'
 
 # Environment definition
 env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
@@ -126,14 +149,14 @@ obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
 
-ob_dim_r = 153
+ob_dim_r = 162
 # act_dim = env.num_acts
 act_dim = 22
 print('ob dim', ob_dim_r)
 print('act dim', act_dim)
 
 # Training
-trail_steps = 30
+trail_steps = 80
 reward_clip = -2.0
 grasp_steps = 100
 n_steps_r = grasp_steps + trail_steps
@@ -168,6 +191,11 @@ ppo_r = PPO.PPO(actor=actor_r,
                 )
 load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
 
+lowest_points = np.zeros((num_envs, 1), dtype='float32')
+for i in range(num_envs):
+    txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
+    with open(txt_file_path, 'r') as txt_file:
+        lowest_points[i] = float(txt_file.read())
 
 for update in range(args.num_iterations):
     start = time.time()
@@ -177,36 +205,136 @@ for update in range(args.num_iterations):
     obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')
 
     target_center = np.zeros_like(env.affordance_center)
-    # object_center = np.zeros_like(env.affordance_center)
-    fake_non_aff_center = [0.346408, 0.346408, 0.346408]
-    contain_non_aff = np.zeros((num_envs, 1), dtype='float32')
 
-    qpos_reset_r[:, :6] = [-1.57, -1.57, 1., 0.57, 1.57, -1]
     qpos_reset_r[:, 6:] = 0.2
     qpos_reset_r[:, -4] = 1.57
     qpos_reset_r[:, 7] = 0.8
     qpos_reset_r[:, 11] = 0.8
     qpos_reset_r[:, 15] = 0.8
-    qpos_reset_r[:, 19] = 0.8
+    qpos_reset_r[:, 19] = 0.
+    qpos_reset_r[:, 20] = -0.5
 
-    obj_pose_reset[:, 0] = np.random.uniform(0.5, 1.1, num_envs)
-    obj_pose_reset[:, 1] = np.random.uniform(0.0, 0.4, num_envs)
-    obj_pose_reset[:, 2] = 0.773
-    obj_pose_reset[:, 3:] = [1., -0., -0., 0., 0.]
-
-    axis_angles = np.zeros((num_envs, 3))
-    axis_angles[:, 2] = np.random.uniform(-np.pi, np.pi, num_envs)
-    quats = rotations.axisangle2quat(axis_angles)
-    obj_pose_reset[:, 3:7] = quats
-
+    # obj_pose_reset[:, 0] = np.random.uniform(0.5, 1.1, num_envs)
+    # obj_pose_reset[:, 1] = np.random.uniform(0.0, 0.4, num_envs)
+    # obj_pose_reset[:, 2] = 0.773 - lowest_points
+    # obj_pose_reset[:, 3:] = [1., -0., -0., 0., 0.]
+    #
+    # axis_angles = np.zeros((num_envs, 3))
+    # axis_angles[:, 2] = np.random.uniform(-np.pi, np.pi, num_envs)
+    # quats = rotations.axisangle2quat(axis_angles)
+    # obj_pose_reset[:, 3:7] = quats
+    #
+    # hand_center_w = np.zeros((num_envs, 3))
+    # hand_center_w[:, 0] = 0.711334
+    # hand_center_w[:, 1] = 0.243815
+    # hand_center_w[:, 2] = 1.34026
+    #
+    # obj_aff_center_in_obj = env.affordance_center.copy()
+    # obj_mat = rotations.quat2mat(quats)
 
     for i in range(num_envs):
-        lowest_point = 0.
-        txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
-        with open(txt_file_path, 'r') as txt_file:
-            lowest_point = float(txt_file.read())
+        get_meaningful_ik = False
+        while not get_meaningful_ik:
+            obj_pose_reset[i, 0] = np.random.uniform(0.5, 1.1)
+            obj_pose_reset[i, 1] = np.random.uniform(0.0, 0.4)
+            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+            obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
-        obj_pose_reset[i, 2] -= lowest_point
+            axis_angles = np.zeros((1, 3))
+            axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+            quats = rotations.axisangle2quat(axis_angles)
+            # quats[:] = 0
+            # quats[:, 0] = 1
+            obj_pose_reset[i, 3:7] = quats
+
+            hand_center_w = np.zeros((1, 3))
+            # hand_center_w[0, 0] = 0.711334
+            # hand_center_w[0, 1] = 0.243815
+            # hand_center_w[0, 2] = 1.34026
+            hand_center_w[0, 0] = 0.669872
+            hand_center_w[0, 1] = 0.141735
+            hand_center_w[0, 2] = 1.5   #1.11052
+
+            obj_aff_center_in_obj = env.affordance_center[i].copy()
+            obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
+
+            obj_aff_center_in_world = np.matmul(obj_mat_single, obj_aff_center_in_obj.T).T
+            obj_aff_center_in_world = obj_aff_center_in_world + obj_pose_reset[i, :3]
+
+            hand_dir_x = hand_center_w - obj_aff_center_in_world
+            hand_dir_x = hand_dir_x / np.linalg.norm(hand_dir_x, axis=1, keepdims=True)
+            hand_dir_x_in_obj = np.matmul(obj_mat_single.T, hand_dir_x.T).T
+
+            rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], hand_dir_x_in_obj, env.affordance_center[i], top=False)
+            if rot is None:
+                hand_dir_x_in_obj[0, :] = 0
+                hand_dir_x_in_obj[0, 2] = 1
+                rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], hand_dir_x_in_obj, env.affordance_center[i], top=True)
+
+            wrist_mat = rot
+            # wrist_pose_obj = rotations.axisangle2euler(rot.reshape(-1, 3)).reshape(1, -1)
+            # wrist_mat = rotations.euler2mat(wrist_pose_obj)
+            wrist_in_world = np.matmul(obj_mat_single, wrist_mat)
+            wrist_pose = rotations.mat2euler(wrist_in_world)
+            qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
+            # qpos_reset_r[i, 3:6] = wrist_pose[0, :]
+
+            target_center[i, :] = target[:]
+
+            wrist_bias = np.zeros((1, 3))
+            # wrist_bias[0, 0] = -0.0091
+            # wrist_bias[0, 2] = -0.095
+            wrist_bias[0, 0] = -0.0091
+            wrist_bias[0, 2] = -0.085
+            wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
+
+            ur5_to_world = np.eye(3)
+            ur5_to_world[0, 0] = -1
+            ur5_to_world[1, 1] = -1
+
+            pos_in_ur5 = np.zeros((3, 1))
+            pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0.55 + wrist_bias_in_world[0, 0]
+            pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0.75152 + wrist_bias_in_world[0, 1]
+            pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
+            pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
+
+            wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
+
+            gd = np.eye(4)
+            gd[:3, :3] = wrist_mat_in_ur5
+            gd[0, 3] = pos_in_ur5_new[0, 0]
+            gd[1, 3] = pos_in_ur5_new[1, 0]
+            gd[2, 3] = pos_in_ur5_new[2, 0]
+
+            theta0 = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
+            joint_weights = [1, 1, 1, 1, 1, 1]
+            ik = InverseKinematicsUR5()
+            ik.setJointWeights(joint_weights)
+            ik.setJointLimits(-3.14, 3.14)
+            if ik.findClosestIK(gd, theta0) is None:
+                continue
+            else:
+                qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+
+            if math.isnan(qpos_reset_r[i, 0]):
+                continue
+            else:
+                get_meaningful_ik = True
+
+    # qpos_reset_r[:, :6] = [-1.57, -1.57, 1.57, 1.57, 3.14, -1.57]
+    # env.reset_state(qpos_reset_r,
+    #                 qpos_reset_l,
+    #                 np.zeros((num_envs, 22), 'float32'),
+    #                 np.zeros((num_envs, 22), 'float32'),
+    #                 obj_pose_reset,
+    #                 )
+    # temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
+    # temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
+    # _, _, _ = env.step(temp_action_r, temp_action_l)
+    # global_state = env.get_global_state()
+    # one_check = global_state[:, 124:128]
+    #
+    # time.sleep(100)
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -215,16 +343,16 @@ for update in range(args.num_iterations):
                     obj_pose_reset,
                     )
 
-    obs_new_r, dis_info = env.observe_vision_new(contain_non_aff)
+    obs_new_r, dis_info = env.observe_vision_new()
     show_point = dis_info[:, 17:68].astype('float32').copy()
     env.set_joint_sensor_visual(show_point)
-    target_center = dis_info[:, 68:71].astype('float32')
     env.update_target(target_center)
     for step in range(n_steps_r):
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
 
-        # time.sleep(1)
+        # if step > 0:
+        #     time.sleep(10)
 
         action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
         action_r = action_r.cpu().detach().numpy()
@@ -235,11 +363,9 @@ for update in range(args.num_iterations):
 
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
-        obs_new_r, dis_info = env.observe_vision_new(contain_non_aff)
+        obs_new_r, dis_info = env.observe_vision_new()
         show_point = dis_info[:, 17:68].astype('float32').copy()
         env.set_joint_sensor_visual(show_point)
-        target_center = dis_info[:, 68:71].astype('float32')
-        env.update_target(target_center)
 
         frame_end = time.time()
         wait_time = cfg['environment']['control_dt'] - (frame_end - frame_start)

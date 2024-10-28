@@ -42,7 +42,11 @@ exp_name = "arm_rand"
 # weight_saved = '2024-10-21-14-59-16/full_8000_r.pt'
 # weight_saved = '2024-10-21-15-15-59/full_7500_r.pt'
 # weight_saved = '2024-10-21-15-37-28/full_11000_r.pt'
-weight_saved = '2024-10-21-16-45-10/full_9500_r.pt'
+# weight_saved = '2024-10-21-16-45-10/full_9500_r.pt'
+# weight_saved = '2024-10-22-11-00-56/full_14500_r.pt'
+# weight_saved = '2024-10-22-11-50-57/full_14500_r.pt'
+weight_saved = '2024-10-22-16-38-56/full_25000_r.pt'
+# weight_saved = '2024-10-22-16-59-00/full_20000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -133,7 +137,7 @@ print('ob dim', ob_dim_r)
 print('act dim', act_dim)
 
 # Training
-trail_steps = 30
+trail_steps = 80
 reward_clip = -2.0
 grasp_steps = 100
 n_steps_r = grasp_steps + trail_steps
@@ -181,7 +185,7 @@ for update in range(args.num_iterations):
     fake_non_aff_center = [0.346408, 0.346408, 0.346408]
     contain_non_aff = np.zeros((num_envs, 1), dtype='float32')
 
-    qpos_reset_r[:, :6] = [-1.57, -1.57, 1., 0.57, 1.57, -1]
+    qpos_reset_r[:, :6] = [-1.57, -1.57, 1.57, 0., 1.57, -1]
     qpos_reset_r[:, 6:] = 0.2
     qpos_reset_r[:, -4] = 1.57
     qpos_reset_r[:, 7] = 0.8
@@ -333,7 +337,7 @@ for update in range(args.num_iterations):
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
 
-        # time.sleep(1)
+        # time.sleep(3)
 
         action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
         action_r = action_r.cpu().detach().numpy()

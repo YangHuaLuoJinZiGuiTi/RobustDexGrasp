@@ -329,7 +329,7 @@ class RaisimGymVecEnvTest:
 
         return obs_r, dis_info
 
-    def observe_vision_new(self, contain_non_aff):
+    def observe_vision_new(self):
         self.wrapper.observe(self._observation_r, self._observation_l)
         self.wrapper.get_global_state(self._global_state)
 
@@ -349,27 +349,23 @@ class RaisimGymVecEnvTest:
         obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
         obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
 
-
-        # r_obj = obj_euler_wrist.cpu().numpy()[:, np.newaxis].repeat(joints.shape[1], 1).reshape(-1, 3)
-        # r_obj = R.from_euler('XYZ', r_obj, degrees=False)
-        # af_vec = r_obj.apply(af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
-
-        r_obj = self.euler_to_rotation_matrix(obj_euler_wrist).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
+        r_obj = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
         af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
         af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
 
-        af_points_average_obj = torch.mean(af_points, dim=1).reshape(num_envs, -1)
-        wrist_pos_obj = torch.from_numpy(global_state[:, 121:124]).to('cuda')
-        af_points_average = af_points_average_obj - wrist_pos_obj
-        r_obj_single = self.euler_to_rotation_matrix(obj_euler_wrist)
-        af_points_average = torch.matmul(r_obj_single, af_points_average.to('cuda').unsqueeze(-1)).squeeze(-1).cpu().numpy().astype('float32')
-        obs_r = np.concatenate([obs_r, af_vec, af_points_average], axis=-1)
+        # af_points_average_obj = torch.mean(af_points, dim=1).reshape(num_envs, -1)
+        # wrist_pos_obj = torch.from_numpy(global_state[:, 121:124]).to('cuda')
+        # af_points_average = af_points_average_obj - wrist_pos_obj
+        # r_obj_single = self.euler_to_rotation_matrix(obj_euler_wrist)
+        # af_points_average = torch.matmul(r_obj_single, af_points_average.to('cuda').unsqueeze(-1)).squeeze(-1).cpu().numpy().astype('float32')
+        # obs_r = np.concatenate([obs_r, af_vec, af_points_average], axis=-1)
 
-        # obs_r = np.concatenate([obs_r, af_vec], axis=-1)
+        obs_r = np.concatenate([obs_r, af_vec], axis=-1)
 
         show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
-        af_points_average_obj = af_points_average_obj.cpu().numpy().astype('float32')
-        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point, af_points_average_obj], axis=-1)
+        # af_points_average_obj = af_points_average_obj.cpu().numpy().astype('float32')
+        # dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point, af_points_average_obj], axis=-1)
+        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
 
         return obs_r, dis_info
 
@@ -499,7 +495,7 @@ class RaisimGymVecEnvTest:
         # obs_l = np.concatenate([obs_l, af_vec, non_aff_vec_obs, point_feature], axis=-1)
         obs_l = np.concatenate([obs_l, af_vec, non_aff_vec_obs], axis=-1)
         return obs_l, dis_info
-    
+
     def get_global_state(self, update_mean=True):
         self.wrapper.get_global_state(self._global_state)
 
