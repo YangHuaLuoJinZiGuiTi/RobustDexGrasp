@@ -169,7 +169,7 @@ namespace raisim {
             /// MUST BE DONE FOR ALL ENVIRONMENTS
             obDim_r_ = 111;
             obDim_l_ = 1;
-            gsDim_ = 124;
+            gsDim_ = 128;
             obDouble_r_.setZero(obDim_r_);
             obDouble_l_.setZero(obDim_l_);
             global_state_.setZero(gsDim_);
@@ -827,12 +827,13 @@ namespace raisim {
                 obDouble_r_ << gc_r_,
                             right_hand_torque,
 //                            obj_pos_wrist,
-                            wrist_vel.e(),
-                            wrist_qvel.e(),
+
                             contacts_r_af,
                             impulses_r_af,
                             joint_height_w,
                             arm_height_w,
+                            wrist_vel.e(),
+                            wrist_qvel.e(),
                             target_center_dif_world,
                             hand_center_robot,
                             euler_diff,
@@ -864,7 +865,12 @@ namespace raisim {
                              wrist_pos_w.e(),
                              target_center_dif,
                              obj_pose.e(),
-                             wrist_pos_obj.e();
+                             wrist_pos_obj.e(),
+                             contacts_arm_all[1],
+                             contacts_arm_all[2],
+                             contacts_arm_all[3],
+                             contacts_arm_all[4];
+
         }
 
         /// Set observation in wrapper to current observation
@@ -918,8 +924,8 @@ namespace raisim {
 
             if(obDouble_r_.hasNaN() || global_state_.hasNaN())
             {
-                std::cout<<"NaN detected"<< obDouble_r_.transpose()<<std::endl<<std::endl<<std::endl;
-                std::cout<<"NaN detected"<< global_state_.transpose()<<std::endl<<std::endl<<std::endl;
+                std::cout<<"NaN detected obs"<< obDouble_r_.transpose()<<std::endl<<std::endl<<std::endl;
+                std::cout<<"NaN detected global"<< global_state_.transpose()<<std::endl<<std::endl<<std::endl;
                 return true;
             }
 

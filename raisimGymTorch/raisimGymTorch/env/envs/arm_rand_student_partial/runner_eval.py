@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
-from raisimGymTorch.env.bin import arm_rand_new as mano
+from raisimGymTorch.env.bin import arm_rand_student_partial as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.arm_rand_new import NormalSampler
+from raisimGymTorch.env.bin.arm_rand_student_partial import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test
 from scipy.spatial.transform import Rotation as R
 from random import choice
@@ -14,8 +14,8 @@ from random import choice
 import os
 import math
 import time
-import raisimGymTorch.algo.ppo.module as ppo_module
-import raisimGymTorch.algo.ppo.ppo as PPO
+import raisimGymTorch.algo.ppo_dagger_recon.module as ppo_module
+# import raisimGymTorch.algo.ppo.ppo as PPO
 import torch.nn as nn
 import numpy as np
 import torch
@@ -29,7 +29,7 @@ import wandb
 import torch
 
 
-exp_name = "arm_rand"
+exp_name = "arm_rand_student"
 
 # weight_saved = '2024-10-22-16-46-35/full_24500_r.pt'
 # weight_saved = '2024-10-23-08-13-36/full_20000_r.pt'
@@ -45,12 +45,10 @@ exp_name = "arm_rand"
 # weight_saved = '2024-10-25-17-16-54/full_23000_r.pt'
 # weight_saved = '2024-10-26-15-58-30/full_40000_r.pt'
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
-# weight_saved = '2024-10-26-17-02-58/full_17000_r.pt'
-# weight_saved = '2024-10-28-10-29-30/full_22500_r.pt'
-# weight_saved = '2024-10-28-16-13-40/full_5500_r.pt'
-# weight_saved = '2024-10-28-16-53-10/full_6000_r.pt'
-# weight_saved = '2024-10-29-18-45-29/full_11000_r.pt'
-weight_saved = '2024-10-29-18-49-44/full_9500_r.pt'
+weight_saved = './../arm_rand/2024-10-26-17-02-58/full_17000_r.pt'
+
+weight_path_student = '2024-10-30-09-09-44/full_0_r.pt'
+
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -127,7 +125,7 @@ obj_ori_list = folder_names
 # obj_item = '004_sugar_box'
 # obj_item = '005_tomato_soup_can'
 # obj_item = '006_mustard_bottle'
-obj_item = '007_tuna_fish_can'
+# obj_item = '007_tuna_fish_can'
 # obj_item = '008_pudding_box'
 # obj_item = '009_gelatin_box'
 # obj_item = '010_potted_meat_can'
@@ -137,7 +135,7 @@ obj_item = '007_tuna_fish_can'
 # obj_item = '024_bowl'
 # obj_item = '025_mug'
 # obj_item = '035_power_drill'
-# obj_item = '036_wood_block'
+obj_item = '036_wood_block'
 # obj_item = '037_scissors'
 # obj_item = '040_large_marker'
 # obj_item = '051_large_clamp'
@@ -154,11 +152,17 @@ obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
 
-ob_dim_r = 162
+ob_dim_r = 153
 # act_dim = env.num_acts
 act_dim = 22
 print('ob dim', ob_dim_r)
 print('act dim', act_dim)
+
+tobeEncode_dim = 44
+t_steps = 10
+prop_latent_dim=26
+aff_vec_dim = 54
+total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 
 # Training
 trail_steps = 80
@@ -169,9 +173,10 @@ total_steps_r = n_steps_r * env.num_envs
 
 # RL network
 
-actor_r = ppo_module.Actor(
+actor_student_r = ppo_module.Actor(
     ppo_module.MLP(cfg['architecture']['policy_net'], activations, ob_dim_r, act_dim),
     ppo_module.MultivariateGaussianDiagonalCovariance(act_dim, num_envs, 1.0, NormalSampler(act_dim)), device)
+prop_latent_encoder = ppo_module.LSTM_StateHistoryEncoder(tobeEncode_dim, prop_latent_dim, t_steps, device)
 
 critic_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], activations, ob_dim_r, 1), device)
 
@@ -179,22 +184,12 @@ critic_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], ac
 test_dir = True
 
 saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir + "/" + task_name,
-                           save_items=[task_path + "/runner_eval.py"], test_dir=test_dir)
+                           save_items=[], test_dir=test_dir)
 
-
-ppo_r = PPO.PPO(actor=actor_r,
-                critic=critic_r,
-                num_envs=num_envs,
-                num_transitions_per_env=n_steps_r,
-                num_learning_epochs=4,
-                gamma=0.996,
-                lam=0.95,
-                num_mini_batches=4,
-                device=device,
-                log_dir=saver.data_dir,
-                shuffle_batch=False
-                )
-load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
+checkpoint_student = torch.load(saver.data_dir.split('eval')[0] + weight_path_student, map_location=torch.device('cpu'))
+actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architecture_state_dict'])
+actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
+prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
 for i in range(num_envs):
@@ -219,23 +214,8 @@ for update in range(args.num_iterations):
     qpos_reset_r[:, 19] = 0.
     qpos_reset_r[:, 20] = -0.5
 
-    # obj_pose_reset[:, 0] = np.random.uniform(0.5, 1.1, num_envs)
-    # obj_pose_reset[:, 1] = np.random.uniform(0.0, 0.4, num_envs)
-    # obj_pose_reset[:, 2] = 0.773 - lowest_points
-    # obj_pose_reset[:, 3:] = [1., -0., -0., 0., 0.]
-    #
-    # axis_angles = np.zeros((num_envs, 3))
-    # axis_angles[:, 2] = np.random.uniform(-np.pi, np.pi, num_envs)
-    # quats = rotations.axisangle2quat(axis_angles)
-    # obj_pose_reset[:, 3:7] = quats
-    #
-    # hand_center_w = np.zeros((num_envs, 3))
-    # hand_center_w[:, 0] = 0.711334
-    # hand_center_w[:, 1] = 0.243815
-    # hand_center_w[:, 2] = 1.34026
-    #
-    # obj_aff_center_in_obj = env.affordance_center.copy()
-    # obj_mat = rotations.quat2mat(quats)
+    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
+    # visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
 
     for i in range(num_envs):
         get_meaningful_ik = False
@@ -326,7 +306,29 @@ for update in range(args.num_iterations):
             else:
                 get_meaningful_ik = True
 
-    # qpos_reset_r[0, :6] = [-1.57, -1.57, 1.57, 1.57, 3.14, -1.57]
+                view_point_world = np.zeros((200, 3))
+                view_point_world[:, 0] = 0.8
+                view_point_world[:, 1] = 0.2
+                view_point_world[:, 2] = 1.5
+                view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
+                view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
+
+                obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
+                directions = obj_pcd - view_point_obj
+                directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
+                locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
+                                                                               ray_directions=directions,
+                                                                               multiple_hits=False)
+                # visible_points_obj[i, :] = locations
+                if locations.shape != (200, 3):
+                    expanded_locations = np.zeros((200, 3))
+                    expanded_locations[:, :] = locations[0, :]
+                    expanded_locations[:locations.shape[0], :] = locations
+                    locations = expanded_locations
+                visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
+
+
+    # qpos_reset_r[:, :6] = [-1.57, -1.57, 1.57, 1.57, 3.14, -1.57]
     # env.reset_state(qpos_reset_r,
     #                 qpos_reset_l,
     #                 np.zeros((num_envs, 22), 'float32'),
@@ -339,7 +341,6 @@ for update in range(args.num_iterations):
     # global_state = env.get_global_state()
     # one_check = global_state[:, 124:128]
     # contains_one = np.any(one_check == 1, axis=1)
-    # # contains_one will be a boolean array where each element is True if the corresponding row in one_check contains 1
     # true_indices = np.where(contains_one)[0]
     # for true_idx in true_indices:
     #     current_obj_idx = true_idx // 3
@@ -360,7 +361,8 @@ for update in range(args.num_iterations):
                     )
 
     obs_new_r, dis_info = env.observe_vision_new()
-    show_point = dis_info[:, 17:68].astype('float32').copy()
+    # show_point = dis_info[:, 17:68].astype('float32').copy()
+    aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
     env.set_joint_sensor_visual(show_point)
     env.update_target(target_center)
     for step in range(n_steps_r):
@@ -370,7 +372,15 @@ for update in range(args.num_iterations):
         # if step > 0:
         #     time.sleep(10)
 
-        action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
+        encode_obs = torch.from_numpy(obs_r[:, :tobeEncode_dim * t_steps]).to(device)
+
+        student_latent = prop_latent_encoder(encode_obs)
+        student_mlp_obs = torch.cat((torch.from_numpy(obs_r[:, -ob_dim_r:-ob_dim_r + tobeEncode_dim]),
+                                     student_latent.cpu(),
+                                     torch.from_numpy(obs_r[:, -ob_dim_r + tobeEncode_dim + prop_latent_dim:-aff_vec_dim]),
+                                     torch.from_numpy(aff_vec)), dim=1).to(device)
+
+        action_r = actor_student_r.architecture.architecture(student_mlp_obs.to(device))
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
         # action_r[:, :6] = 0
@@ -380,7 +390,8 @@ for update in range(args.num_iterations):
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
         obs_new_r, dis_info = env.observe_vision_new()
-        show_point = dis_info[:, 17:68].astype('float32').copy()
+        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        # show_point = dis_info[:, 17:68].astype('float32').copy()
         env.set_joint_sensor_visual(show_point)
 
         frame_end = time.time()

@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
-from raisimGymTorch.env.bin import arm_rand_new as mano
+from raisimGymTorch.env.bin import arm_rand_student as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.arm_rand_new import NormalSampler
+from raisimGymTorch.env.bin.arm_rand_student import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test
 from scipy.spatial.transform import Rotation as R
 from random import choice
@@ -14,8 +14,8 @@ from random import choice
 import os
 import math
 import time
-import raisimGymTorch.algo.ppo.module as ppo_module
-import raisimGymTorch.algo.ppo.ppo as PPO
+import raisimGymTorch.algo.ppo_dagger_recon.module as ppo_module
+# import raisimGymTorch.algo.ppo.ppo as PPO
 import torch.nn as nn
 import numpy as np
 import torch
@@ -29,7 +29,7 @@ import wandb
 import torch
 
 
-exp_name = "arm_rand"
+exp_name = "arm_rand_student"
 
 # weight_saved = '2024-10-22-16-46-35/full_24500_r.pt'
 # weight_saved = '2024-10-23-08-13-36/full_20000_r.pt'
@@ -45,12 +45,10 @@ exp_name = "arm_rand"
 # weight_saved = '2024-10-25-17-16-54/full_23000_r.pt'
 # weight_saved = '2024-10-26-15-58-30/full_40000_r.pt'
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
-# weight_saved = '2024-10-26-17-02-58/full_17000_r.pt'
-# weight_saved = '2024-10-28-10-29-30/full_22500_r.pt'
-# weight_saved = '2024-10-28-16-13-40/full_5500_r.pt'
-# weight_saved = '2024-10-28-16-53-10/full_6000_r.pt'
-# weight_saved = '2024-10-29-18-45-29/full_11000_r.pt'
-weight_saved = '2024-10-29-18-49-44/full_9500_r.pt'
+weight_saved = './../arm_rand/2024-10-26-17-02-58/full_17000_r.pt'
+
+weight_path_student = '2024-10-30-09-05-20/full_0_r.pt'
+
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -154,11 +152,16 @@ obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
 
-ob_dim_r = 162
+ob_dim_r = 153
 # act_dim = env.num_acts
 act_dim = 22
 print('ob dim', ob_dim_r)
 print('act dim', act_dim)
+
+tobeEncode_dim = 44
+t_steps = 10
+prop_latent_dim=26
+total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 
 # Training
 trail_steps = 80
@@ -169,9 +172,10 @@ total_steps_r = n_steps_r * env.num_envs
 
 # RL network
 
-actor_r = ppo_module.Actor(
+actor_student_r = ppo_module.Actor(
     ppo_module.MLP(cfg['architecture']['policy_net'], activations, ob_dim_r, act_dim),
     ppo_module.MultivariateGaussianDiagonalCovariance(act_dim, num_envs, 1.0, NormalSampler(act_dim)), device)
+prop_latent_encoder = ppo_module.LSTM_StateHistoryEncoder(tobeEncode_dim, prop_latent_dim, t_steps, device)
 
 critic_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], activations, ob_dim_r, 1), device)
 
@@ -179,22 +183,26 @@ critic_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], ac
 test_dir = True
 
 saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir + "/" + task_name,
-                           save_items=[task_path + "/runner_eval.py"], test_dir=test_dir)
+                           save_items=[], test_dir=test_dir)
 
+checkpoint_student = torch.load(saver.data_dir.split('eval')[0] + weight_path_student, map_location=torch.device('cpu'))
+actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architecture_state_dict'])
+actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
+prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
-ppo_r = PPO.PPO(actor=actor_r,
-                critic=critic_r,
-                num_envs=num_envs,
-                num_transitions_per_env=n_steps_r,
-                num_learning_epochs=4,
-                gamma=0.996,
-                lam=0.95,
-                num_mini_batches=4,
-                device=device,
-                log_dir=saver.data_dir,
-                shuffle_batch=False
-                )
-load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
+# ppo_r = PPO.PPO(actor=actor_r,
+#                 critic=critic_r,
+#                 num_envs=num_envs,
+#                 num_transitions_per_env=n_steps_r,
+#                 num_learning_epochs=4,
+#                 gamma=0.996,
+#                 lam=0.95,
+#                 num_mini_batches=4,
+#                 device=device,
+#                 log_dir=saver.data_dir,
+#                 shuffle_batch=False
+#                 )
+# load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
 
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
 for i in range(num_envs):
@@ -326,7 +334,7 @@ for update in range(args.num_iterations):
             else:
                 get_meaningful_ik = True
 
-    # qpos_reset_r[0, :6] = [-1.57, -1.57, 1.57, 1.57, 3.14, -1.57]
+    # qpos_reset_r[:, :6] = [-1.57, -1.57, 1.57, 1.57, 3.14, -1.57]
     # env.reset_state(qpos_reset_r,
     #                 qpos_reset_l,
     #                 np.zeros((num_envs, 22), 'float32'),
@@ -339,7 +347,6 @@ for update in range(args.num_iterations):
     # global_state = env.get_global_state()
     # one_check = global_state[:, 124:128]
     # contains_one = np.any(one_check == 1, axis=1)
-    # # contains_one will be a boolean array where each element is True if the corresponding row in one_check contains 1
     # true_indices = np.where(contains_one)[0]
     # for true_idx in true_indices:
     #     current_obj_idx = true_idx // 3
@@ -370,7 +377,18 @@ for update in range(args.num_iterations):
         # if step > 0:
         #     time.sleep(10)
 
-        action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
+        encode_obs = torch.from_numpy(obs_r[:, :tobeEncode_dim * t_steps]).to(device)
+
+        student_latent = prop_latent_encoder(encode_obs)
+        student_mlp_obs = torch.cat((torch.from_numpy(obs_r[:, -ob_dim_r:-ob_dim_r + tobeEncode_dim]),
+                                     student_latent.cpu(),
+                                     torch.from_numpy(obs_r[:, -ob_dim_r + tobeEncode_dim + prop_latent_dim:])),
+                                    dim=1).to(device)
+
+        # print(student_latent)
+        # print(obs_r[:, -ob_dim_r + tobeEncode_dim:-ob_dim_r + tobeEncode_dim+prop_latent_dim])
+
+        action_r = actor_student_r.architecture.architecture(student_mlp_obs.to(device))
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
         # action_r[:, :6] = 0

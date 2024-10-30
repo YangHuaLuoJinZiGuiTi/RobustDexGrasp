@@ -821,10 +821,10 @@ namespace raisim {
 //                obDouble_r_ << gc_r_,      // (mirror) 45, generalized coordinate
                             right_hand_torque,
 //                            obj_pos_wrist,
-                            wrist_vel_in_wrist,
-                            wrist_qvel_in_wrist,
                             contacts_r_af,
                             impulses_r_af,
+                            wrist_vel_in_wrist,
+                            wrist_qvel_in_wrist,
                             joint_height_w;
 //                            obj_weight,
 //                            obj_vel_in_wrist,

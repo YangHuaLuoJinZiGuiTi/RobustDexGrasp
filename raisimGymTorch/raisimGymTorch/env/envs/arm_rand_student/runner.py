@@ -1,16 +1,18 @@
 import numpy
 from ruamel.yaml import YAML, dump, RoundTripDumper
-from raisimGymTorch.env.bin import arm_rand_new as mano
+from raisimGymTorch.env.bin import arm_rand_student as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.arm_rand_new import NormalSampler
+from raisimGymTorch.env.bin.arm_rand_student import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test
 
 import os
 import math
 import time
-import raisimGymTorch.algo.ppo.module as ppo_module
-import raisimGymTorch.algo.ppo.ppo as PPO
+# import raisimGymTorch.algo.ppo.module as ppo_module
+# import raisimGymTorch.algo.ppo.ppo as PPO
+import raisimGymTorch.algo.ppo_dagger_recon.module as ppo_module
+from raisimGymTorch.algo.ppo_dagger_recon.dagger_new import Dagger
 import torch.nn as nn
 import numpy as np
 import torch
@@ -25,14 +27,10 @@ import torch
 from random import choices
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, transformRobotParameter
 
-exp_name = "arm_rand"
+exp_name = "arm_rand_student"
 
-# weight_saved = '/../../faive_fixed/2024-01-29-22-01-24/full_2700_r.pt'
-# weight_saved = '/../../pt_allegro_fixed/2024-05-30-18-50-43/full_9000_r.pt'
-# weight_saved = '/../../pt_allegro_fixed/2024-05-30-18-50-43/full_9000_r.pt'
-# weight_saved = '/../../pt_allegro_fixed/2024-06-11-17-56-47/full_48000_r.pt'
-# weight_saved = '/../2024-10-28-16-53-10/full_6000_r.pt'
-weight_saved = '/../2024-10-28-16-13-40/full_5500_r.pt'
+weight_saved = '/../../arm_rand/2024-10-29-18-45-29/full_11500_r.pt'
+weight_path_student = '2024-10-28-14-49-02/full_1000_r.pt'
 
 
 # configuration
@@ -128,10 +126,6 @@ for obj_item in obj_list:
 env.load_multi_articulated(obj_path_list)
 
 
-ob_dim_r = 153
-act_dim = 22
-print('ob dim', ob_dim_r)
-print('act dim', act_dim)
 
 # Training
 trail_steps = 80
@@ -140,14 +134,7 @@ grasp_steps = 100
 n_steps_r = grasp_steps + trail_steps
 total_steps_r = n_steps_r * env.num_envs
 
-print(env.num_envs)
-
-# RL network
-actor_r = ppo_module.Actor(
-    ppo_module.MLP(cfg['architecture']['policy_net'], activations, ob_dim_r, act_dim),
-    ppo_module.MultivariateGaussianDiagonalCovariance(act_dim, num_envs, 1.0, NormalSampler(act_dim)), device)
-
-critic_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], activations, ob_dim_r, 1), device)
+# print(env.num_envs)
 
 test_dir = False
 
@@ -156,8 +143,52 @@ saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir
                                        task_path + "/runner.py", task_path + "/runner_eval.py", task_path + "/../../RaisimGymVecEnvOther.py"], test_dir=test_dir)
 
 
-ppo_r = PPO.PPO(actor=actor_r,
-                critic=critic_r,
+ob_dim_r = 153
+act_dim = 22
+print('ob dim', ob_dim_r)
+print('act dim', act_dim)
+
+tobeEncode_dim = 44
+t_steps = 10
+prop_latent_dim=26
+total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
+
+update_mlp = True
+student_driven_ratio=0.5
+if update_mlp:
+    ppo_ratio = 0.5
+else:
+    ppo_ratio = 0
+
+print('update mlp: ', update_mlp)
+print('student driven ratio: ', student_driven_ratio)
+print('ppo ratio: ', ppo_ratio)
+
+# RL network
+actor_expert_r = ppo_module.Actor(
+    ppo_module.MLP(cfg['architecture']['policy_net'], activations, ob_dim_r, act_dim),
+    ppo_module.MultivariateGaussianDiagonalCovariance(act_dim, num_envs, 1.0, NormalSampler(act_dim)), device)
+actor_student_r = ppo_module.Actor(
+    ppo_module.MLP(cfg['architecture']['policy_net'], activations, ob_dim_r, act_dim),
+    ppo_module.MultivariateGaussianDiagonalCovariance(act_dim, num_envs, 1.0, NormalSampler(act_dim)), device)
+critic_student_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], activations, ob_dim_r, 1), device)
+
+checkpoint = torch.load(saver.data_dir.split('eval')[0] + weight_path, map_location=torch.device(device))
+actor_expert_r.architecture.load_state_dict(checkpoint['actor_architecture_state_dict'])
+actor_expert_r.distribution.load_state_dict(checkpoint['actor_distribution_state_dict'])
+
+expert_policy = actor_expert_r.architecture
+prop_latent_encoder = ppo_module.LSTM_StateHistoryEncoder(tobeEncode_dim, prop_latent_dim, t_steps, device).to(device)
+
+dagger = Dagger(expert_policy=expert_policy,
+                actor_student=actor_student_r,
+                critic_student=critic_student_r,
+                prop_latent_encoder=prop_latent_encoder,
+                tobeEncode_dim=tobeEncode_dim,
+                prop_latent_dim=prop_latent_dim,
+                total_obs_dim=total_obs_dim,
+                mlp_obs_dim=ob_dim_r,
+                t_steps=t_steps,
                 num_envs=num_envs,
                 num_transitions_per_env=n_steps_r,
                 num_learning_epochs=4,
@@ -166,13 +197,26 @@ ppo_r = PPO.PPO(actor=actor_r,
                 num_mini_batches=4,
                 device=device,
                 log_dir=saver.data_dir,
-                shuffle_batch=False
-                # learning_rate=1e-4
+                shuffle_batch=False,
+                update_mlp=update_mlp,
+                ppo_ratio=ppo_ratio
                 )
 
 if args.load_trained_policy:
-    load_param(saver.data_dir.split('eval')[0] + weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir,
-               cfg_grasp)
+    print('loading trained policy from: ', saver.data_dir.split('eval')[0] + weight_path_student)
+    checkpoint_student = torch.load(saver.data_dir.split('eval')[0] + weight_path_student, map_location=torch.device(device))
+
+    actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architecture_state_dict'])
+    actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
+    critic_student_r.architecture.load_state_dict(checkpoint_student['critic_architecture_state_dict'])
+    prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
+    # dagger.optimizer.load_state_dict(checkpoint_student['optimizer_state_dict'])
+
+else:
+    actor_student_r.architecture.load_state_dict(checkpoint['actor_architecture_state_dict'])
+    actor_student_r.distribution.load_state_dict(checkpoint['actor_distribution_state_dict'])
+    critic_student_r.architecture.load_state_dict(checkpoint['critic_architecture_state_dict'])
+
 
 
 finger_weights = np.ones((num_envs, 17)).astype('float32')
@@ -190,8 +234,6 @@ qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
 qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')
 obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')
 
-saved_update_idx = 0
-
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
 for i in range(num_envs):
     txt_file_path = os.path.join(directory_path, obj_list[i]) + "/lowest_point_new.txt"
@@ -206,14 +248,14 @@ for update in range(args.num_iterations):
     if update % cfg['environment']['eval_every_n'] == 0 and args.log_name is not None:
         print("Visualizing and evaluating the current policy")
         torch.save({
-            'actor_architecture_state_dict': actor_r.architecture.state_dict(),
-            'actor_distribution_state_dict': actor_r.distribution.state_dict(),
-            'critic_architecture_state_dict': critic_r.architecture.state_dict(),
-            'optimizer_state_dict': ppo_r.optimizer.state_dict(),
+            'actor_architecture_state_dict': actor_student_r.architecture.state_dict(),
+            'actor_distribution_state_dict': actor_student_r.distribution.state_dict(),
+            'critic_architecture_state_dict': critic_student_r.architecture.state_dict(),
+            'optimizer_state_dict': dagger.optimizer.state_dict(),
+            'prop_latent_encoder_state_dict': prop_latent_encoder.state_dict(),
         }, saver.data_dir + "/full_" + str(update) + '_r.pt')
 
         env.save_scaling(saver.data_dir, str(update))
-        saved_update_idx = update
 
     target_center = np.zeros_like(env.affordance_center)
 
@@ -378,10 +420,9 @@ for update in range(args.num_iterations):
         obs_r = obs_new_r
         obs_r = obs_r[:].astype('float32')
 
-        action_r = ppo_r.act(obs_r)
-        action_l = np.zeros_like(action_r)
+        action_r = dagger.act(obs_r, student_driven_ratio)
 
-        reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
+        reward_r, _, dones = env.step(action_r.astype('float32'), np.zeros_like(action_r).astype('float32'))
 
         obs_new_r, dis_info = env.observe_vision_new()
         obs_new_r = obs_new_r[:].astype('float32')
@@ -395,8 +436,8 @@ for update in range(args.num_iterations):
 
         rewards_r = env.get_reward_info_r()
         affordance_reward_r = - np.sum((dis_info[:, :17]) * finger_weights, axis=1)
-        table_reward_r = - np.sum(np.log(np.maximum(np.abs(obs_new_r[:, 70:87]), 0.01*np.ones_like(np.abs(obs_new_r[:, 70:87])))) * finger_weights * (np.abs(obs_new_r[:, 70:87]) < 0.03), axis=1)
-        arm_height_reward_r = - np.sum(np.log(20 * np.clip(obs_new_r[:, 89:93], a_min=0.001 , a_max=0.05)), axis=1)
+        table_reward_r = - np.sum(np.log(np.maximum(np.abs(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87]), 0.01*np.ones_like(np.abs(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87])))) * finger_weights * (np.abs(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87]) < 0.03), axis=1)
+        arm_height_reward_r = - np.sum(np.log(20 * np.clip(obs_new_r[:, -ob_dim_r+89:-ob_dim_r+93], a_min=0.001 , a_max=0.05)), axis=1)
 
         for i in range(num_envs):
             rewards_r[i]['affordance_reward'] = affordance_reward_r[i] * cfg['environment']['reward']['affordance_reward']['coeff']
@@ -415,27 +456,15 @@ for update in range(args.num_iterations):
             for k in rewards_r_sum[i].keys():
                 rewards_r_sum[i][k] = rewards_r_sum[i][k] + rewards_r[i][k]
 
-        ppo_r.step(value_obs=obs_r, rews=reward_r, dones=dones)
+        dagger.step(total_obs=obs_r, rews=reward_r, dones=dones)
 
     obs_r, _ = env.observe_vision_new()
 
-    obs_r = obs_r[:, :].astype('float32')
+    value_obs = obs_r[:, -ob_dim_r:]
+    prop_mse_loss, action_mse_loss = dagger.update(value_obs)
 
-    if np.isnan(obs_r).any():
-        print('nan in obs')
-        print(obs_r)
-
-    # update policy
-    ppo_r.update(actor_obs=obs_r, value_obs=obs_r, log_this_iteration=update % 10 == 0, update=update)
-
-    actor_r.distribution.enforce_minimum_std((torch.ones(act_dim) * 0.2).to(device))
-
-    if ppo_r.check_exploding_gradient():
-        print("------------------- exploding gradient !!! will reload param --------------------")
-        ppo_r.is_exploding_gradient = False
-        load_pth = saver.data_dir + "/full_" + str(saved_update_idx) + '_r.pt'
-        load_param(load_pth, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
-
+    # TODO: not sure whether should keep
+    actor_student_r.distribution.enforce_minimum_std((torch.ones(act_dim) * 0.2).to(device))
 
     end = time.time()
 
@@ -446,6 +475,8 @@ for update in range(args.num_iterations):
         for i in range(len(rewards_r_sum)):
             ave_reward[k] = ave_reward[k] + rewards_r_sum[i][k]
         ave_reward[k] = ave_reward[k] / (len(rewards_r_sum) * n_steps_r)
+    ave_reward['recon_loss'] = prop_mse_loss
+    ave_reward['action_loss'] = action_mse_loss
     if args.log_name is not None:
         wandb.log(ave_reward)
 
@@ -459,6 +490,8 @@ for update in range(args.num_iterations):
     print('{:<40} {:>6}'.format("fps: ", '{:6.0f}'.format(total_steps_r / (end - start))))
     print('{:<40} {:>6}'.format("real time factor: ", '{:6.0f}'.format(total_steps_r / (end - start)
                                                                        * cfg['environment']['control_dt'])))
+    print('{:<40} {:>6}'.format("prop mse loss: ", '{:0.10f}'.format(prop_mse_loss)))
+    print('{:<40} {:>6}'.format("action mse loss: ", '{:0.10f}'.format(action_mse_loss)))
     # print('std: ')
     # print(np.exp(actor_r.distribution.std.cpu().detach().numpy()))
     print('----------------------------------------------------\n')

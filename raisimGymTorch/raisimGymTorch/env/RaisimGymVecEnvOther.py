@@ -370,6 +370,30 @@ class RaisimGymVecEnvTest:
         return obs_r, dis_info
 
 
+    def observe_student_aff(self, visible_points):
+        self.wrapper.observe(self._observation_r, self._observation_l)
+        self.wrapper.get_global_state(self._global_state)
+
+        global_state = self._global_state.copy()
+        obs_r = self._observation_r.copy()
+
+        num_envs = global_state.shape[0]
+
+        joints = torch.from_numpy(global_state[:, 124:178].reshape(num_envs, -1, 3)).to('cuda')
+
+        af_dists = torch.cdist(joints, visible_points)
+        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+
+        af_points = torch.gather(visible_points, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+        af_vec = af_points - joints
+
+        af_vec = af_vec.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
+
+        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+
+        return af_vec, show_af_point
+
+
     def observe(self, contain_non_aff, allegro=False, partial_obs=False, test=True):
         self.wrapper.observe(self._observation_r, self._observation_l)
         self.wrapper.get_global_state(self._global_state)
