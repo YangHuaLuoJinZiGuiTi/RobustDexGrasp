@@ -45,9 +45,9 @@ exp_name = "arm_rand_student"
 # weight_saved = '2024-10-25-17-16-54/full_23000_r.pt'
 # weight_saved = '2024-10-26-15-58-30/full_40000_r.pt'
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
-weight_saved = './../arm_rand/2024-10-26-17-02-58/full_17000_r.pt'
+weight_saved = './../arm_rand/2024-10-30-11-03-11/full_17000_r.pt'
 
-weight_path_student = '2024-10-30-09-09-44/full_0_r.pt'
+weight_path_student = '2024-10-30-11-03-11/full_6000_r.pt'
 
 
 # configuration
@@ -304,54 +304,45 @@ for update in range(args.num_iterations):
             if math.isnan(qpos_reset_r[i, 0]):
                 continue
             else:
-                get_meaningful_ik = True
+                env.reset_state(qpos_reset_r,
+                                qpos_reset_l,
+                                np.zeros((num_envs, 22), 'float32'),
+                                np.zeros((num_envs, 22), 'float32'),
+                                obj_pose_reset,
+                                )
+                temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
+                temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
+                _, _, _ = env.step(temp_action_r, temp_action_l)
+                global_state = env.get_global_state()
+                one_check = global_state[:, 124:128]
+                contains_one = np.any(one_check == 1, axis=1)
+                true_indices = np.where(contains_one)[0]
+                if len(true_indices) > 0:
+                    continue
+                else:
+                    get_meaningful_ik = True
 
-                view_point_world = np.zeros((200, 3))
-                view_point_world[:, 0] = 0.8
-                view_point_world[:, 1] = 0.2
-                view_point_world[:, 2] = 1.5
-                view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
-                view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
+                    view_point_world = np.zeros((200, 3))
+                    view_point_world[:, 0] = 0.8
+                    view_point_world[:, 1] = 0.2
+                    view_point_world[:, 2] = 1.5
+                    view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
+                    view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
 
-                obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
-                directions = obj_pcd - view_point_obj
-                directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
-                locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
-                                                                               ray_directions=directions,
-                                                                               multiple_hits=False)
-                # visible_points_obj[i, :] = locations
-                if locations.shape != (200, 3):
-                    expanded_locations = np.zeros((200, 3))
-                    expanded_locations[:, :] = locations[0, :]
-                    expanded_locations[:locations.shape[0], :] = locations
-                    locations = expanded_locations
-                visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
+                    obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
+                    directions = obj_pcd - view_point_obj
+                    directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
+                    locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
+                                                                                   ray_directions=directions,
+                                                                                   multiple_hits=False)
+                    # visible_points_obj[i, :] = locations
+                    if locations.shape != (200, 3):
+                        expanded_locations = np.zeros((200, 3))
+                        expanded_locations[:, :] = locations[0, :]
+                        expanded_locations[:locations.shape[0], :] = locations
+                        locations = expanded_locations
+                    visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
 
-
-    # qpos_reset_r[:, :6] = [-1.57, -1.57, 1.57, 1.57, 3.14, -1.57]
-    # env.reset_state(qpos_reset_r,
-    #                 qpos_reset_l,
-    #                 np.zeros((num_envs, 22), 'float32'),
-    #                 np.zeros((num_envs, 22), 'float32'),
-    #                 obj_pose_reset,
-    #                 )
-    # temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
-    # temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
-    # _, _, _ = env.step(temp_action_r, temp_action_l)
-    # global_state = env.get_global_state()
-    # one_check = global_state[:, 124:128]
-    # contains_one = np.any(one_check == 1, axis=1)
-    # true_indices = np.where(contains_one)[0]
-    # for true_idx in true_indices:
-    #     current_obj_idx = true_idx // 3
-    #     current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
-    #     false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
-    #     if len(false_indices)>0:
-    #         chosen_index = np.random.choice(false_indices)
-    #         qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
-    #         obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
-    #     else:
-    #         qpos_reset_r[true_idx, :6] = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,

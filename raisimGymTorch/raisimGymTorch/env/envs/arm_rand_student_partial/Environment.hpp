@@ -171,7 +171,7 @@ namespace raisim {
             /// MUST BE DONE FOR ALL ENVIRONMENTS
             obDim_single = 102;
             obDim_l_ = 1;
-            gsDim_ = 178;
+            gsDim_ = 182;
             history_len = 10;
             tobeEncode_dim = 44;
             obDim_r_ = history_len * tobeEncode_dim + obDim_single;
@@ -874,6 +874,10 @@ namespace raisim {
                              target_center_dif,
                              obj_pose.e(),
                              wrist_pos_obj.e(),
+                             contacts_arm_all[1],
+                             contacts_arm_all[2],
+                             contacts_arm_all[3],
+                             contacts_arm_all[4],
                              joint_pos_in_world;
         }
 

@@ -379,7 +379,7 @@ class RaisimGymVecEnvTest:
 
         num_envs = global_state.shape[0]
 
-        joints = torch.from_numpy(global_state[:, 124:178].reshape(num_envs, -1, 3)).to('cuda')
+        joints = torch.from_numpy(global_state[:, 128:182].reshape(num_envs, -1, 3)).to('cuda')
 
         af_dists = torch.cdist(joints, visible_points)
         min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
