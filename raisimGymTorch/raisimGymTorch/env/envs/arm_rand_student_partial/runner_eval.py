@@ -5,7 +5,7 @@ from raisimGymTorch.env.bin import arm_rand_student_partial as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
 from raisimGymTorch.env.bin.arm_rand_student_partial import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test
+from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial
 from scipy.spatial.transform import Rotation as R
 from random import choice
 
@@ -119,7 +119,7 @@ folder_names = [item for item in items if os.path.isdir(os.path.join(directory_p
 obj_path_list = []
 obj_ori_list = folder_names
 
-obj_item = choice(obj_ori_list)
+# obj_item = choice(obj_ori_list)
 # obj_item = '002_master_chef_can'
 # obj_item = '003_cracker_box'
 # obj_item = '004_sugar_box'
@@ -130,7 +130,7 @@ obj_item = choice(obj_ori_list)
 # obj_item = '009_gelatin_box'
 # obj_item = '010_potted_meat_can'
 # obj_item = '011_banana'
-# obj_item = '019_pitcher_base'
+obj_item = '019_pitcher_base'
 # obj_item = '021_bleach_cleanser'
 # obj_item = '024_bowl'
 # obj_item = '025_mug'
@@ -214,12 +214,36 @@ for update in range(args.num_iterations):
     qpos_reset_r[:, 19] = 0.
     qpos_reset_r[:, 20] = -0.5
 
+
+
     visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
-    # visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
+    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
+
+    view_point_world = np.zeros((200, 3))
+    view_point_world[:, 0] = 0.8
+    view_point_world[:, 1] = 0.2
+    view_point_world[:, 2] = 1.5
+
+    hand_center_w = np.zeros((1, 3))
+    hand_center_w[0, 0] = 0.669872
+    hand_center_w[0, 1] = 0.141735
+    hand_center_w[0, 2] = 1.5  # 1.11052
+
+    wrist_bias = np.zeros((1, 3))
+    wrist_bias[0, 0] = -0.0091
+    wrist_bias[0, 2] = -0.095
+
+    ur5_to_world = np.eye(3)
+    ur5_to_world[0, 0] = -1
+    ur5_to_world[1, 1] = -1
+
+    theta0 = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
+    joint_weights = [1, 1, 1, 1, 1, 1]
 
     for i in range(num_envs):
         get_meaningful_ik = False
         while not get_meaningful_ik:
+            # sample object states
             sample_x = 0.7
             sample_y = 0.2
             while True:
@@ -228,7 +252,7 @@ for update in range(args.num_iterations):
                 sample_x = 0.55 + distance * np.cos(angle)
                 sample_y = 0.75 + distance * np.sin(angle)
                 if sample_y < 0.3:
-                    print(sample_x, sample_y, distance)
+                    # print(sample_x, sample_y, distance)
                     break
             obj_pose_reset[i, 0] = sample_x
             obj_pose_reset[i, 1] = sample_y
@@ -238,55 +262,47 @@ for update in range(args.num_iterations):
             axis_angles = np.zeros((1, 3))
             axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
             quats = rotations.axisangle2quat(axis_angles)
-            # quats[:] = 0
-            # quats[:, 0] = 1
             obj_pose_reset[i, 3:7] = quats
 
-            hand_center_w = np.zeros((1, 3))
-            # hand_center_w[0, 0] = 0.711334
-            # hand_center_w[0, 1] = 0.243815
-            # hand_center_w[0, 2] = 1.34026
-            hand_center_w[0, 0] = 0.669872
-            hand_center_w[0, 1] = 0.141735
-            hand_center_w[0, 2] = 1.5   #1.11052
-
-            obj_aff_center_in_obj = env.affordance_center[i].copy()
+            # get the partial point cloud
             obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
 
-            obj_aff_center_in_world = np.matmul(obj_mat_single, obj_aff_center_in_obj.T).T
-            obj_aff_center_in_world = obj_aff_center_in_world + obj_pose_reset[i, :3]
+            view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
+            view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
+            obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
+            directions = obj_pcd - view_point_obj
+            directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
+            locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
+                                                                                      ray_directions=directions,
+                                                                                      multiple_hits=False)
+            if locations.shape != (200, 3):
+                expanded_locations = np.zeros((200, 3))
+                expanded_locations[:, :] = locations[0, :]
+                expanded_locations[:locations.shape[0], :] = locations
+                locations = expanded_locations
+            visible_points_obj[i, :] = locations
+            visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
 
-            hand_dir_x = hand_center_w - obj_aff_center_in_world
-            hand_dir_x = hand_dir_x / np.linalg.norm(hand_dir_x, axis=1, keepdims=True)
-            hand_dir_x_in_obj = np.matmul(obj_mat_single.T, hand_dir_x.T).T
+            # get the x_dir of the grasping frame
+            obj_aff_center_in_obj = np.mean(visible_points_obj[i].reshape(200,3), axis=0)
+            hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_w - obj_pose_reset[i, :3]).T).T
+            hand_dir_x_in_obj = hand_center_obj - obj_aff_center_in_obj
+            hand_dir_x_in_obj = hand_dir_x_in_obj / np.linalg.norm(hand_dir_x_in_obj, axis=1, keepdims=True)
 
-            rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], hand_dir_x_in_obj, env.affordance_center[i], top=False)
+            target_center[i, :] = obj_aff_center_in_obj - 0.01 * hand_dir_x_in_obj
+            pos = obj_aff_center_in_obj + 0.25 * hand_dir_x_in_obj
+            rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single, top=False)
             if rot is None:
                 hand_dir_x_in_obj[0, :] = 0
                 hand_dir_x_in_obj[0, 2] = 1
-                rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], hand_dir_x_in_obj, env.affordance_center[i], top=True)
+                rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single, top=True)
 
-            wrist_mat = rot
-            # wrist_pose_obj = rotations.axisangle2euler(rot.reshape(-1, 3)).reshape(1, -1)
-            # wrist_mat = rotations.euler2mat(wrist_pose_obj)
-            wrist_in_world = np.matmul(obj_mat_single, wrist_mat)
+            wrist_in_world = np.matmul(obj_mat_single, rot)
             wrist_pose = rotations.mat2euler(wrist_in_world)
             qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
-            # qpos_reset_r[i, 3:6] = wrist_pose[0, :]
 
-            target_center[i, :] = target[:]
-
-            wrist_bias = np.zeros((1, 3))
-            # wrist_bias[0, 0] = -0.0091
-            # wrist_bias[0, 2] = -0.095
-            wrist_bias[0, 0] = -0.0091
-            wrist_bias[0, 2] = -0.085
+            # from grasping frame pos to wrist pos
             wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
-
-            ur5_to_world = np.eye(3)
-            ur5_to_world[0, 0] = -1
-            ur5_to_world[1, 1] = -1
-
             pos_in_ur5 = np.zeros((3, 1))
             pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0.55 + wrist_bias_in_world[0, 0]
             pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0.75152 + wrist_bias_in_world[0, 1]
@@ -301,8 +317,6 @@ for update in range(args.num_iterations):
             gd[1, 3] = pos_in_ur5_new[1, 0]
             gd[2, 3] = pos_in_ur5_new[2, 0]
 
-            theta0 = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
-            joint_weights = [1, 1, 1, 1, 1, 1]
             ik = InverseKinematicsUR5()
             ik.setJointWeights(joint_weights)
             ik.setJointLimits(-3.14, 3.14)
@@ -314,6 +328,7 @@ for update in range(args.num_iterations):
             if math.isnan(qpos_reset_r[i, 0]):
                 continue
             else:
+                # check self collision
                 env.reset_state(qpos_reset_r,
                                 qpos_reset_l,
                                 np.zeros((num_envs, 22), 'float32'),
@@ -332,26 +347,7 @@ for update in range(args.num_iterations):
                 else:
                     get_meaningful_ik = True
 
-        view_point_world = np.zeros((200, 3))
-        view_point_world[:, 0] = 0.8
-        view_point_world[:, 1] = 0.2
-        view_point_world[:, 2] = 1.5
-        view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
-        view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
 
-        obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
-        directions = obj_pcd - view_point_obj
-        directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
-        locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
-                                                                       ray_directions=directions,
-                                                                       multiple_hits=False)
-        # visible_points_obj[i, :] = locations
-        if locations.shape != (200, 3):
-            expanded_locations = np.zeros((200, 3))
-            expanded_locations[:, :] = locations[0, :]
-            expanded_locations[:locations.shape[0], :] = locations
-            locations = expanded_locations
-        visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
     # qpos_reset_r[0, :6] = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
     # obj_pose_reset[0, 0] = 0.7
     # obj_pose_reset[0, 1] = 0.3
@@ -369,12 +365,12 @@ for update in range(args.num_iterations):
     aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
     env.set_joint_sensor_visual(show_point)
     env.update_target(target_center)
-    for step in range(n_steps_r):
+    for step in range(2):
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
 
-        # if step > 0:
-        #     time.sleep(10)
+        if step > 0:
+            time.sleep(2)
 
         encode_obs = torch.from_numpy(obs_r[:, :tobeEncode_dim * t_steps]).to(device)
 

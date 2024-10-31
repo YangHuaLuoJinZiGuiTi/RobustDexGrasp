@@ -52,7 +52,7 @@ namespace raisim {
 
             /// add table
             box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "", raisim::COLLISION(1)));
-            box->setPosition(1.25, 0, 0.3855);
+            box->setPosition(0.75, 0, 0.3855);
             box->setAppearance("0.0 0.0 0.0 0.0");
 
             /// set PD control mode
@@ -219,15 +219,15 @@ namespace raisim {
 
                 /// Create table
                 table_top = server_->addVisualBox("tabletop", 2.0, 1.0, 0.05, 0.44921875, 0.30859375, 0.1953125, 1, "");
-                table_top->setPosition(1.25, 0, 0.746);
+                table_top->setPosition(0.75, 0, 0.746);
                 leg1 = server_->addVisualCylinder("leg1", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
                 leg2 = server_->addVisualCylinder("leg2", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
                 leg3 = server_->addVisualCylinder("leg3", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
                 leg4 = server_->addVisualCylinder("leg4", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
-                leg1->setPosition(0.2625,0.4675,0.373);
-                leg2->setPosition(2.2275,0.4875,0.373);
-                leg3->setPosition(0.2625,-0.4675,0.373);
-                leg4->setPosition(2.2275,-0.4875,0.373);
+                leg1->setPosition(-0.2375,0.4675,0.373);
+                leg2->setPosition(1.7275,0.4875,0.373);
+                leg3->setPosition(-0.2375,-0.4675,0.373);
+                leg4->setPosition(1.7275,-0.4875,0.373);
 
                 /// initialize Cylinders for sensor
                 for(int i = 0; i < num_bodyparts; i++){
@@ -353,7 +353,7 @@ namespace raisim {
                 //obj_pos_init: reset pose of object
 
                 box->clearExternalForcesAndTorques();
-                box->setPosition(1.25, 0, 0.3855);
+                box->setPosition(0.75, 0, 0.3855);
                 box->setOrientation(1,0,0,0);
                 box->setVelocity(0,0,0,0,0,0);
 
@@ -408,7 +408,7 @@ namespace raisim {
             mano_r_->setGeneralizedForce(gen_force);
 
             /// reset table position (only required in case for inference)
-            box->setPosition(1.25, 0, 0.3855);
+            box->setPosition(0.75, 0, 0.3855);
             box->setOrientation(1,0,0,0);
             box->setVelocity(0,0,0,0,0,0);
 

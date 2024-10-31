@@ -295,7 +295,7 @@ for update in range(args.num_iterations):
                 sample_x = 0.55 + distance * np.cos(angle)
                 sample_y = 0.75 + distance * np.sin(angle)
                 if sample_y < 0.3:
-                    print(sample_x, sample_y, distance)
+                    # print(sample_x, sample_y, distance)
                     break
             obj_pose_reset[i, 0] = sample_x
             obj_pose_reset[i, 1] = sample_y
