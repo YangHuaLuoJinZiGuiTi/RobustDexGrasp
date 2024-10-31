@@ -154,7 +154,7 @@ obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
 
-ob_dim_r = 162
+ob_dim_r = 153
 # act_dim = env.num_acts
 act_dim = 22
 print('ob dim', ob_dim_r)
@@ -240,8 +240,18 @@ for update in range(args.num_iterations):
     for i in range(num_envs):
         get_meaningful_ik = False
         while not get_meaningful_ik:
-            obj_pose_reset[i, 0] = np.random.uniform(0.5, 1.1)
-            obj_pose_reset[i, 1] = np.random.uniform(0.0, 0.4)
+            sample_x = 0.7
+            sample_y = 0.2
+            while True:
+                angle = np.random.uniform(0, 2 * np.pi)
+                distance = np.random.uniform(0.45, 0.75)
+                sample_x = 0.55 + distance * np.cos(angle)
+                sample_y = 0.75 + distance * np.sin(angle)
+                if sample_y < 0.3:
+                    print(sample_x, sample_y, distance)
+                    break
+            obj_pose_reset[i, 0] = sample_x
+            obj_pose_reset[i, 1] = sample_y
             obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
             obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
@@ -324,33 +334,24 @@ for update in range(args.num_iterations):
             if math.isnan(qpos_reset_r[i, 0]):
                 continue
             else:
-                get_meaningful_ik = True
+                env.reset_state(qpos_reset_r,
+                                qpos_reset_l,
+                                np.zeros((num_envs, 22), 'float32'),
+                                np.zeros((num_envs, 22), 'float32'),
+                                obj_pose_reset,
+                                )
+                temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
+                temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
+                _, _, _ = env.step(temp_action_r, temp_action_l)
+                global_state = env.get_global_state()
+                one_check = global_state[:, 124:128]
+                contains_one = np.any(one_check == 1, axis=1)
+                true_indices = np.where(contains_one)[0]
+                if len(true_indices) > 0:
+                    continue
+                else:
+                    get_meaningful_ik = True
 
-    # qpos_reset_r[0, :6] = [-1.57, -1.57, 1.57, 1.57, 3.14, -1.57]
-    # env.reset_state(qpos_reset_r,
-    #                 qpos_reset_l,
-    #                 np.zeros((num_envs, 22), 'float32'),
-    #                 np.zeros((num_envs, 22), 'float32'),
-    #                 obj_pose_reset,
-    #                 )
-    # temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
-    # temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
-    # _, _, _ = env.step(temp_action_r, temp_action_l)
-    # global_state = env.get_global_state()
-    # one_check = global_state[:, 124:128]
-    # contains_one = np.any(one_check == 1, axis=1)
-    # # contains_one will be a boolean array where each element is True if the corresponding row in one_check contains 1
-    # true_indices = np.where(contains_one)[0]
-    # for true_idx in true_indices:
-    #     current_obj_idx = true_idx // 3
-    #     current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
-    #     false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
-    #     if len(false_indices)>0:
-    #         chosen_index = np.random.choice(false_indices)
-    #         qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
-    #         obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
-    #     else:
-    #         qpos_reset_r[true_idx, :6] = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,

@@ -248,8 +248,18 @@ for update in range(args.num_iterations):
     for i in range(num_envs):
         get_meaningful_ik = False
         while not get_meaningful_ik:
-            obj_pose_reset[i, 0] = np.random.uniform(0.5, 1.1)
-            obj_pose_reset[i, 1] = np.random.uniform(0.0, 0.4)
+            sample_x = 0.7
+            sample_y = 0.2
+            while True:
+                angle = np.random.uniform(0, 2 * np.pi)
+                distance = np.random.uniform(0.45, 0.75)
+                sample_x = 0.55 + distance * np.cos(angle)
+                sample_y = 0.75 + distance * np.sin(angle)
+                if sample_y < 0.3:
+                    print(sample_x, sample_y, distance)
+                    break
+            obj_pose_reset[i, 0] = sample_x
+            obj_pose_reset[i, 1] = sample_y
             obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
             obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
@@ -331,7 +341,7 @@ for update in range(args.num_iterations):
 
             if math.isnan(qpos_reset_r[i, 0]):
                 continue
-                else:
+            else:
                 env.reset_state(qpos_reset_r,
                                 qpos_reset_l,
                                 np.zeros((num_envs, 22), 'float32'),
@@ -349,28 +359,6 @@ for update in range(args.num_iterations):
                     continue
                 else:
                     get_meaningful_ik = True
-
-                    view_point_world = np.zeros((200, 3))
-                    view_point_world[:, 0] = 0.8
-                    view_point_world[:, 1] = 0.2
-                    view_point_world[:, 2] = 1.5
-                    view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
-                    view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
-
-                    obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
-                    directions = obj_pcd - view_point_obj
-                    directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
-                    locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(
-                        ray_origins=view_point_obj,
-                        ray_directions=directions,
-                        multiple_hits=False)
-                    # visible_points_obj[i, :] = locations
-                    if locations.shape != (200, 3):
-                        expanded_locations = np.zeros((200, 3))
-                        expanded_locations[:, :] = locations[0, :]
-                        expanded_locations[:locations.shape[0], :] = locations
-                        locations = expanded_locations
-                    visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,

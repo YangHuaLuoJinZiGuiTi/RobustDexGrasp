@@ -167,7 +167,7 @@ namespace raisim {
             mano_r_->setGeneralizedCoordinate(Eigen::VectorXd::Zero(gcDim_));
 
             /// MUST BE DONE FOR ALL ENVIRONMENTS
-            obDim_r_ = 111;
+            obDim_r_ = 102;
             obDim_l_ = 1;
             gsDim_ = 128;
             obDouble_r_.setZero(obDim_r_);
@@ -832,9 +832,9 @@ namespace raisim {
                             impulses_r_af,
                             joint_height_w,
                             arm_height_w,
-                            wrist_vel.e(),
-                            wrist_qvel.e(),
-                            target_center_dif_world,
+//                            wrist_vel.e(),
+//                            wrist_qvel.e(),
+//                            target_center_dif_world,
                             hand_center_robot,
                             euler_diff,
                             wrist_euler_current;

@@ -274,8 +274,18 @@ for update in range(args.num_iterations):
     for i in range(num_envs):
         get_meaningful_ik = False
         while not get_meaningful_ik:
-            obj_pose_reset[i, 0] = np.random.uniform(0.5, 1.1)
-            obj_pose_reset[i, 1] = np.random.uniform(0.0, 0.4)
+            sample_x = 0.7
+            sample_y = 0.2
+            while True:
+                angle = np.random.uniform(0, 2 * np.pi)
+                distance = np.random.uniform(0.45, 0.75)
+                sample_x = 0.55 + distance * np.cos(angle)
+                sample_y = 0.75 + distance * np.sin(angle)
+                if sample_y < 0.3:
+                    print(sample_x, sample_y, distance)
+                    break
+            obj_pose_reset[i, 0] = sample_x
+            obj_pose_reset[i, 1] = sample_y
             obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
             obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
@@ -401,7 +411,9 @@ for update in range(args.num_iterations):
             obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
         else:
             qpos_reset_r[true_idx, :6] = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
-
+            obj_pose_reset[true_idx, 0] = 0.7
+            obj_pose_reset[true_idx, 1] = 0.2
+            obj_pose_reset[true_idx, 3:] = [1., -0., -0., 0., 0.]
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
