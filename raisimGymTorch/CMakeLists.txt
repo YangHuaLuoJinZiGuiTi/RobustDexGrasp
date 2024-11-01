@@ -22,11 +22,19 @@ ENDMACRO()
 ####################
 ### dependencies ###
 ####################
-set(Dependencies)
+set(Dependencies -llapack -lblas pinocchio::pinocchio)
 
 add_subdirectory(thirdParty/pybind11 pybind11)
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../thirdParty/Eigen3)
 find_package(Eigen3 CONFIG REQUIRED)
+
+# for IKFast
+find_package(LAPACK REQUIRED)
+find_package(BLAS REQUIRED)
+
+# for pinocchio
+list(APPEND CMAKE_PREFIX_PATH "/opt/openrobots/")
+find_package(pinocchio REQUIRED)
 
 if (APPLE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -99,7 +107,7 @@ FOREACH(subdir ${SUBDIRS})
     if (CMAKE_BUILD_TYPE STREQUAL "DEBUG" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
         message("[RAISIM_GYM] BUILDING THE DEBUG APP for ${subdir}")
         add_executable(${subdir}_debug_app raisimGymTorch/env/debug_app.cpp raisimGymTorch/env/Yaml.cpp)
-        target_link_libraries(${subdir}_debug_app PRIVATE raisim::raisim)
+        target_link_libraries(${subdir}_debug_app PRIVATE raisim::raisim ${Dependencies})
         target_include_directories(${subdir}_debug_app PUBLIC raisimGymTorch/env/envs/${subdir} ${EIGEN3_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env)
         if(WIN32)
             target_link_libraries(${subdir}_debug_app PRIVATE Ws2_32)
