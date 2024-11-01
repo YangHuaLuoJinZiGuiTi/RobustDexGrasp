@@ -10,10 +10,14 @@
 
 /* arm instance */
 #include "arm/UR5Sim.hpp"
+#include "arm/UR5Real.hpp"
 #include "arm/FlyingSim.hpp"
 
 /* hand instance */
 #include "hand/AllegroSim.hpp"
+#include "hand/AllegroReal.hpp"
+#include "hand/LeapSim.hpp"
+#include "hand/LeapReal.hpp"
 
 /* kinematic instance */
 #include "kinematic/Pinocchio.hpp"
@@ -405,11 +409,15 @@ private:
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareArm>()>> arm_map_ = {
         {"ur5_sim", [](){ return std::make_unique<UR5Sim>(); }},
+        {"ur5_real", [](){ return std::make_unique<UR5Real>(); }},
         {"flying_sim", [](){ return std::make_unique<FlyingSim>(); }},
     };
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareHand>()>> hand_map_ = {
         {"allegro_sim", [](){ return std::make_unique<AllegroSim>(); }},
+        {"allegro_real", [](){ return std::make_unique<AllegroReal>(); }},
+        {"leap_sim", [](){ return std::make_unique<LeapSim>(); }},
+        {"leap_real", [](){ return std::make_unique<LeapReal>(); }},
     };
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareKinematic>()>> kinematic_map_ = {
