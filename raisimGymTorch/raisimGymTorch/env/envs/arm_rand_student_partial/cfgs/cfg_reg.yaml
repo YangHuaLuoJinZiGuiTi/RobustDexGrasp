@@ -1,6 +1,18 @@
 seed: 1
 
 environment:
+
+  hardware:
+    kinematic_type: "pinocchio"
+    arm_type: "ur5"                 # IK model in           rsc/${rsc_model}/${arm_type}.urdf
+                                    # IK collision model in rsc/${rsc_model}/${arm_type}.srdf
+    hand_type: "allegro"            # FK model in           rsc/${rsc_model}/${hand_type}.urdf
+    rsc_model: "ur5_allegro"        # simulation model in   rsc/${rsc_model}/${rsc_model}.urdf
+    vis_group_id: "0"               # collision_id in raisim
+    vis_mask_id:  "0,1,2,63"          # collision_mask_id in raisim, 2 is table, 63 is all
+    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
+    flying_hand_mode: False
+
   render: True
   eval_every_n: 500
   update_every_n: 20
