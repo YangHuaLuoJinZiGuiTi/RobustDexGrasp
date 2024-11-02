@@ -24,13 +24,19 @@
 extern "C" std::unique_ptr<HardwareKinematic> createPinocchio();
 
 extern "C" std::unique_ptr<HardwareArm> createFlyingSim();
-extern "C" std::unique_ptr<HardwareArm> createUR5Real();
 extern "C" std::unique_ptr<HardwareArm> createUR5Sim();
+#ifdef BUILD_UR5_REAL
+extern "C" std::unique_ptr<HardwareArm> createUR5Real();
+#endif
 
 extern "C" std::unique_ptr<HardwareHand> createAllegroSim();
-extern "C" std::unique_ptr<HardwareHand> createAllegroReal();
 extern "C" std::unique_ptr<HardwareHand> createLeapSim();
+#ifdef BUILD_ALLEGRO_REAL
+extern "C" std::unique_ptr<HardwareHand> createAllegroReal();
+#endif
+#ifdef BUILD_LEAP_REAL
 extern "C" std::unique_ptr<HardwareHand> createLeapReal();
+#endif
 
 class Hardware
 {
@@ -414,15 +420,21 @@ private:
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareArm>()>> arm_map_ = {
         {"ur5_sim", [](){ return createUR5Sim(); }},
-        //{"ur5_real", [](){ return createUR5Real(); }},
+        #ifdef BUILD_UR5_REAL
+        {"ur5_real", [](){ return createUR5Real(); }},
+        #endif
         {"flying_sim", [](){ return createFlyingSim(); }},
     };
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareHand>()>> hand_map_ = {
         {"allegro_sim", [](){ return createAllegroSim(); }},
-        //{"allegro_real", [](){ return createAllegroReal(); }},
+        #ifdef BUILD_ALLEGRO_REAL
+        {"allegro_real", [](){ return createAllegroReal(); }},
+        #endif
         {"leap_sim", [](){ return createLeapSim(); }},
+        #ifdef BUILD_LEAP_REAL
         {"leap_real", [](){ return createLeapReal(); }},
+        #endif
     };
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareKinematic>()>> kinematic_map_ = {

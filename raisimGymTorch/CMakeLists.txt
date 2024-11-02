@@ -5,6 +5,12 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/en
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env/bin)
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env/bin)
 
+set(BUILD_UR5_REAL          ON)
+set(BUILD_ALLEGRO_REAL      ON)
+set(BUILD_LEAP_REAL         ON)
+set(BUILD_PINOCCHIO         ON)
+set(BUILD_IKFAST            ON)
+
 ######################
 ### help functions ###
 ######################
@@ -19,55 +25,65 @@ MACRO(SUBDIRLIST result curdir)
     SET(${result} ${dirlist})
 ENDMACRO()
 
-####################
-### dependencies ###
-####################
-set(Dependencies 
-    -llapack -lblas             # IKFast
-    ur_rtde::rtde               # UR5 Real
-    pinocchio::pinocchio        # pinocchio
-    ${catkin_LIBRARIES}         # ROS Allegro Real
-    )
-
-set(Includes 
-    ${catkin_INCLUDE_DIRS}      # ROS Allegro Real
-)
-
-set(InstanceFile
-    raisimGymTorch/env/hardware/kinematic/Pinocchio.cpp
-
-    raisimGymTorch/env/hardware/arm/FlyingSim.cpp
-    raisimGymTorch/env/hardware/arm/UR5Sim.cpp
-    raisimGymTorch/env/hardware/arm/UR5Real.cpp
-
-    raisimGymTorch/env/hardware/hand/AllegroReal.cpp
-    raisimGymTorch/env/hardware/hand/AllegroSim.cpp
-    raisimGymTorch/env/hardware/hand/LeapReal.cpp
-    raisimGymTorch/env/hardware/hand/LeapSim.cpp
-)
-
 add_subdirectory(thirdParty/pybind11 pybind11)
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../thirdParty/Eigen3)
 find_package(Eigen3 CONFIG REQUIRED)
 
-# for IKFast
+####################
+### dependencies ###
+####################
+set(Dependencies)
+set(Includes)
+set(InstanceFile
+raisimGymTorch/env/hardware/arm/FlyingSim.cpp
+raisimGymTorch/env/hardware/arm/UR5Sim.cpp
+raisimGymTorch/env/hardware/hand/AllegroSim.cpp
+raisimGymTorch/env/hardware/hand/LeapSim.cpp
+)
+
+# kinematic: IKFast
+if(${BUILD_IKFAST} STREQUAL "ON")
 find_package(LAPACK REQUIRED)
 find_package(BLAS REQUIRED)
+set(Dependencies ${Dependencies} -llapack -lblas)
+add_definitions(-DBUILD_IKFAST)
+endif()
 
-# for real ur5 
-find_package(ur_rtde REQUIRED)
-
-# for pinocchio
-list(APPEND CMAKE_PREFIX_PATH "/opt/openrobots/")
+# kinematic: pinocchio
+if(${BUILD_PINOCCHIO} STREQUAL "ON")
+set(pinocchio_DIR /opt/openrobots/lib/cmake/pinocchio)
 find_package(pinocchio REQUIRED)
+set(Dependencies ${Dependencies} pinocchio::pinocchio)
+set(InstanceFile ${InstanceFile} raisimGymTorch/env/hardware/kinematic/Pinocchio.cpp)
+add_definitions(-DBUILD_PINOCCHIO)
+endif()
 
-# for ROS real allegro
+# arm: UR5 Real
+if(${BUILD_UR5_REAL} STREQUAL "ON")
+find_package(ur_rtde REQUIRED)
+set(Dependencies ${Dependencies} ur_rtde::rtde)
+set(InstanceFile ${InstanceFile} raisimGymTorch/env/hardware/arm/UR5Real.cpp)
+add_definitions(-DBUILD_UR5_REAL)
+endif()
+
+# hand: Allegro Real !!!  catkin_LIBRARIES and catkin_INCLUDE_DIRS  will be conflict with pinocchio
+if(${BUILD_ALLEGRO_REAL} STREQUAL "ON")
 list(APPEND CMAKE_PREFIX_PATH "/opt/ros/noetic")
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   sensor_msgs
 )
+set(InstanceFile ${InstanceFile} raisimGymTorch/env/hardware/hand/AllegroReal.cpp)
+add_definitions(-DBUILD_ALLEGRO_REAL)
+endif()
+
+# hand: Leap Real
+if(${BUILD_LEAP_REAL} STREQUAL "ON")
+set (Dependencies ${Dependencies} ${catkin_LIBRARIES})
+set(InstanceFile ${InstanceFile} raisimGymTorch/env/hardware/hand/LeapReal.cpp)
+add_definitions(-DBUILD_LEAP_REAL)
+endif()
 
 if (APPLE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")

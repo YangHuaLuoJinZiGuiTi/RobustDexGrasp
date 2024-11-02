@@ -3,6 +3,10 @@
 
 #include "Yaml.hpp"
 
+// raisim library
+#include "raisim/World.hpp"
+#include "raisim/math.hpp"
+
 class HardwareKinematic {
 public:
     typedef enum ik_err_code {
