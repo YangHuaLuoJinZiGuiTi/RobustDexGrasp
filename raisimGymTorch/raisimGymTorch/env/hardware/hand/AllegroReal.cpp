@@ -1,11 +1,9 @@
-#ifndef ALLEGRO_REAL_HPP
-#define ALLEGRO_REAL_HPP
-
 #include "../hardwareHand.hpp"
 
-// raisim library
-#include "raisim/World.hpp"
-#include "raisim/math.hpp"
+#include <ros/ros.h>
+#include <sensor_msgs/JointState.h>
+#include <thread>
+#include <chrono>
 
 class AllegroReal : public HardwareHand {
 public:
@@ -16,7 +14,29 @@ public:
         hand_joint_velocity_.setZero(num_joint_);
         
         flying_hand_mode_ = cfg["flying_hand_mode"].As<bool>();
+        freq_hz_ = cfg["allegro_real"]["freq_hz"].As<double>();
+       
+        const char* name = "test_node";
+        char* argv[] = { const_cast<char*>(name) }; 
+        int argc = 1; 
+        ros::init(argc, argv, "joint_state_publisher");
+        for (int i = 0; i < DOF_JOINTS; i++) {
+            cur_joint_state_.name.push_back(joint_names[i]);
+            cur_joint_state_.position.push_back(0.0);
+            cur_joint_state_.velocity.push_back(0.0);
+            cur_joint_state_.effort.push_back(0.0);
+            tar_joint_state_.name.push_back(joint_names[i]);
+            tar_joint_state_.position.push_back(0.0);
+        }
+        
+        nh_ = new ros::NodeHandle();
+        pub_tar_joints = nh_->advertise<sensor_msgs::JointState>("/allegroHand/joint_cmd", 1);
+        sub_cur_joints = nh_->subscribe("/allegroHand/joint_states", 1, &AllegroReal::jointStateCallback, this);
+        subscribe_thread_ = std::thread(&AllegroReal::subscribeLoop, this);
+
+        std::cout << "init finish all !!!" << std::endl;
     }
+
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
         platform_ = platform;
     }
@@ -79,6 +99,61 @@ public:
         }
     }
 
+
+    void publishJointStates(std::vector<double> &tar_pos) {
+        for (int i = 0; i < DOF_JOINTS; i++) {
+            tar_joint_state_.position[i] = tar_pos[i];
+        }
+        pub_tar_joints.publish(tar_joint_state_);
+    }
+
+    void getCurrentStates(std::vector<double> &cur_pos, std::vector<double> &cur_vel) {
+        for (int i = 0; i < DOF_JOINTS; i++) {
+            cur_pos[i] = cur_joint_state_.position[i];
+            cur_vel[i] = cur_joint_state_.velocity[i];
+        }
+    }
+
+    static const int DOF_JOINTS = 16;
+    bool start_get_flag_ = false;
+    double min_limit[DOF_JOINTS] = {
+        -0.47, -0.196, -0.174, -0.227, 
+        -0.47, -0.196, -0.174, -0.227, 
+        -0.47, -0.196, -0.174, -0.227, 
+        0.263, -0.105, -0.189, -0.162
+    };
+    double max_limit[DOF_JOINTS] = {
+        0.47, 1.61, 1.709, 1.618, 
+        0.47, 1.61, 1.709, 1.618, 
+        0.47, 1.61, 1.709, 1.618, 
+        1.396, 1.163, 1.644, 1.719
+    };
+
+    std::string joint_names[DOF_JOINTS] = {
+        "joint_0.0", "joint_1.0", "joint_2.0", "joint_3.0",
+        "joint_4.0", "joint_5.0", "joint_6.0", "joint_7.0",
+        "joint_8.0", "joint_9.0", "joint_10.0", "joint_11.0",
+        "joint_12.0", "joint_13.0", "joint_14.0", "joint_15.0"
+    };
+
+private:
+
+    void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg) {
+        for (int i = 0; i < DOF_JOINTS; i++) {
+            cur_joint_state_.position[i] = msg->position[i];
+            cur_joint_state_.velocity[i] = msg->velocity[i];
+            cur_joint_state_.effort[i] = msg->effort[i];
+        }
+    }
+
+    void subscribeLoop() {
+        ros::Rate rate(freq_hz_);
+        while (ros::ok()) {
+            ros::spinOnce();
+            rate.sleep();
+        }
+    }
+
 private:
     raisim::ArticulatedSystem *platform_;
 
@@ -110,7 +185,17 @@ private:
     "link_5.0", "link_6.0", "link_7.0",
     "link_9.0", "link_10.0", "link_11.0",
     "link_13.0", "link_14.0", "link_15.0"};
+
+    ros::NodeHandle* nh_;
+    ros::Publisher pub_tar_joints;
+    ros::Subscriber sub_cur_joints;
+    sensor_msgs::JointState cur_joint_state_;
+    sensor_msgs::JointState tar_joint_state_;
+    std::thread subscribe_thread_;
+
+    double freq_hz_ = 0.0;
 };
 
-
-#endif //ALLEGRO_REAL_HPP
+extern "C" std::unique_ptr<HardwareHand> createAllegroReal() {
+    return std::make_unique<AllegroReal>();
+}

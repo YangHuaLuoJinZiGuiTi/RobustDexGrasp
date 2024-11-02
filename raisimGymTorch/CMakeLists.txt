@@ -22,7 +22,29 @@ ENDMACRO()
 ####################
 ### dependencies ###
 ####################
-set(Dependencies -llapack -lblas pinocchio::pinocchio)
+set(Dependencies 
+    -llapack -lblas             # IKFast
+    ur_rtde::rtde               # UR5 Real
+    pinocchio::pinocchio        # pinocchio
+    ${catkin_LIBRARIES}         # ROS Allegro Real
+    )
+
+set(Includes 
+    ${catkin_INCLUDE_DIRS}      # ROS Allegro Real
+)
+
+set(InstanceFile
+    raisimGymTorch/env/hardware/kinematic/Pinocchio.cpp
+
+    raisimGymTorch/env/hardware/arm/FlyingSim.cpp
+    raisimGymTorch/env/hardware/arm/UR5Sim.cpp
+    raisimGymTorch/env/hardware/arm/UR5Real.cpp
+
+    raisimGymTorch/env/hardware/hand/AllegroReal.cpp
+    raisimGymTorch/env/hardware/hand/AllegroSim.cpp
+    raisimGymTorch/env/hardware/hand/LeapReal.cpp
+    raisimGymTorch/env/hardware/hand/LeapSim.cpp
+)
 
 add_subdirectory(thirdParty/pybind11 pybind11)
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../thirdParty/Eigen3)
@@ -32,9 +54,20 @@ find_package(Eigen3 CONFIG REQUIRED)
 find_package(LAPACK REQUIRED)
 find_package(BLAS REQUIRED)
 
+# for real ur5 
+find_package(ur_rtde REQUIRED)
+
 # for pinocchio
 list(APPEND CMAKE_PREFIX_PATH "/opt/openrobots/")
 find_package(pinocchio REQUIRED)
+
+# for ROS real allegro
+list(APPEND CMAKE_PREFIX_PATH "/opt/ros/noetic")
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  std_msgs
+  sensor_msgs
+)
 
 if (APPLE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -86,9 +119,10 @@ set(RAISIMGYM_ENV_DIR ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env/envs)
 
 ######## Env ##########
 FOREACH(subdir ${SUBDIRS})
-    pybind11_add_module(${subdir} raisimGymTorch/env/raisim_gym.cpp raisimGymTorch/env/Yaml.cpp)
+    pybind11_add_module(${subdir} raisimGymTorch/env/raisim_gym.cpp raisimGymTorch/env/Yaml.cpp ${InstanceFile})
+
     target_link_libraries(${subdir} PRIVATE raisim::raisim ${Dependencies})
-    target_include_directories(${subdir} PUBLIC ${EIGEN3_INCLUDE_DIRS} ${RAISIMGYM_ENV_DIR}/${subdir} ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env)
+    target_include_directories(${subdir} PUBLIC ${EIGEN3_INCLUDE_DIRS} ${RAISIMGYM_ENV_DIR}/${subdir} ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env ${Includes})
     target_compile_options(${subdir} PRIVATE -fPIC -O3 -flto -mno-avx2)
     target_compile_definitions(${subdir} PRIVATE "-DRAISIMGYM_TORCH_ENV_NAME=${subdir}")
     target_compile_definitions(${subdir} PRIVATE "$<$<CONFIG:Release>:EIGEN_NO_DEBUG>")
@@ -106,9 +140,9 @@ FOREACH(subdir ${SUBDIRS})
 
     if (CMAKE_BUILD_TYPE STREQUAL "DEBUG" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
         message("[RAISIM_GYM] BUILDING THE DEBUG APP for ${subdir}")
-        add_executable(${subdir}_debug_app raisimGymTorch/env/debug_app.cpp raisimGymTorch/env/Yaml.cpp)
+        add_executable(${subdir}_debug_app raisimGymTorch/env/debug_app.cpp raisimGymTorch/env/Yaml.cpp ${InstanceFile})
         target_link_libraries(${subdir}_debug_app PRIVATE raisim::raisim ${Dependencies})
-        target_include_directories(${subdir}_debug_app PUBLIC raisimGymTorch/env/envs/${subdir} ${EIGEN3_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env)
+        target_include_directories(${subdir}_debug_app PUBLIC raisimGymTorch/env/envs/${subdir} ${EIGEN3_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env ${Includes})
         if(WIN32)
             target_link_libraries(${subdir}_debug_app PRIVATE Ws2_32)
         else()

@@ -1,6 +1,3 @@
-#ifndef PINOCCHIO_HPP
-#define PINOCCHIO_HPP
-
 #include "../hardwareKinematic.hpp"
 
 #include "pinocchio/parsers/urdf.hpp"
@@ -17,16 +14,13 @@
 #include "pinocchio/algorithm/geometry.hpp"
 #include "pinocchio/collision/collision.hpp"
 
-// raisim library
-#include "raisim/World.hpp"
-#include "raisim/math.hpp"
-
 // cpp library
 #include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <functional>
+
 class Pinocchio : public HardwareKinematic {
 public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) override {
@@ -193,5 +187,6 @@ private:
   const int TMO_MAX = 30; // maximum number of the cnt of over iterations
 };
 
-
-#endif //PINOCCHIO_HPP
+extern "C" std::unique_ptr<HardwareKinematic> createPinocchio() {
+    return std::make_unique<Pinocchio>();
+}

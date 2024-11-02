@@ -8,19 +8,9 @@
 #ifndef HARDWARE_HPP
 #define HARDWARE_HPP
 
-/* arm instance */
-#include "arm/UR5Sim.hpp"
-#include "arm/UR5Real.hpp"
-#include "arm/FlyingSim.hpp"
-
-/* hand instance */
-#include "hand/AllegroSim.hpp"
-#include "hand/AllegroReal.hpp"
-#include "hand/LeapSim.hpp"
-#include "hand/LeapReal.hpp"
-
-/* kinematic instance */
-#include "kinematic/Pinocchio.hpp"
+#include "hardwareArm.hpp"
+#include "hardwareHand.hpp"
+#include "hardwareKinematic.hpp"
 
 /* cpp library */
 #include <iostream>
@@ -30,6 +20,17 @@
 #include <functional>
 #include <time.h>
 #include <stack>
+
+extern "C" std::unique_ptr<HardwareKinematic> createPinocchio();
+
+extern "C" std::unique_ptr<HardwareArm> createFlyingSim();
+extern "C" std::unique_ptr<HardwareArm> createUR5Real();
+extern "C" std::unique_ptr<HardwareArm> createUR5Sim();
+
+extern "C" std::unique_ptr<HardwareHand> createAllegroSim();
+extern "C" std::unique_ptr<HardwareHand> createAllegroReal();
+extern "C" std::unique_ptr<HardwareHand> createLeapSim();
+extern "C" std::unique_ptr<HardwareHand> createLeapReal();
 
 class Hardware
 {
@@ -102,8 +103,12 @@ public:
      */
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) {
         //std::cout << "set:" << posTarget.transpose() << std::endl;
-        arm_->setPdTarget(posTarget, velTarget);
-        hand_->setPdTarget(posTarget, velTarget);
+        if (real_world_mode_) {
+            arm_->setPdTarget(posTarget.head(arm_dim_), velTarget.head(arm_dim_));
+            hand_->setPdTarget(posTarget.tail(hand_dim_), velTarget.tail(hand_dim_));
+        } else {
+            arm_hand_platform_->setPdTarget(posTarget, velTarget);
+        }
     }
     /**
      * same as `setPdTarget` but solve IK automaticly in simulation arm base Frame
@@ -408,20 +413,20 @@ private:
     bool real_world_mode_ = false;
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareArm>()>> arm_map_ = {
-        {"ur5_sim", [](){ return std::make_unique<UR5Sim>(); }},
-        {"ur5_real", [](){ return std::make_unique<UR5Real>(); }},
-        {"flying_sim", [](){ return std::make_unique<FlyingSim>(); }},
+        {"ur5_sim", [](){ return createUR5Sim(); }},
+        //{"ur5_real", [](){ return createUR5Real(); }},
+        {"flying_sim", [](){ return createFlyingSim(); }},
     };
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareHand>()>> hand_map_ = {
-        {"allegro_sim", [](){ return std::make_unique<AllegroSim>(); }},
-        {"allegro_real", [](){ return std::make_unique<AllegroReal>(); }},
-        {"leap_sim", [](){ return std::make_unique<LeapSim>(); }},
-        {"leap_real", [](){ return std::make_unique<LeapReal>(); }},
+        {"allegro_sim", [](){ return createAllegroSim(); }},
+        //{"allegro_real", [](){ return createAllegroReal(); }},
+        {"leap_sim", [](){ return createLeapSim(); }},
+        {"leap_real", [](){ return createLeapReal(); }},
     };
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareKinematic>()>> kinematic_map_ = {
-        {"pinocchio", [](){ return std::make_unique<Pinocchio>(); }},
+        {"pinocchio", [](){ return createPinocchio(); }},
     };
 };
 

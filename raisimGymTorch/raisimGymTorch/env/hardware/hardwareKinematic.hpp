@@ -19,4 +19,5 @@ public:
     virtual void getFKPos(const std::string &frameName, raisim::Vec<3> &point_W) const = 0;
 };
 
+
 #endif //HARDWARE_KINEMATIC_HPP

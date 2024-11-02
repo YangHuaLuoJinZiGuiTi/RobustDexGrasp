@@ -1,13 +1,10 @@
-#ifndef UR5_REAL_HPP
-#define UR5_REAL_HPP
-
 #include "../hardwareArm.hpp"
 
 // raisim library
 #include "raisim/World.hpp"
 #include "raisim/math.hpp"
 
-class UR5Real : public HardwareArm {
+class UR5Sim : public HardwareArm {
 public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) final override {
         arm_joint_position_.setZero(num_joint_);
@@ -23,11 +20,34 @@ public:
     }
 
     void updateArmState() final override {
-        std::cout << "updateArmState in real UR5: TBD" << std::endl;
+        int gc_dim = platform_->getGeneralizedCoordinateDim();
+        int gv_dim = platform_->getDOF();
+        Eigen::VectorXd gc(gc_dim), gv(gv_dim);
+        platform_->getState(gc, gv);
+        arm_joint_position_ = gc.head(num_joint_);
+        arm_joint_velocity_ = gv.head(num_joint_);
+
+        raisim::Mat<3,3> eef_rot;
+        platform_->getFrameOrientation("Flange2hand_fixed_joint", eef_rot);
+        raisim::Vec<3> eef_eul;
+        raisim::RotmatToEuler(eef_rot, eef_eul);
+        raisim::Vec<3> eef_pos;
+        platform_->getFramePosition("Flange2hand_fixed_joint", eef_pos);
+        eef_pos[0] -= 0.55; 
+        eef_pos[1] -= 0.75152; 
+        eef_pos[2] -= 0.771; 
+        end_effector_pose_.head(3) = eef_pos.e();
+        end_effector_pose_.tail(3) = eef_eul.e();
+
+        raisim::Vec<3> eef_vel, eef_angle_vel;
+        platform_->getFrameVelocity("Flange2hand_fixed_joint", eef_vel);
+        platform_->getFrameAngularVelocity("Flange2hand_fixed_joint", eef_angle_vel);
+        end_effector_velocity_ = eef_vel.e();
+        end_effector_angle_velocity_ = eef_angle_vel.e();
     }
 
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
-        std::cout << "setPdTarget in real UR5: TBD" << std::endl;
+        platform_->setPdTarget(posTarget, velTarget);
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const final override {
@@ -82,4 +102,6 @@ private:
     const std::string contact_bodies_[6] =  {"shoulder_link", "upper_arm_link", "forearm_link", "wrist_1_link", "wrist_2_link", "wrist_3_link"};
 };
 
-#endif //UR5_REAL_HPP
+extern "C" std::unique_ptr<HardwareArm> createUR5Sim() {
+    return std::make_unique<UR5Sim>();
+}

@@ -1,13 +1,10 @@
-#ifndef ALLEGRO_SIM_HPP
-#define ALLEGRO_SIM_HPP
-
 #include "../hardwareHand.hpp"
 
 // raisim library
 #include "raisim/World.hpp"
 #include "raisim/math.hpp"
 
-class AllegroSim : public HardwareHand {
+class LeapSim : public HardwareHand {
 public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) final override {
         wrist_pose_.setZero(6);
@@ -96,25 +93,14 @@ private:
     const double Pgain = 60.0;
     const double Dgain = 0.2;
 
-    const std::string body_parts_flying_[num_bodies_] =  {"z_rotation_joint",
-    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
-    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
-    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
-    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
+    const std::string body_parts_flying_[num_bodies_] =  {"TBD"};
 
-    const std::string body_parts_[num_bodies_] =  {"Flange2hand_fixed_joint",
-    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
-    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
-    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
-    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
+    const std::string body_parts_[num_bodies_] =  {"TBD"};
 
     // for raisim contact check
-    const std::string contact_bodies_[num_contacts_] =  {"wrist_3_link",
-    "link_1.0", "link_2.0", "link_3.0",
-    "link_5.0", "link_6.0", "link_7.0",
-    "link_9.0", "link_10.0", "link_11.0",
-    "link_13.0", "link_14.0", "link_15.0"};
+    const std::string contact_bodies_[num_contacts_] =  {"TBD"};
 };
 
-
-#endif //ALLEGRO_SIM_HPP
+extern "C" std::unique_ptr<HardwareHand> createLeapSim() {
+    return std::make_unique<LeapSim>();
+}

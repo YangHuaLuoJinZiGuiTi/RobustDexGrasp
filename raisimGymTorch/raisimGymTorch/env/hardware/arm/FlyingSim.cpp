@@ -1,6 +1,3 @@
-#ifndef FLYINGSIM_HPP
-#define FLYINGSIM_HPP
-
 #include "../hardwareArm.hpp"
 
 // raisim library
@@ -105,5 +102,6 @@ private:
     const std::string contact_bodies_[1] =  {"None"};
 };
 
-
-#endif //FLYINGSIM_HPP
+extern "C" std::unique_ptr<HardwareArm> createFlyingSim() {
+    return std::make_unique<FlyingSim>();
+}

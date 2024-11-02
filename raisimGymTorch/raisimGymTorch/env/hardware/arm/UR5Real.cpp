@@ -1,13 +1,13 @@
-#ifndef UR5_SIM_HPP
-#define UR5_SIM_HPP
-
 #include "../hardwareArm.hpp"
 
-// raisim library
-#include "raisim/World.hpp"
-#include "raisim/math.hpp"
+#include <ur_rtde/rtde_control_interface.h>
+#include <ur_rtde/rtde_receive_interface.h>
+#include <ur_rtde/rtde_io_interface.h>
 
-class UR5Sim : public HardwareArm {
+#include <thread>
+#include <chrono>
+
+class UR5Real : public HardwareArm {
 public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) final override {
         arm_joint_position_.setZero(num_joint_);
@@ -17,40 +17,35 @@ public:
         end_effector_angle_velocity_.setZero(3);
         arm_init_base_pose_.setZero(6);
         arm_init_base_pose_ << 0.55, 0.75152, 0.0, 0.0, 0.0, 0.0;
+
+        std::string robot_ip = cfg["ur5_real"]["ip"].As<std::string>();
+        double rtde_frequency = cfg["ur5_real"]["freq_hz"].As<double>();
+        double dt = 1.0 / rtde_frequency; // 2ms
+        uint16_t flags = ur_rtde::RTDEControlInterface::FLAG_USE_EXT_UR_CAP;
+
+        rtde_control_ = std::make_unique<ur_rtde::RTDEControlInterface>(robot_ip, rtde_frequency, flags);
+        rtde_receive_ = std::make_unique<ur_rtde::RTDEReceiveInterface>(robot_ip, rtde_frequency);
+
+        move_vel_ = cfg["ur5_real"]["move_vel"].As<double>();
+        move_acc_ = cfg["ur5_real"]["move_acc"].As<double>();
     }
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
         platform_ = platform;
     }
 
     void updateArmState() final override {
-        int gc_dim = platform_->getGeneralizedCoordinateDim();
-        int gv_dim = platform_->getDOF();
-        Eigen::VectorXd gc(gc_dim), gv(gv_dim);
-        platform_->getState(gc, gv);
-        arm_joint_position_ = gc.head(num_joint_);
-        arm_joint_velocity_ = gv.head(num_joint_);
-
-        raisim::Mat<3,3> eef_rot;
-        platform_->getFrameOrientation("Flange2hand_fixed_joint", eef_rot);
-        raisim::Vec<3> eef_eul;
-        raisim::RotmatToEuler(eef_rot, eef_eul);
-        raisim::Vec<3> eef_pos;
-        platform_->getFramePosition("Flange2hand_fixed_joint", eef_pos);
-        eef_pos[0] -= 0.55; 
-        eef_pos[1] -= 0.75152; 
-        eef_pos[2] -= 0.771; 
-        end_effector_pose_.head(3) = eef_pos.e();
-        end_effector_pose_.tail(3) = eef_eul.e();
-
-        raisim::Vec<3> eef_vel, eef_angle_vel;
-        platform_->getFrameVelocity("Flange2hand_fixed_joint", eef_vel);
-        platform_->getFrameAngularVelocity("Flange2hand_fixed_joint", eef_angle_vel);
-        end_effector_velocity_ = eef_vel.e();
-        end_effector_angle_velocity_ = eef_angle_vel.e();
+        std::vector<double> actual_tcp_pose = rtde_receive_->getActualTCPPose();
+        std::vector<double> joint_positions = rtde_receive_->getActualQ();
+        std::vector<double> actual_tcp_speed = rtde_receive_->getActualTCPSpeed();
     }
 
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
-        platform_->setPdTarget(posTarget, velTarget);
+        std::cout << "setPdTarget in real UR5: TBD" << std::endl;
+        std::vector<double> tar_joint_pos;
+        for (int i = 0; i < 6; i++) {
+            tar_joint_pos.push_back(posTarget[i]);
+        }
+        rtde_control_->moveL_FK(tar_joint_pos, move_vel_, move_acc_);
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const final override {
@@ -103,6 +98,14 @@ private:
 
     const std::string body_parts_[6] =  {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
     const std::string contact_bodies_[6] =  {"shoulder_link", "upper_arm_link", "forearm_link", "wrist_1_link", "wrist_2_link", "wrist_3_link"};
+
+    double move_vel_ = 0.0;
+    double move_acc_ = 0.0;
+
+    std::unique_ptr<ur_rtde::RTDEControlInterface> rtde_control_;
+    std::unique_ptr<ur_rtde::RTDEReceiveInterface> rtde_receive_;
 };
 
-#endif //UR5_SIM_HPP
+extern "C" std::unique_ptr<HardwareArm> createUR5Real() {
+    return std::make_unique<UR5Real>();
+}

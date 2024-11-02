@@ -1,13 +1,10 @@
-#ifndef LEAP_SIM_HPP
-#define LEAP_SIM_HPP
-
 #include "../hardwareHand.hpp"
 
 // raisim library
 #include "raisim/World.hpp"
 #include "raisim/math.hpp"
 
-class LeapSim : public HardwareHand {
+class LeapReal : public HardwareHand {
 public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) final override {
         wrist_pose_.setZero(6);
@@ -22,15 +19,11 @@ public:
     }
 
     void updateHandState(const Eigen::VectorXd &eef_pos) final override {
-        wrist_pose_ = eef_pos;
-        Eigen::VectorXd gc(platform_->getGeneralizedCoordinateDim()), gv(platform_->getDOF());
-        platform_->getState(gc, gv);
-        hand_joint_position_ = gc.tail(num_joint_);
-        hand_joint_velocity_ = gv.tail(num_joint_);
+        std::cout << "updateHandState in real Leap: TBD" << std::endl;
 
     }
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
-        platform_->setPdTarget(posTarget, velTarget);
+        std::cout << "setPdTarget in real Leap: TBD" << std::endl;
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int tail_shift) const final override {
@@ -39,16 +32,16 @@ public:
     }
 
     void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) final override {
-        platform_->getFrameOrientation(frameName, orientation_W);
+        std::cout << "getFrameOrientation in real Leap: TBD" << std::endl;
     }
     void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) final override {
-        platform_->getFramePosition(frameName, point_W);
+        std::cout << "getFramePosition in real Leap: TBD" << std::endl;
     }
     void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) final override {
-        platform_->getFrameAngularVelocity(frameName, angVel_W);
+        std::cout << "getFrameAngularVelocity in real Leap: TBD" << std::endl;
     }
     void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) final override {
-        platform_->getFrameVelocity(frameName, vel_W);
+        std::cout << "getFrameVelocity in real Leap: TBD" << std::endl;
     }
     Eigen::VectorXd & getJointVelocity() final override {
         return hand_joint_velocity_;
@@ -96,13 +89,26 @@ private:
     const double Pgain = 60.0;
     const double Dgain = 0.2;
 
-    const std::string body_parts_flying_[num_bodies_] =  {"TBD"};
+    const std::string body_parts_flying_[num_bodies_] =  {"z_rotation_joint",
+    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
+    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
+    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
+    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
 
-    const std::string body_parts_[num_bodies_] =  {"TBD"};
+    const std::string body_parts_[num_bodies_] =  {"Flange2hand_fixed_joint",
+    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
+    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
+    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
+    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
 
     // for raisim contact check
-    const std::string contact_bodies_[num_contacts_] =  {"TBD"};
+    const std::string contact_bodies_[num_contacts_] =  {"wrist_3_link",
+    "link_1.0", "link_2.0", "link_3.0",
+    "link_5.0", "link_6.0", "link_7.0",
+    "link_9.0", "link_10.0", "link_11.0",
+    "link_13.0", "link_14.0", "link_15.0"};
 };
 
-
-#endif //LEAP_SIM_HPP
+extern "C" std::unique_ptr<HardwareHand> createLeapReal() {
+    return std::make_unique<LeapReal>();
+}

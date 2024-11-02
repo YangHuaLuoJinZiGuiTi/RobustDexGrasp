@@ -1,13 +1,10 @@
-#ifndef LEAP_REAL_HPP
-#define LEAP_REAL_HPP
-
 #include "../hardwareHand.hpp"
 
 // raisim library
 #include "raisim/World.hpp"
 #include "raisim/math.hpp"
 
-class LeapReal : public HardwareHand {
+class AllegroSim : public HardwareHand {
 public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) final override {
         wrist_pose_.setZero(6);
@@ -22,11 +19,15 @@ public:
     }
 
     void updateHandState(const Eigen::VectorXd &eef_pos) final override {
-        std::cout << "updateHandState in real Leap: TBD" << std::endl;
+        wrist_pose_ = eef_pos;
+        Eigen::VectorXd gc(platform_->getGeneralizedCoordinateDim()), gv(platform_->getDOF());
+        platform_->getState(gc, gv);
+        hand_joint_position_ = gc.tail(num_joint_);
+        hand_joint_velocity_ = gv.tail(num_joint_);
 
     }
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
-        std::cout << "setPdTarget in real Leap: TBD" << std::endl;
+        platform_->setPdTarget(posTarget, velTarget);
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int tail_shift) const final override {
@@ -35,16 +36,16 @@ public:
     }
 
     void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) final override {
-        std::cout << "getFrameOrientation in real Leap: TBD" << std::endl;
+        platform_->getFrameOrientation(frameName, orientation_W);
     }
     void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) final override {
-        std::cout << "getFramePosition in real Leap: TBD" << std::endl;
+        platform_->getFramePosition(frameName, point_W);
     }
     void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) final override {
-        std::cout << "getFrameAngularVelocity in real Leap: TBD" << std::endl;
+        platform_->getFrameAngularVelocity(frameName, angVel_W);
     }
     void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) final override {
-        std::cout << "getFrameVelocity in real Leap: TBD" << std::endl;
+        platform_->getFrameVelocity(frameName, vel_W);
     }
     Eigen::VectorXd & getJointVelocity() final override {
         return hand_joint_velocity_;
@@ -112,5 +113,6 @@ private:
     "link_13.0", "link_14.0", "link_15.0"};
 };
 
-
-#endif //LEAP_REAL_HPP
+extern "C" std::unique_ptr<HardwareHand> createAllegroSim() {
+    return std::make_unique<AllegroSim>();
+}
