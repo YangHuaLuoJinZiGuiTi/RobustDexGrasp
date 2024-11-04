@@ -58,7 +58,7 @@ namespace raisim {
 
             /// add table
             box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "", raisim::COLLISION(1)));
-            box->setPosition(0.75, 0, 0.3855);
+            box->setPosition(0.2, -0.75152, 0.3855);
             box->setAppearance("0.0 0.0 0.0 0.0");
 
             /// set PD control mode
@@ -74,8 +74,8 @@ namespace raisim {
             raisim::eulerToQuat(euler_base,quat_base);
             raisim::quatToRotMat(quat_base,base_mat);
 
-            base_pos[0] = 0.55;
-            base_pos[1] = 0.75152;
+            base_pos[0] = 0.;
+            base_pos[1] = 0.;
             base_pos[2] = -0.;
             mano_r_->setBasePos(base_pos);
 
@@ -219,15 +219,15 @@ namespace raisim {
 
                 /// Create table
                 table_top = server_->addVisualBox("tabletop", 2.0, 1.0, 0.05, 0.44921875, 0.30859375, 0.1953125, 1, "");
-                table_top->setPosition(0.75, 0, 0.746);
+                table_top->setPosition(0.2, -0.75152, 0.746);
                 leg1 = server_->addVisualCylinder("leg1", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
                 leg2 = server_->addVisualCylinder("leg2", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
                 leg3 = server_->addVisualCylinder("leg3", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
                 leg4 = server_->addVisualCylinder("leg4", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
-                leg1->setPosition(-0.2375,0.4675,0.373);
-                leg2->setPosition(1.7275,0.4875,0.373);
-                leg3->setPosition(-0.2375,-0.4675,0.373);
-                leg4->setPosition(1.7275,-0.4875,0.373);
+                leg1->setPosition(-0.7875,-0.28402,0.373);
+                leg2->setPosition(1.1775,-0.26402,0.373);
+                leg3->setPosition(-0.7875,-1.21902,0.373);
+                leg4->setPosition(1.1775,-1.23902,0.373);
 
                 /// initialize Cylinders for sensor
                 for(int i = 0; i < num_bodyparts; i++){
@@ -353,7 +353,7 @@ namespace raisim {
                 //obj_pos_init: reset pose of object
 
                 box->clearExternalForcesAndTorques();
-                box->setPosition(0.75, 0, 0.3855);
+                box->setPosition(0.2, -0.75152, 0.3855);
                 box->setOrientation(1,0,0,0);
                 box->setVelocity(0,0,0,0,0,0);
 
@@ -403,7 +403,7 @@ namespace raisim {
             mano_r_->setGeneralizedForce(gen_force);
 
             /// reset table position (only required in case for inference)
-            box->setPosition(0.75, 0, 0.3855);
+            box->setPosition(0.2, -0.75152, 0.3855);
             box->setOrientation(1,0,0,0);
             box->setVelocity(0,0,0,0,0,0);
 
@@ -741,31 +741,12 @@ namespace raisim {
             hand_center_w[1] += wrist_pos_w[1];
             hand_center_w[2] += wrist_pos_w[2];
 
-            hand_center_robot[0] = hand_center_w[0] - base_pos[0];
-            hand_center_robot[1] = hand_center_w[1] - base_pos[1];
-            hand_center_robot[2] = hand_center_w[2] - base_pos[2];
+//            hand_center_robot[0] = hand_center_w[0] - base_pos[0];
+//            hand_center_robot[1] = hand_center_w[1] - base_pos[1];
+//            hand_center_robot[2] = hand_center_w[2] - base_pos[2];
 
             target_center_dif_world = target_center - hand_center_w;
             target_center_dif = wrist_mat_r.e().transpose() * target_center_dif_world;
-
-//            std::cout<<"hand_center_robot: "<<hand_center_robot.transpose()<<std::endl;
-//            std::cout<<"target_center_dif_world: "<<target_center_dif_world.transpose()<<std::endl;
-//            std::cout<<"target_center_dif: "<<target_center_dif.transpose()<<std::endl;
-//            target_center_wrist[0] = target_center[0] - wrist_pos_w[0];
-//            target_center_wrist[1] = target_center[1] - wrist_pos_w[1];
-//            target_center_wrist[2] = target_center[2] - wrist_pos_w[2];
-//            target_center_wrist = wrist_mat_r.e().transpose() * target_center_wrist;
-//            target_center_dif = target_center_wrist - hand_center;
-//            target_center_dif_world = wrist_mat_r.e() * target_center_dif;
-
-
-//            raisim::Mat<3,3> target_wrist_in_obj, target_wrist_in_world, target_wrist_in_wrist;
-//            raisim::matmul(obj_rot_w, wrist_mat_r_in_obj_init, target_wrist_in_world);
-//            raisim::matmul(init_or_r_, target_wrist_in_world, target_wrist_in_wrist);
-//            raisim::Vec<3> wrist_target_euler;
-//            raisim::RotmatToEuler(target_wrist_in_wrist, wrist_target_euler);
-//            wrist_target_euler[0] += 1.57;
-//            wrist_target_euler[2] -= 1.57;
 
 
             raisim::transpose(Obj_orientation_temp, Obj_orientation);
@@ -838,7 +819,7 @@ namespace raisim {
 //                            wrist_vel.e(),
 //                            wrist_qvel.e(),
 //                            target_center_dif_world,
-                            hand_center_robot,
+                            hand_center_w,
                             euler_diff,
                             wrist_euler_current;
 //                            target_center,

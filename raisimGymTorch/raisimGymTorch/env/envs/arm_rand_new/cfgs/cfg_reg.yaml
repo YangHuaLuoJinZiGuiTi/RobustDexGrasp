@@ -26,7 +26,8 @@ environment:
   new_category: False
   load_set: "mixed_train"
 #  hand_model_r: "allegro.urdf"
-  hand_model_r: "ur5_allegro.urdf"
+#  hand_model_r: "ur5_allegro.urdf"
+  hand_model_r: "ur5_allegro_ori.urdf"
   finger_action_std: 0.015
   rot_action_std: 0.01
   reward:

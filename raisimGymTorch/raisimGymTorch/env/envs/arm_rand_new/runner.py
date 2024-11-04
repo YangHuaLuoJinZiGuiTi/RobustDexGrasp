@@ -227,8 +227,8 @@ for update in range(args.num_iterations):
     qpos_reset_r[:, 20] = -0.5
 
     hand_center_w = np.zeros((1, 3))
-    hand_center_w[0, 0] = 0.669872
-    hand_center_w[0, 1] = 0.141735
+    hand_center_w[0, 0] = 0.669872 - 0.55
+    hand_center_w[0, 1] = 0.141735 - 0.75152
     hand_center_w[0, 2] = 1.5  # 1.11052
 
     wrist_bias = np.zeros((1, 3))
@@ -236,37 +236,39 @@ for update in range(args.num_iterations):
     wrist_bias[0, 2] = -0.085
 
     ur5_to_world = np.eye(3)
-    ur5_to_world[0, 0] = -1
-    ur5_to_world[1, 1] = -1
+    ur5_to_world[0, 0] = 0
+    ur5_to_world[0, 1] = -1
+    ur5_to_world[1, 0] = 1
+    ur5_to_world[1, 1] = 0
 
-    theta0 = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
+    theta0 = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
     joint_weights = [1, 1, 1, 1, 1, 1]
 
 
 
-    partial_obs = False
+    partial_obs = True
 
     if partial_obs:
         visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
         visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
 
         view_point_world = np.zeros((200, 3))
-        view_point_world[:, 0] = 0.8
-        view_point_world[:, 1] = 0.2
+        view_point_world[:, 0] = 0.8 - 0.55
+        view_point_world[:, 1] = 0.2 - 0.75152
         view_point_world[:, 2] = 1.5
 
         for i in range(num_envs):
             get_meaningful_ik = False
             while not get_meaningful_ik:
                 # sample object states
-                sample_x = 0.7
-                sample_y = 0.2
+                sample_x = 0.15
+                sample_y = 0.2 - 0.75152
                 while True:
                     angle = np.random.uniform(0, 2 * np.pi)
                     distance = np.random.uniform(0.45, 0.75)
-                    sample_x = 0.55 + distance * np.cos(angle)
-                    sample_y = 0.75 + distance * np.sin(angle)
-                    if sample_y < 0.3:
+                    sample_x = distance * np.cos(angle)
+                    sample_y = distance * np.sin(angle)
+                    if sample_y < 0.3 - 0.75152:
                         # print(sample_x, sample_y, distance)
                         break
                 obj_pose_reset[i, 0] = sample_x
@@ -321,8 +323,8 @@ for update in range(args.num_iterations):
                 # from grasping frame pos to wrist pos
                 wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
                 pos_in_ur5 = np.zeros((3, 1))
-                pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0.55 + wrist_bias_in_world[0, 0]
-                pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0.75152 + wrist_bias_in_world[0, 1]
+                pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0. + wrist_bias_in_world[0, 0]
+                pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0. + wrist_bias_in_world[0, 1]
                 pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
                 pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
 
@@ -350,14 +352,14 @@ for update in range(args.num_iterations):
         for i in range(num_envs):
             get_meaningful_ik = False
             while not get_meaningful_ik:
-                sample_x = 0.7
-                sample_y = 0.2
+                sample_x = 0.15
+                sample_y = 0.2 - 0.75152
                 while True:
                     angle = np.random.uniform(0, 2 * np.pi)
                     distance = np.random.uniform(0.45, 0.75)
-                    sample_x = 0.55 + distance * np.cos(angle)
-                    sample_y = 0.75 + distance * np.sin(angle)
-                    if sample_y < 0.3:
+                    sample_x = distance * np.cos(angle)
+                    sample_y = distance * np.sin(angle)
+                    if sample_y < 0.3 - 0.75152:
                         # print(sample_x, sample_y, distance)
                         break
                 obj_pose_reset[i, 0] = sample_x
@@ -399,8 +401,8 @@ for update in range(args.num_iterations):
                 wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
 
                 pos_in_ur5 = np.zeros((3, 1))
-                pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0.55 + wrist_bias_in_world[0, 0]
-                pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0.75152 + wrist_bias_in_world[0, 1]
+                pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0. + wrist_bias_in_world[0, 0]
+                pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0. + wrist_bias_in_world[0, 1]
                 pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
                 pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
 

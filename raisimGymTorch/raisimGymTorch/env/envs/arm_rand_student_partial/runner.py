@@ -29,7 +29,7 @@ from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, tra
 
 exp_name = "arm_rand_student"
 
-weight_saved = '/../../arm_rand/2024-10-29-18-45-29/full_11500_r.pt'
+weight_saved = '/../../arm_rand/2024-10-31-16-43-20/full_50000_r.pt'
 weight_path_student = '2024-10-28-14-49-02/full_1000_r.pt'
 
 
@@ -272,13 +272,13 @@ for update in range(args.num_iterations):
     visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
 
     view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = 0.8
-    view_point_world[:, 1] = 0.2
+    view_point_world[:, 0] = 0.8 - 0.55
+    view_point_world[:, 1] = 0.2 - 0.75152
     view_point_world[:, 2] = 1.5
 
     hand_center_w = np.zeros((1, 3))
-    hand_center_w[0, 0] = 0.669872
-    hand_center_w[0, 1] = 0.141735
+    hand_center_w[0, 0] = 0.669872 - 0.55
+    hand_center_w[0, 1] = 0.141735 - 0.75152
     hand_center_w[0, 2] = 1.5  # 1.11052
 
     wrist_bias = np.zeros((1, 3))
@@ -286,24 +286,26 @@ for update in range(args.num_iterations):
     wrist_bias[0, 2] = -0.095
 
     ur5_to_world = np.eye(3)
-    ur5_to_world[0, 0] = -1
-    ur5_to_world[1, 1] = -1
+    ur5_to_world[0, 0] = 0
+    ur5_to_world[0, 1] = -1
+    ur5_to_world[1, 0] = 1
+    ur5_to_world[1, 1] = 0
 
-    theta0 = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
+    theta0 = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
     joint_weights = [1, 1, 1, 1, 1, 1]
 
     for i in range(num_envs):
         get_meaningful_ik = False
         while not get_meaningful_ik:
             # sample object states
-            sample_x = 0.7
-            sample_y = 0.2
+            sample_x = 0.15
+            sample_y = 0.2 - 0.75152
             while True:
                 angle = np.random.uniform(0, 2 * np.pi)
                 distance = np.random.uniform(0.45, 0.75)
-                sample_x = 0.55 + distance * np.cos(angle)
-                sample_y = 0.75 + distance * np.sin(angle)
-                if sample_y < 0.3:
+                sample_x = distance * np.cos(angle)
+                sample_y = distance * np.sin(angle)
+                if sample_y < 0.3 - 0.75152:
                     # print(sample_x, sample_y, distance)
                     break
             obj_pose_reset[i, 0] = sample_x
@@ -358,8 +360,8 @@ for update in range(args.num_iterations):
             # from grasping frame pos to wrist pos
             wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
             pos_in_ur5 = np.zeros((3, 1))
-            pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0.55 + wrist_bias_in_world[0, 0]
-            pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0.75152 + wrist_bias_in_world[0, 1]
+            pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0. + wrist_bias_in_world[0, 0]
+            pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0. + wrist_bias_in_world[0, 1]
             pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
             pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
 
@@ -407,9 +409,9 @@ for update in range(args.num_iterations):
             qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
             obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
         else:
-            qpos_reset_r[true_idx, :6] = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
-            obj_pose_reset[true_idx, 0] = 0.7
-            obj_pose_reset[true_idx, 1] = 0.2
+            qpos_reset_r[true_idx, :6] = [0, -1.57, 1.57, 0., 1.57, -1.57]
+            obj_pose_reset[true_idx, 0] = 0.15
+            obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
             # obj_pose_reset[true_idx, 3:] = [1., -0., -0., 0., 0.]
 
     env.reset_state(qpos_reset_r,
