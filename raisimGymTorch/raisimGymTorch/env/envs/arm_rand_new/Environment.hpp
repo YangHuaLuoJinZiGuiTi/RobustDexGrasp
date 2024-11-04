@@ -52,13 +52,10 @@ namespace raisim {
             mano_r_->setName("Allegro");
 //            hand_mass = mano_r_->getTotalMass();
 
-            mano_r_->getArmBodyParts(arm_parts);
-            mano_r_->getArmContactBodies(contact_arm_bodies);
-            mano_r_->getHandBodyParts(body_parts_r_);
-            mano_r_->getHandContactBodies(contact_bodies_r_);
-            num_contacts = mano_r_->getNumContacts();
-            num_bodyparts = mano_r_->getNumBodies();
-
+            num_contacts = mano_r_->getBodies(contact_bodies_r_, false, true);
+            num_bodyparts = mano_r_->getBodies(body_parts_r_, false, false);
+            mano_r_->getBodies(contact_arm_bodies, true, true);
+            mano_r_->getBodies(arm_parts, true, false);
 
             /// add table
             box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "", raisim::COLLISION(1)));

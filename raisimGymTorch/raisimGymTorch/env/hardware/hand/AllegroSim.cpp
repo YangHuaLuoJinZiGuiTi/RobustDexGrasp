@@ -56,27 +56,25 @@ public:
     const int getDim() const final override {
         return num_joint_;
     }
-    const int getNumContacts() const final override {
-        return num_contacts_;
-    }
-    const int getNumBodies() const final override {
-        return num_bodies_;
-    }
     const int getNumFinger() const final override {
         return num_finger_;
     }
-    void getBodyParts(std::vector<std::string> & get_vec) const final override {
-        for (int i = 0; i < num_bodies_; i++) {
-            if (flying_hand_mode_) {
-                get_vec.push_back(body_parts_flying_[i]);
-            } else {
-                get_vec.push_back(body_parts_[i]);
+    
+    int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const final override {
+        if (contact_flag) {
+            for (int i = 0; i < num_contacts_; i++) {
+                get_vec.push_back(contact_bodies_[i]);
             }
-        }
-    }
-    void getContactBodies(std::vector<std::string> & get_vec) const final override {
-        for (int i = 0; i < num_contacts_; i++) {
-            get_vec.push_back(contact_bodies_[i]);
+            return num_contacts_;
+        } else {
+            for (int i = 0; i < num_bodies_; i++) {
+                if (flying_hand_mode_) {
+                    get_vec.push_back(body_parts_flying_[i]);
+                } else {
+                    get_vec.push_back(body_parts_[i]);
+                }
+            }
+            return num_bodies_;
         }
     }
 

@@ -24,17 +24,15 @@ public:
     virtual void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) = 0;
     virtual void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) = 0;
     virtual const int getDim() const = 0;
-    virtual const int getNumContacts() const = 0;
-    virtual const int getNumBodies() const = 0;
     virtual const int getNumFinger() const = 0;
-    virtual void getBodyParts(std::vector<std::string> & get_vec) const = 0;
-    virtual void getContactBodies(std::vector<std::string> & get_vec) const = 0;
+    virtual int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const = 0;
 
     virtual ~HardwareHand() = default;
 
     // value updated after using updateHandState()
     std::vector<raisim::Mat<3, 3>> frame_orientation_;
     std::vector<raisim::Vec<3>> frame_position_;
+    // wrist pose in world frame
     Eigen::VectorXd wrist_pose_;
     Eigen::VectorXd wrist_velocity_;
     Eigen::VectorXd hand_joint_position_;

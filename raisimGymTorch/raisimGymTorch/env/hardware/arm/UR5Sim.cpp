@@ -54,15 +54,18 @@ public:
         pgain.head(head_shift).setConstant(Pgain);
         dgain.head(head_shift).setConstant(Dgain);
     }
-    
-    void getBodyParts(std::vector<std::string> & get_vec) const final override {
-        for (int i = 0; i < 6; i++) {
-            get_vec.push_back(body_parts_[i]);
-        }
-    }
-    void getContactBodies(std::vector<std::string> & get_vec) const final override {
-        for (int i = 0; i < 6; i++) {
-            get_vec.push_back(contact_bodies_[i]);
+
+    int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const final override {
+        if (contact_flag) {
+            for (int i = 0; i < 6; i++) {
+                get_vec.push_back(contact_bodies_[i]);
+            }
+            return 6;
+        } else {
+            for (int i = 0; i < 6; i++) {
+                get_vec.push_back(body_parts_[i]);
+            }
+            return 6;
         }
     }
 
