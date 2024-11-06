@@ -47,7 +47,7 @@ exp_name = "arm_rand_student"
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
 weight_saved = './../arm_rand/2024-10-30-11-03-11/full_17000_r.pt'
 
-weight_path_student = '2024-11-04-12-24-59/full_1500_r.pt'
+weight_path_student = '2024-11-04-12-24-59/full_9500_r.pt'
 
 
 # configuration
@@ -165,10 +165,10 @@ aff_vec_dim = 54
 total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 
 # Training
-trail_steps = 80
 reward_clip = -2.0
-grasp_steps = 100
-n_steps_r = grasp_steps + trail_steps
+grasp_steps = 120
+lift_steps = 100
+n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
 # RL network
@@ -349,12 +349,6 @@ for update in range(args.num_iterations):
                 else:
                     get_meaningful_ik = True
 
-
-    # qpos_reset_r[0, :6] = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
-    # obj_pose_reset[0, 0] = 0.7
-    # obj_pose_reset[0, 1] = 0.3
-    # obj_pose_reset[0, 3:] = [1., -0., -0., 0., 0.]
-
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
                     np.zeros((num_envs, 22), 'float32'),
@@ -367,6 +361,9 @@ for update in range(args.num_iterations):
     aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
     env.set_joint_sensor_visual(show_point)
     env.update_target(target_center)
+
+    final_actions = np.zeros((num_envs, act_dim), dtype='float32')
+
     for step in range(n_steps_r):
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
@@ -386,6 +383,16 @@ for update in range(args.num_iterations):
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
         # action_r[:, :6] = 0
+
+
+        if step < grasp_steps:
+            final_actions = action_r
+        else:
+            action_r = final_actions
+            action_r[:, :6] = theta0
+            if step == grasp_steps:
+                print("lift")
+                env.switch_root_guidance(True)
 
         frame_start = time.time()
 

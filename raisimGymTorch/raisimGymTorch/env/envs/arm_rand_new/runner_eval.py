@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
+from sympy.abc import theta
+
 from raisimGymTorch.env.bin import arm_rand_new as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
@@ -54,6 +56,7 @@ exp_name = "arm_rand"
 # weight_saved = '2024-10-31-14-38-19/full_50000_r.pt'
 # weight_saved = '2024-10-31-16-40-52/full_50000_r.pt'
 weight_saved = '2024-10-31-16-43-20/full_50000_r.pt'
+# weight_saved = '2024-11-04-16-42-02/full_11500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -164,10 +167,10 @@ print('ob dim', ob_dim_r)
 print('act dim', act_dim)
 
 # Training
-trail_steps = 0
 reward_clip = -2.0
-grasp_steps = 100
-n_steps_r = grasp_steps + trail_steps
+grasp_steps = 120
+lift_steps = 100
+n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
 # RL network
@@ -471,6 +474,9 @@ for update in range(args.num_iterations):
     show_point = dis_info[:, 17:68].astype('float32').copy()
     env.set_joint_sensor_visual(show_point)
     env.update_target(target_center)
+
+    final_actions = np.zeros((num_envs, act_dim), dtype='float32')
+
     for step in range(n_steps_r):
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
@@ -482,6 +488,15 @@ for update in range(args.num_iterations):
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
         # action_r[:, :6] = 0
+
+        if step < grasp_steps:
+            final_actions = action_r
+        else:
+            action_r = final_actions
+            action_r[:, :6] = theta0
+            if step == grasp_steps:
+                print("lift")
+                env.switch_root_guidance(True)
 
         frame_start = time.time()
 

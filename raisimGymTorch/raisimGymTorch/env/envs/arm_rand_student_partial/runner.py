@@ -128,10 +128,8 @@ env.load_multi_articulated(obj_path_list)
 
 
 # Training
-trail_steps = 80
 reward_clip = -2.0
-grasp_steps = 100
-n_steps_r = grasp_steps + trail_steps
+n_steps_r = 120
 total_steps_r = n_steps_r * env.num_envs
 
 # print(env.num_envs)

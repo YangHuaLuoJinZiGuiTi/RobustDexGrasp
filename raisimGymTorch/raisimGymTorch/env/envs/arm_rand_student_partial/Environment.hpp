@@ -30,6 +30,7 @@ namespace raisim {
                 std::cout<<"visualizable_: "<<visualizable_<<std::endl;
             }
             lift = false;
+            lift_num = 0;
 
             /// create world
             world_ = std::make_unique<raisim::World>();
@@ -101,6 +102,7 @@ namespace raisim {
             actionMean_r_.setZero(actionDim_);
             actionStd_r_.setOnes(actionDim_);
             joint_limit_high.setZero(actionDim_); joint_limit_low.setZero(actionDim_);
+            arm_gc_lift.setZero(6);
 
             right_hand_torque.setZero(gcDim_);
 
@@ -339,6 +341,7 @@ namespace raisim {
             }
             else{
                 lift = false;
+                lift_num = 0;
 //                std::cout<<"reset!!!!!!!!!!!!!!!!!!!!"<<std::endl;
                 /// all settings to initial state configuration
                 actionMean_r_.setZero();
@@ -394,6 +397,7 @@ namespace raisim {
                          const Eigen::Ref<EigenVec>& init_vel_l,
                          const Eigen::Ref<EigenVec>& obj_pose) final {
             lift = false;
+            lift_num = 0;
             obs_history.clear();
             /// reset gains (only required in case for inference)
             mano_r_->setPdGains(0);
@@ -533,6 +537,11 @@ namespace raisim {
             pTarget_r_ = action_r.cast<double>();
             pTarget_r_ = pTarget_r_.cwiseProduct(actionStd_r_); //residual action * scaling
             pTarget_r_ += actionMean_r_; //add wrist bias (first 3DOF) and last pose (23DoF)
+            if (lift){
+                lift_num += 1;
+                if(lift_num > 80) lift_num = 80;
+                pTarget_r_.head(6) = arm_gc_lift + (action_r.cast<double>().head(6) - arm_gc_lift) * lift_num / 80;
+            }
 
             /// Clip targets to limits
 
@@ -890,6 +899,8 @@ namespace raisim {
         void set_rootguidance() final {}
         void switch_root_guidance(bool is_on) {
             lift = true;
+            arm_gc_lift = gc_r_.head(6);
+            lift_num = 0;
         }
         /// Since the episode lengths are fixed, this function is used to catch instabilities in simulation and reset the env in such cases
         bool isTerminalState(float& terminalReward) final {
@@ -942,6 +953,7 @@ namespace raisim {
         bool unseen = false;
         bool new_category = false;
         bool lift = false;
+        int lift_num = 0;
         raisim::ArticulatedSystem* mano_;
         Eigen::VectorXd gc_r_, gv_r_, pTarget_r_, vTarget_r_, gc_set_r_, gv_set_r_;
         Eigen::VectorXd obj_pos_init_;
@@ -975,7 +987,7 @@ namespace raisim {
         Eigen::Vector3d init_center;
         Eigen::VectorXd joint_limit_high, joint_limit_low;
         Eigen::VectorXd impulse_high, impulse_low;
-        Eigen::VectorXd actionMean_r_, actionStd_r_;
+        Eigen::VectorXd actionMean_r_, actionStd_r_, arm_gc_lift;
         Eigen::VectorXd obDouble_r_, obDouble_l_, global_state_, ob_delay_r, ob_concat_r;
         Eigen::VectorXd finger_weights_contact, finger_weights_aff;
         Eigen::VectorXd contacts_r_af, impulses_r_af;

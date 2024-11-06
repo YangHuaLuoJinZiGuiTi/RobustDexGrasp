@@ -135,10 +135,8 @@ print('ob dim', ob_dim_r)
 print('act dim', act_dim)
 
 # Training
-trail_steps = 80
 reward_clip = -2.0
-grasp_steps = 100
-n_steps_r = grasp_steps + trail_steps
+n_steps_r = 120
 total_steps_r = n_steps_r * env.num_envs
 
 # print(env.num_envs)
@@ -428,12 +426,6 @@ for update in range(args.num_iterations):
                     get_meaningful_ik = True
 
 
-
-
-
-
-
-
     # check self collision
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -457,9 +449,9 @@ for update in range(args.num_iterations):
             qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
             obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
         else:
-            qpos_reset_r[true_idx, :6] = [-1.57, -1.57, 1.57, 0., 1.57, -1.57]
-            obj_pose_reset[true_idx, 0] = 0.7
-            obj_pose_reset[true_idx, 1] = 0.2
+            qpos_reset_r[true_idx, :6] = [0, -1.57, 1.57, 0., 1.57, -1.57]
+            obj_pose_reset[true_idx, 0] = 0.15
+            obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
             # obj_pose_reset[true_idx, 3:] = [1., -0., -0., 0., 0.]
 
     env.reset_state(qpos_reset_r,
