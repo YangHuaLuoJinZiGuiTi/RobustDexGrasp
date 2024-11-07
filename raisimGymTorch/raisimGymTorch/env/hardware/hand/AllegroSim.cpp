@@ -26,7 +26,7 @@ public:
         hand_joint_velocity_ = gv.tail(num_joint_);
 
     }
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) final override {
         platform_->setPdTarget(posTarget, velTarget);
     }
 
@@ -35,18 +35,6 @@ public:
         dgain.tail(tail_shift).setConstant(Dgain);
     }
 
-    void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) final override {
-        platform_->getFrameOrientation(frameName, orientation_W);
-    }
-    void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) final override {
-        platform_->getFramePosition(frameName, point_W);
-    }
-    void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) final override {
-        platform_->getFrameAngularVelocity(frameName, angVel_W);
-    }
-    void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) final override {
-        platform_->getFrameVelocity(frameName, vel_W);
-    }
     Eigen::VectorXd & getJointVelocity() final override {
         return hand_joint_velocity_;
     }
@@ -78,6 +66,22 @@ public:
         }
     }
 
+    std::string changeLinkToJointName(std::string frameName) const final override {
+        if (!frameName.compare("Flange_base_link")) {
+            return std::string("Flange2hand_fixed_joint");
+        } else if (!frameName.compare("link_3.0_tip")) {
+            return std::string("joint_3.0_tip");
+        } else if (!frameName.compare("link_7.0_tip")) {
+            return std::string("joint_7.0_tip");
+        } else if (!frameName.compare("link_11.0_tip")) {
+            return std::string("joint_11.0_tip");
+        } else if (!frameName.compare("link_15.0_tip")) {
+            return std::string("joint_15.0_tip");
+        } else {
+            return frameName;
+        }
+    }
+
 private:
     raisim::ArticulatedSystem *platform_;
 
@@ -97,11 +101,11 @@ private:
     "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
     "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
 
-    const std::string body_parts_[num_bodies_] =  {"Flange2hand_fixed_joint",
-    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
-    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
-    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
-    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
+    const std::string body_parts_[num_bodies_] =  {"Flange_base_link",
+    "joint_1.0", "joint_2.0", "joint_3.0", "link_3.0_tip",
+    "joint_5.0", "joint_6.0", "joint_7.0", "link_7.0_tip",
+    "joint_9.0", "joint_10.0", "joint_11.0", "link_11.0_tip",
+    "joint_13.0", "joint_14.0", "joint_15.0", "link_15.0_tip"};
 
     // for raisim contact check
     const std::string contact_bodies_[num_contacts_] =  {"wrist_3_link",

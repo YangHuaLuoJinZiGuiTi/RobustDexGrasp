@@ -22,7 +22,7 @@ public:
         std::cout << "updateHandState in real Leap: TBD" << std::endl;
 
     }
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) final override {
         std::cout << "setPdTarget in real Leap: TBD" << std::endl;
     }
 
@@ -31,18 +31,6 @@ public:
         dgain.tail(tail_shift).setConstant(Dgain);
     }
 
-    void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) final override {
-        std::cout << "getFrameOrientation in real Leap: TBD" << std::endl;
-    }
-    void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) final override {
-        std::cout << "getFramePosition in real Leap: TBD" << std::endl;
-    }
-    void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) final override {
-        std::cout << "getFrameAngularVelocity in real Leap: TBD" << std::endl;
-    }
-    void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) final override {
-        std::cout << "getFrameVelocity in real Leap: TBD" << std::endl;
-    }
     Eigen::VectorXd & getJointVelocity() final override {
         return hand_joint_velocity_;
     }
@@ -67,6 +55,10 @@ public:
             }
             return num_bodies_;
         }
+    }
+
+    std::string changeLinkToJointName(std::string frameName) const final override {
+        return frameName;
     }
 
 private:

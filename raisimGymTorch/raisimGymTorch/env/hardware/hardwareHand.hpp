@@ -14,18 +14,15 @@ public:
     virtual void setSimPlatform(raisim::ArticulatedSystem *platform) = 0; // only use in simulation mode
 
     virtual void updateHandState(const Eigen::VectorXd &eef_pos) = 0;
-    virtual void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const = 0;
+    virtual void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) = 0;
 
     virtual void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int tail_shift) const = 0;
     virtual Eigen::VectorXd & getJointPosition() = 0;
     virtual Eigen::VectorXd & getJointVelocity() = 0;
-    virtual void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) = 0;
-    virtual void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) = 0;
-    virtual void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) = 0;
-    virtual void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) = 0;
     virtual const int getDim() const = 0;
     virtual const int getNumFinger() const = 0;
     virtual int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const = 0;
+    virtual std::string changeLinkToJointName(std::string frameName) const = 0;
 
     virtual ~HardwareHand() = default;
 

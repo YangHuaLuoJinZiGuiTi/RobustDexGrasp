@@ -73,7 +73,7 @@ public:
             mask = mask | raisim::COLLISION(std::stoi(token));
         }
         arm_hand_platform_ = world->addArticulatedSystem(
-            rsc_pth_simplify + "/" + cfg["rsc_model"].As<std::string>() + "/" + cfg["rsc_model"].As<std::string>() + ".urdf", "", {},
+            rsc_pth_simplify + "/" + cfg["rsc_model"].As<std::string>() + "/" + cfg["sim_model"].As<std::string>() + ".urdf", "", {},
             raisim::COLLISION(std::stoi(cfg["vis_group_id"].As<std::string>())), mask);
         //arm_hand_platform_->setName("arm_hand_platform_");
         
@@ -146,9 +146,19 @@ public:
         arm_->updateArmState();
         Eigen::VectorXd eef_pos = arm_->getEefPose();
         hand_->updateHandState(eef_pos);
+        Eigen::VectorXd now_joint(platform_gc_dim_);
+        now_joint.head(arm_dim_) = arm_->getJointPosition();
+        now_joint.tail(hand_dim_) = hand_->getJointPosition();
+
+        Eigen::VectorXd pinocchio_joint = now_joint;
+        for (int i = 0; i < 4; i++) {
+            pinocchio_joint[10 + i] = now_joint[18 + i];
+            pinocchio_joint[14 + i] = now_joint[10 + i];
+            pinocchio_joint[18 + i] = now_joint[14 + i];
+        }
+
         if (false == flying_hand_mode_) {
-            Eigen::VectorXd current_hand_q = hand_->getJointPosition();
-            kinematic_->updateHandFK(current_hand_q, eef_pos);
+            kinematic_->updateURDFFK(pinocchio_joint);
         }
     }
 
@@ -303,12 +313,12 @@ public:
     }
 
     /**
-     * Get orientation in sim world frame or real arm base frame
+     * Get orientation in sim world frame or real arm base frame [only used for wrist]
      * @param[in] frameName the name of the frame
      * @param[out] orientation_W the rotation of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) {
-        hand_->getFrameOrientation(frameName, orientation_W);
+        kinematic_->getFrameOrientation(frameName, orientation_W);
     }
 
     /**
@@ -317,25 +327,25 @@ public:
      * @param[out] orientation_W the position of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) {
-        hand_->getFramePosition(frameName, point_W);
+        kinematic_->getFramePosition(frameName, point_W);
     }
 
     /**
-     * Get angular velocity in sim world frame or real arm base frame
+     * Get angular velocity in sim world frame or real arm base frame [only used while training. so more accurate is better]
      * @param[in] frameName the name of the frame
      * @param[out] orientation_W the angular velocity of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) {
-        hand_->getFrameAngularVelocity(frameName, angVel_W);
+        arm_hand_platform_->getFrameAngularVelocity(hand_->changeLinkToJointName(frameName), angVel_W);
     }
 
     /**
-     * Get linear velocity in sim world frame or real arm base frame
+     * Get linear velocity in sim world frame or real arm base frame [only used while training. so more accurate is better]
      * @param[in] frameName the name of the frame
      * @param[out] vel_W the linear velocity of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) {
-        hand_->getFrameVelocity(frameName, vel_W);
+        arm_hand_platform_->getFrameVelocity(hand_->changeLinkToJointName(frameName), vel_W);
     }
 
     /**
@@ -445,7 +455,7 @@ private:
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareArm>()>> arm_map_ = {
         {"ur5_sim", [](){ return createUR5Sim(); }},
         #ifdef BUILD_UR5_REAL
-        {"ur5_real", [](){ return createUR5Real(); }},
+        {"arm_real", [](){ return createUR5Real(); }},
         #endif
         {"flying_sim", [](){ return createFlyingSim(); }},
     };
@@ -453,7 +463,7 @@ private:
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareHand>()>> hand_map_ = {
         {"allegro_sim", [](){ return createAllegroSim(); }},
         #ifdef BUILD_ALLEGRO_REAL
-        {"allegro_real", [](){ return createAllegroReal(); }},
+        {"hand_real", [](){ return createAllegroReal(); }},
         #endif
         {"leap_sim", [](){ return createLeapSim(); }},
         #ifdef BUILD_LEAP_REAL

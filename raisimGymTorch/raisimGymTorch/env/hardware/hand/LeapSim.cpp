@@ -26,7 +26,7 @@ public:
         hand_joint_velocity_ = gv.tail(num_joint_);
 
     }
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) final override {
         platform_->setPdTarget(posTarget, velTarget);
     }
 
@@ -35,18 +35,6 @@ public:
         dgain.tail(tail_shift).setConstant(Dgain);
     }
 
-    void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) final override {
-        platform_->getFrameOrientation(frameName, orientation_W);
-    }
-    void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) final override {
-        platform_->getFramePosition(frameName, point_W);
-    }
-    void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) final override {
-        platform_->getFrameAngularVelocity(frameName, angVel_W);
-    }
-    void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) final override {
-        platform_->getFrameVelocity(frameName, vel_W);
-    }
     Eigen::VectorXd & getJointVelocity() final override {
         return hand_joint_velocity_;
     }
@@ -76,6 +64,10 @@ public:
             }
             return num_bodies_;
         }
+    }
+
+    std::string changeLinkToJointName(std::string frameName) const final override {
+        return frameName;
     }
 
 private:

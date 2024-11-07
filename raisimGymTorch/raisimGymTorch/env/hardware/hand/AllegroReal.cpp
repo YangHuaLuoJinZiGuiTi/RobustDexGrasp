@@ -4,6 +4,8 @@
 #include <sensor_msgs/JointState.h>
 #include <thread>
 #include <chrono>
+#include <time.h>
+#include <mutex>
 
 class AllegroReal : public HardwareHand {
 public:
@@ -14,13 +16,13 @@ public:
         hand_joint_velocity_.setZero(num_joint_);
         
         flying_hand_mode_ = cfg["flying_hand_mode"].As<bool>();
-        freq_hz_ = cfg["allegro_real"]["freq_hz"].As<double>();
+        freq_hz_ = cfg["hand_real"]["freq_hz"].As<double>();
        
         const char* name = "test_node";
         char* argv[] = { const_cast<char*>(name) }; 
         int argc = 1; 
         ros::init(argc, argv, "joint_state_publisher");
-        for (int i = 0; i < DOF_JOINTS; i++) {
+        for (int i = 0; i < num_joint_; i++) {
             cur_joint_state_.name.push_back(joint_names[i]);
             cur_joint_state_.position.push_back(0.0);
             cur_joint_state_.velocity.push_back(0.0);
@@ -33,8 +35,6 @@ public:
         pub_tar_joints = nh_->advertise<sensor_msgs::JointState>("/allegroHand/joint_cmd", 1);
         sub_cur_joints = nh_->subscribe("/allegroHand/joint_states", 1, &AllegroReal::jointStateCallback, this);
         subscribe_thread_ = std::thread(&AllegroReal::subscribeLoop, this);
-
-        std::cout << "init finish all !!!" << std::endl;
     }
 
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
@@ -42,11 +42,13 @@ public:
     }
 
     void updateHandState(const Eigen::VectorXd &eef_pos) final override {
-        std::cout << "updateHandState in real Allegro: TBD" << std::endl;
-
     }
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
-        std::cout << "setPdTarget in real Allegro: TBD" << std::endl;
+
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) final override {
+        for (int i = 0; i < num_joint_; i++) {
+            tar_joint_state_.position[i] = posTarget[i];
+        }
+        pub_tar_joints.publish(tar_joint_state_);
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int tail_shift) const final override {
@@ -54,22 +56,12 @@ public:
         dgain.tail(tail_shift).setConstant(Dgain);
     }
 
-    void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) final override {
-        std::cout << "getFrameOrientation in real Allegro: TBD" << std::endl;
-    }
-    void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) final override {
-        std::cout << "getFramePosition in real Allegro: TBD" << std::endl;
-    }
-    void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) final override {
-        std::cout << "getFrameAngularVelocity in real Allegro: TBD" << std::endl;
-    }
-    void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) final override {
-        std::cout << "getFrameVelocity in real Allegro: TBD" << std::endl;
-    }
     Eigen::VectorXd & getJointVelocity() final override {
+        std::lock_guard<std::mutex> lock(cb_mutex);
         return hand_joint_velocity_;
     }
     Eigen::VectorXd & getJointPosition() final override {
+        std::lock_guard<std::mutex> lock(cb_mutex);
         return hand_joint_position_;
     }
     const int getDim() const final override {
@@ -92,50 +84,28 @@ public:
         }
     }
 
-
-    void publishJointStates(std::vector<double> &tar_pos) {
-        for (int i = 0; i < DOF_JOINTS; i++) {
-            tar_joint_state_.position[i] = tar_pos[i];
+    std::string changeLinkToJointName(std::string frameName) const final override {
+        if (!frameName.compare("Flange_base_link")) {
+            return std::string("Flange2hand_fixed_joint");
+        } else if (!frameName.compare("link_3.0_tip")) {
+            return std::string("joint_3.0_tip");
+        } else if (!frameName.compare("link_7.0_tip")) {
+            return std::string("joint_7.0_tip");
+        } else if (!frameName.compare("link_11.0_tip")) {
+            return std::string("joint_11.0_tip");
+        } else if (!frameName.compare("link_15.0_tip")) {
+            return std::string("joint_15.0_tip");
+        } else {
+            return frameName;
         }
-        pub_tar_joints.publish(tar_joint_state_);
     }
-
-    void getCurrentStates(std::vector<double> &cur_pos, std::vector<double> &cur_vel) {
-        for (int i = 0; i < DOF_JOINTS; i++) {
-            cur_pos[i] = cur_joint_state_.position[i];
-            cur_vel[i] = cur_joint_state_.velocity[i];
-        }
-    }
-
-    static const int DOF_JOINTS = 16;
-    bool start_get_flag_ = false;
-    double min_limit[DOF_JOINTS] = {
-        -0.47, -0.196, -0.174, -0.227, 
-        -0.47, -0.196, -0.174, -0.227, 
-        -0.47, -0.196, -0.174, -0.227, 
-        0.263, -0.105, -0.189, -0.162
-    };
-    double max_limit[DOF_JOINTS] = {
-        0.47, 1.61, 1.709, 1.618, 
-        0.47, 1.61, 1.709, 1.618, 
-        0.47, 1.61, 1.709, 1.618, 
-        1.396, 1.163, 1.644, 1.719
-    };
-
-    std::string joint_names[DOF_JOINTS] = {
-        "joint_0.0", "joint_1.0", "joint_2.0", "joint_3.0",
-        "joint_4.0", "joint_5.0", "joint_6.0", "joint_7.0",
-        "joint_8.0", "joint_9.0", "joint_10.0", "joint_11.0",
-        "joint_12.0", "joint_13.0", "joint_14.0", "joint_15.0"
-    };
 
 private:
-
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg) {
-        for (int i = 0; i < DOF_JOINTS; i++) {
-            cur_joint_state_.position[i] = msg->position[i];
-            cur_joint_state_.velocity[i] = msg->velocity[i];
-            cur_joint_state_.effort[i] = msg->effort[i];
+        std::lock_guard<std::mutex> lock(cb_mutex);
+        for (int i = 0; i < num_joint_; i++) {
+            hand_joint_position_[i] = msg->position[i];
+            hand_joint_velocity_[i] = msg->velocity[i];
         }
     }
 
@@ -160,20 +130,21 @@ private:
     const double Pgain = 60.0;
     const double Dgain = 0.2;
 
-    const std::string body_parts_flying_[num_bodies_] =  {"z_rotation_joint",
-    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
-    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
-    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
-    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
+    const std::string joint_names[num_joint_] = {
+        "joint_0.0", "joint_1.0", "joint_2.0", "joint_3.0",
+        "joint_4.0", "joint_5.0", "joint_6.0", "joint_7.0",
+        "joint_8.0", "joint_9.0", "joint_10.0", "joint_11.0",
+        "joint_12.0", "joint_13.0", "joint_14.0", "joint_15.0"
+    };
 
-    const std::string body_parts_[num_bodies_] =  {"Flange2hand_fixed_joint",
-    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
-    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
-    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
-    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
+    const std::string body_parts_[num_bodies_] =  {"Flange_base_link",
+    "joint_1.0", "joint_2.0", "joint_3.0", "link_3.0_tip",
+    "joint_5.0", "joint_6.0", "joint_7.0", "link_7.0_tip",
+    "joint_9.0", "joint_10.0", "joint_11.0", "link_11.0_tip",
+    "joint_13.0", "joint_14.0", "joint_15.0", "link_15.0_tip"};
 
     // for raisim contact check
-    const std::string contact_bodies_[num_contacts_] =  {"wrist_3_link",
+    const std::string contact_bodies_[num_contacts_] =  {"Flange2hand_fixed_joint",
     "link_1.0", "link_2.0", "link_3.0",
     "link_5.0", "link_6.0", "link_7.0",
     "link_9.0", "link_10.0", "link_11.0",
@@ -185,6 +156,7 @@ private:
     sensor_msgs::JointState cur_joint_state_;
     sensor_msgs::JointState tar_joint_state_;
     std::thread subscribe_thread_;
+    std::mutex cb_mutex;
 
     double freq_hz_ = 0.0;
 };

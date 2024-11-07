@@ -20,15 +20,17 @@
 #include <string>
 #include <unordered_map>
 #include <functional>
+#include <time.h>
 
 class Pinocchio : public HardwareKinematic {
 public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) override {
         const std::string pth = rsc_pth + "/" + cfg["rsc_model"].As<std::string>();
-        const std::string fk_hand_urdf_pth = pth + "/" + cfg["hand_type"].As<std::string>() + ".urdf";
-        const std::string ik_arm_urdf_pth = pth + "/" + cfg["arm_type"].As<std::string>() + ".urdf";
-        const std::string ik_arm_srdf_pth = pth + "/" + cfg["arm_type"].As<std::string>() + ".srdf";
+        const std::string fk_hand_urdf_pth = pth + "/" + cfg["fk_model"].As<std::string>() + ".urdf";
+        const std::string ik_arm_urdf_pth = pth + "/" + cfg["ik_model"].As<std::string>() + ".urdf";
+        const std::string ik_arm_srdf_pth = pth + "/" + cfg["ik_model"].As<std::string>() + ".srdf";
         flying_mode_ = cfg["flying_hand_mode"].As<bool>();
+        velocity_dt_s_ = cfg["real_velocity_dt_s"].As<double>();
 
         hand_fk_model_ = std::make_unique<pinocchio::Model>();
         pinocchio::urdf::buildModel(fk_hand_urdf_pth, *hand_fk_model_);
@@ -46,6 +48,16 @@ public:
             arm_ik_geom_data_ = std::make_unique<pinocchio::GeometryData>(*arm_ik_geom_model_);
             pinocchio::srdf::loadReferenceConfigurations(*arm_ik_model_, ik_arm_srdf_pth); 
         }
+    }
+
+    void setFrameVelocityNames(std::vector<std::string> &names) override {
+        for (int i = 0; i < names.size(); i++) {
+            vel_id_.push_back(hand_fk_model_->getBodyId(names[i]));
+        }
+        last_R_.resize(names.size());
+        last_t_.resize(names.size());
+        diff_R_.resize(names.size());
+        diff_t_.resize(names.size());
     }
 
     // eef is x, y, z(m), rx, ry, rz(rad)
@@ -160,31 +172,101 @@ public:
         pinocchio::framesForwardKinematics(*hand_fk_model_, *hand_fk_data_, set_q);
     }
 
-    // set joint position
-    void getFKOri(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) const override {
-        orientation_W.e() = hand_fk_data_->oMf[hand_fk_model_->getBodyId(frameName)].rotation();
-    }
+    void updateURDFFK(const Eigen::VectorXd &joint) override {
+        pinocchio::framesForwardKinematics(*hand_fk_model_, *hand_fk_data_, joint);
+        
+        auto now_time = std::chrono::system_clock::now();
+        diff_time_s_ = ((now_time - last_time_).count() / 1e9);
+        
+        // calculate average velocity
+        if (diff_time_s_ > velocity_dt_s_) {
+            if (diff_time_s_ < 2.0) {
+                calculate_velocity_flag_ = true;
+                for (int i = 0; i < vel_id_.size(); i++) {
+                    int id = vel_id_[i];
+                    diff_R_[i] = hand_fk_data_->oMf[id].rotation() * last_R_[i].transpose();
+                    diff_t_[i] = -diff_R_[i] * last_t_[i] + hand_fk_data_->oMf[id].translation();
+                }
+            } else {
+                std::cout << "first init or sth. block dt=" << diff_time_s_ << std::endl;
+                calculate_velocity_flag_ = false;
+            }
 
-    void getFKPos(const std::string &frameName, raisim::Vec<3> &point_W) const override {
-        point_W.e() = hand_fk_data_->oMf[hand_fk_model_->getBodyId(frameName)].translation();
+            last_time_ = now_time;
+            for (int i = 0; i < vel_id_.size(); i++) {
+                int id = vel_id_[i];
+                last_R_[i] = hand_fk_data_->oMf[id].rotation();
+                last_t_[i] = hand_fk_data_->oMf[id].translation();
+            }
+        }
+    }
+    void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) final override {
+        int id = hand_fk_model_->getJointId(frameName);
+        if (id == hand_fk_model_->njoints) {
+            id = hand_fk_model_->getBodyId(frameName);
+            orientation_W.e() = hand_fk_data_->oMf[id].rotation();
+        } else {
+            orientation_W.e() = hand_fk_data_->oMi[id].rotation();
+        }
+    }
+    void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) final override {
+        int id = hand_fk_model_->getJointId(frameName);
+        if (id == hand_fk_model_->njoints) {
+            id = hand_fk_model_->getBodyId(frameName);
+            point_W.e() = hand_fk_data_->oMf[id].translation();
+        } else {
+            point_W.e() = hand_fk_data_->oMi[id].translation();
+        }
+    }
+    void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) final override {
+        if (calculate_velocity_flag_) {
+            for (int i = 0; i < vel_id_.size(); i++) {
+                if (hand_fk_model_->getBodyId(frameName) == vel_id_[i]) {
+                    angVel_W = diff_R_[i].eulerAngles(0,1,2) / diff_time_s_;
+                }
+            }
+        } else {
+            angVel_W.setZero();
+        }
+    }
+    void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) final override {
+        if (calculate_velocity_flag_) {
+            for (int i = 0; i < vel_id_.size(); i++) {
+                if (hand_fk_model_->getBodyId(frameName) == vel_id_[i]) {
+                    vel_W.e() = diff_t_[hand_fk_model_->getBodyId(frameName)] / diff_time_s_;
+                }
+            }
+        } else {
+            vel_W.setZero();
+        }
     }
 
 private:
-  std::unique_ptr<pinocchio::Model> hand_fk_model_;
-  std::unique_ptr<pinocchio::Data> hand_fk_data_;
+    std::unique_ptr<pinocchio::Model> hand_fk_model_;
+    std::unique_ptr<pinocchio::Data> hand_fk_data_;
 
-  std::unique_ptr<pinocchio::Model> arm_ik_model_;
-  std::unique_ptr<pinocchio::Data> arm_ik_data_;
-  std::unique_ptr<pinocchio::GeometryModel> arm_ik_geom_model_;
-  std::unique_ptr<pinocchio::GeometryData> arm_ik_geom_data_;
+    std::unique_ptr<pinocchio::Model> arm_ik_model_;
+    std::unique_ptr<pinocchio::Data> arm_ik_data_;
+    std::unique_ptr<pinocchio::GeometryModel> arm_ik_geom_model_;
+    std::unique_ptr<pinocchio::GeometryData> arm_ik_geom_data_;
 
-  bool flying_mode_ = false;
+    bool flying_mode_ = false;
 
-  const double eps =  0.005;  // desired position precision  0.01m 3degree
-  const int IT_MAX = 1000;  // maximum number of iterations 
-  const double DT = 0.1; // convergence rate (smaller may have higher resolution?)
-  const double damp = 1e-6; // damping factor for the pseudoinversion
-  const int TMO_MAX = 30; // maximum number of the cnt of over iterations
+    const double eps =  0.005;  // desired position precision  0.01m 3degree
+    const int IT_MAX = 1000;  // maximum number of iterations 
+    const double DT = 0.1; // convergence rate (smaller may have higher resolution?)
+    const double damp = 1e-6; // damping factor for the pseudoinversion
+    const int TMO_MAX = 30; // maximum number of the cnt of over iterations
+    
+    std::vector<int> vel_id_;
+    double velocity_dt_s_ = 0.0;
+    double diff_time_s_ = 0.0;
+    bool calculate_velocity_flag_ = false;
+    std::chrono::system_clock::time_point last_time_;
+    std::vector<Eigen::Matrix3d> last_R_;
+    std::vector<Eigen::Vector3d> last_t_;
+    std::vector<Eigen::Matrix3d> diff_R_;
+    std::vector<Eigen::Vector3d> diff_t_;
 };
 
 extern "C" std::unique_ptr<HardwareKinematic> createPinocchio() {
