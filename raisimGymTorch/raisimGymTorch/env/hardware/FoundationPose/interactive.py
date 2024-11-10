@@ -6,9 +6,69 @@ import time
 import threading
 from scipy.spatial.transform import Rotation as R
 
+# 一阶低通滤波器的数学表达式如下：
+#[ y[n] = \alpha \cdot x[n] + (1 - \alpha) \cdot y[n-1] ]
+#(y[n]) 是当前滤波后的值
+#(x[n]) 是当前的输入值
+#(y[n-1]) 是上一次滤波后的值
+#(\alpha) 是滤波系数，范围在 (0,1) 之间。 (\alpha) 越接近0，滤波作用越强，滤波后的信号变化越慢，但是对噪声的抑制能力越好；(\alpha) 越接近1，滤波作用越弱，动态跟踪能力越强。
+class LowPassFilter:
+    def __init__(self, alpha):
+        self.alpha = alpha
+        self.y_prev = None
+    
+    def filter(self, x):
+        if self.y_prev is None:
+            # 如果是第一个值，直接返回，因为没有前一个值可以参考
+            self.y_prev = x
+            return x
+        else:
+            # 应用一阶低通滤波器的公式
+            y = self.alpha * x + (1 - self.alpha) * self.y_prev
+            self.y_prev = y
+            return y
+
+class CircularLowPassFilter:
+    def __init__(self, alpha):
+        self.alpha = alpha
+        self.cos_prev = None
+        self.sin_prev = None
+    
+    def filter(self, yaw_degree):
+        # 将角度转换为弧度
+        yaw_rad = np.radians(yaw_degree)
+        
+        # 计算当前角度的单位向量
+        cos_curr = np.cos(yaw_rad)
+        sin_curr = np.sin(yaw_rad)
+        
+        if self.cos_prev is None or self.sin_prev is None:
+            # 如果是第一次计算，初始化前一次的值
+            self.cos_prev = cos_curr
+            self.sin_prev = sin_curr
+        else:
+            # 对余弦和正弦值分别进行滤波
+            cos_filtered = self.alpha * cos_curr + (1 - self.alpha) * self.cos_prev
+            sin_filtered = self.alpha * sin_curr + (1 - self.alpha) * self.sin_prev
+            
+            # 更新前一次的值
+            self.cos_prev = cos_filtered
+            self.sin_prev = sin_filtered
+        
+        # 将滤波后的单位向量转换回角度
+        filtered_yaw_rad = np.arctan2(self.sin_prev, self.cos_prev)
+        filtered_yaw_degree = np.degrees(filtered_yaw_rad)
+        
+        # 确保输出的角度在-180到180度之间
+        filtered_yaw_degree = (filtered_yaw_degree + 360) % 360
+        if filtered_yaw_degree > 180:
+            filtered_yaw_degree -= 360
+        
+        return filtered_yaw_degree
+
 class FoundationData:
     def __init__(self, mesh_path):
-        self.Tsim2realobj = None
+        self.obj_xyz_qwxyz = None
         self.lock = threading.Lock()
         self.running = True
         self.mesh_path = mesh_path
@@ -32,10 +92,10 @@ class FoundationData:
         Tmat[:3, :3] = r.as_matrix()
         Tmat[:3, 3] = [x, y, z]
         return Tmat
-    
+
     def get_data(self):
         with self.lock:
-            return self.Tsim2realobj
+            return self.obj_xyz_qwxyz
     
     def end_thread(self):
         self.running = False
@@ -46,6 +106,13 @@ class FoundationData:
         SHOW_LOG = False
         est_refine_iter=4
         track_refine_iter=2
+
+        filter_rx = CircularLowPassFilter(0.1)
+        filter_ry = CircularLowPassFilter(0.1)
+        filter_rz = CircularLowPassFilter(0.1)
+        filter_x = LowPassFilter(0.3)
+        filter_y = LowPassFilter(0.3)
+        filter_z = LowPassFilter(0.3)
 
         set_logging_format(logging.WARNING)
         set_seed(0)
@@ -90,8 +157,8 @@ class FoundationData:
 
         Tsim2real = np.linalg.inv(Treal2sim)
 
-        Tsimbase = np.array([[   1., 0., 0., 0.55],
-                            [ 0., 1., 0., 0.75152],
+        Tsimbase = np.array([[   1., 0., 0., 0.],
+                            [ 0., 1., 0., 0.],
                             [ 0., 0., 1., 0.771],
                             [ 0., 0., 0., 1.]])
 
@@ -162,12 +229,34 @@ class FoundationData:
                 else:
                     Tcam2obj = est.track_one(rgb=color, depth=depth, K=cam_K, iteration=track_refine_iter)
 
+
+                pos = Tcam2obj[:3, 3].reshape((1, 3))
+                angle = self.rot2euler(Tcam2obj[:3,:3])
+                x = filter_x.filter(pos[0][0])
+                y = filter_y.filter(pos[0][1])
+                z = filter_z.filter(pos[0][2])
+                rx = filter_rx.filter(angle[0])
+                ry = filter_ry.filter(angle[1])
+                rz = filter_rz.filter(angle[2])
+                Tcam2obj_filter = self.get_Tmat(x,y,z,rx,ry,rz)
+
                 # camera坐标系下。obj的坐标。。
-                Tbase2obj = Tbase2cam @ Tcam2obj 
+                Tbase2obj = Tbase2cam @ Tcam2obj_filter 
                 Tsim_base2obj = Tsim2real @ Tbase2obj
-                
+                Tsim2realobj = Tsimbase @ Tsim_base2obj
+                objpos = Tsim2realobj[:3, 3].reshape((1, 3))
+                objquat = self.rot2quar(Tsim2realobj[:3,:3])
+                objeul = self.rot2euler(Tcam2obj_filter[:3,:3])
                 with self.lock:
-                    self.Tsim2realobj = Tsimbase @ Tsim_base2obj
+                    if self.obj_xyz_qwxyz is None:
+                        self.obj_xyz_qwxyz = [0., 0., 0., 0., 0., 0., 0.]
+                    self.obj_xyz_qwxyz[0] = objpos[0][0]
+                    self.obj_xyz_qwxyz[1] = objpos[0][1]
+                    self.obj_xyz_qwxyz[2] = objpos[0][2]
+                    self.obj_xyz_qwxyz[3] = objquat[3] # w
+                    self.obj_xyz_qwxyz[4] = objquat[0] # x
+                    self.obj_xyz_qwxyz[5] = objquat[1] # y
+                    self.obj_xyz_qwxyz[6] = objquat[2] # z
                     
                 if SHOW_IMAGE == True:
                     center_pose = Tcam2obj@np.linalg.inv(to_origin)

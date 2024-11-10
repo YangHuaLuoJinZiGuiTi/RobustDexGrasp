@@ -113,13 +113,17 @@ data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_wa
 b_thread = threading.Thread(target=data_producer.start_thread)
 b_thread.daemon = True
 b_thread.start()
+obj_init_xyz_qwxyz = None
 try:
     while True:
         time.sleep(2)
         print("waiting for the initial of foundation pose...")
-        data = data_producer.get_data()
-        if data is not None:
-            print(f"init success!!! pose is \n {data}" )
+        obj_init_xyz_qwxyz = data_producer.get_data()
+        if obj_init_xyz_qwxyz is not None:
+            print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
+            time.sleep(6)
+            obj_init_xyz_qwxyz = data_producer.get_data()
+            print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
             break
 except KeyboardInterrupt:
     data_producer.end_thread()
@@ -231,25 +235,9 @@ for update in range(args.num_iterations):
         get_meaningful_ik = False
         while not get_meaningful_ik:
             # sample object states
-            sample_x = 0.15
-            sample_y = 0.2 - 0.75152
-            while True:
-                angle = np.random.uniform(0, 2 * np.pi)
-                distance = np.random.uniform(0.45, 0.75)
-                sample_x = distance * np.cos(angle)
-                sample_y = distance * np.sin(angle)
-                if sample_y < 0.3 - 0.75152:
-                    # print(sample_x, sample_y, distance)
-                    break
-            obj_pose_reset[i, 0] = sample_x
-            obj_pose_reset[i, 1] = sample_y
-            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
-            obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
-
-            axis_angles = np.zeros((1, 3))
-            axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-            quats = rotations.axisangle2quat(axis_angles)
-            obj_pose_reset[i, 3:7] = quats
+            obj_pose_reset[i, :7] = obj_init_xyz_qwxyz
+            obj_pose_reset[i, 7] = 0.
+            quats = np.array([obj_init_xyz_qwxyz[3:]])
 
             # get the partial point cloud
             obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
@@ -340,6 +328,9 @@ for update in range(args.num_iterations):
                     np.zeros((num_envs, 22), 'float32'),
                     obj_pose_reset,
                     )
+
+    r = R.from_quat(obj_pose_reset[0, 3:7])
+    euler = r.as_euler('xyz', degrees=True)
 
     obs_new_r, dis_info = env.observe_vision_new()
     # show_point = dis_info[:, 17:68].astype('float32').copy()
