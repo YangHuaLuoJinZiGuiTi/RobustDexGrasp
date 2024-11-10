@@ -28,6 +28,8 @@ environment:
     hand_real:
       freq_hz: 500.0
 
+  real_obj_item: '035_power_drill'
+
   render: True
   eval_every_n: 500
   update_every_n: 20
