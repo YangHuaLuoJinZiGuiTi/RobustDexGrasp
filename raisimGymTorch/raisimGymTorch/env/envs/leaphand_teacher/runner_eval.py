@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
-from raisimGymTorch.env.bin import arm_rand_new as mano
+from raisimGymTorch.env.bin import leaphand_teacher as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.arm_rand_new import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial
+from raisimGymTorch.env.bin.leaphand_teacher import NormalSampler
+from raisimGymTorch.helper.initial_pose_final import get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial
 from scipy.spatial.transform import Rotation as R
 from random import choice
 
@@ -216,22 +216,28 @@ for update in range(args.num_iterations):
 
     target_center = np.zeros_like(env.affordance_center)
 
-    qpos_reset_r[:, 6:] = 0.2
-    qpos_reset_r[:, -4] = 1.57
-    qpos_reset_r[:, 7] = 0.8
-    qpos_reset_r[:, 11] = 0.8
-    qpos_reset_r[:, 15] = 0.8
-    qpos_reset_r[:, 19] = 0.
+    # qpos_reset_r[:, 6:] = 0.2
+    # qpos_reset_r[:, -4] = 1.57
+    qpos_reset_r[:, 6] = 0.8
+    qpos_reset_r[:, 10] = 0.8
+    qpos_reset_r[:, 14] = 0.8
+    qpos_reset_r[:, 18] = 1.57
     qpos_reset_r[:, 20] = -0.5
 
-    hand_center_w = np.zeros((1, 3))
-    hand_center_w[0, 0] = 0.669872 - 0.55
-    hand_center_w[0, 1] = 0.141735 - 0.75152
-    hand_center_w[0, 2] = 1.5  # 1.11052
+    hand_center_sample_w = np.zeros((1, 3))
+    hand_center_sample_w[0, 0] = 0.669872 - 0.55
+    hand_center_sample_w[0, 1] = 0.141735 - 0.75152
+    hand_center_sample_w[0, 2] = 1.5  # 1.11052
 
     wrist_bias = np.zeros((1, 3))
-    wrist_bias[0, 0] = -0.0091
-    wrist_bias[0, 2] = -0.095
+    wrist_bias[0, 0] = -0.03
+    wrist_bias[0, 2] = -0.13
+
+    leaphand_rot = np.eye(3)
+    leaphand_rot[0, 0] = 0
+    leaphand_rot[0, 2] = 1
+    leaphand_rot[2, 2] = 0
+    leaphand_rot[2, 0] = -1
 
     ur5_to_world = np.eye(3)
     ur5_to_world[0, 0] = 0
@@ -239,22 +245,20 @@ for update in range(args.num_iterations):
     ur5_to_world[1, 0] = 1
     ur5_to_world[1, 1] = 0
 
-    theta0 = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
+    theta0 = [0.0, -1.57, 1.57, -1.57, -1.57, -1.57]
     joint_weights = [1, 1, 1, 1, 1, 1]
 
+    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
+    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
+
+    view_point_world = np.zeros((200, 3))
+    view_point_world[:, 0] = 0.8 - 0.55
+    view_point_world[:, 1] = 0.2 - 0.75152
+    view_point_world[:, 2] = 1.5
 
     partial_obs = True
 
     if partial_obs:
-
-        visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
-        visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
-
-        view_point_world = np.zeros((200, 3))
-        view_point_world[:, 0] = 0.8 - 0.55
-        view_point_world[:, 1] = 0.2 - 0.75152
-        view_point_world[:, 2] = 1.5
-
         for i in range(num_envs):
             get_meaningful_ik = False
             while not get_meaningful_ik:
@@ -300,22 +304,23 @@ for update in range(args.num_iterations):
 
                 # get the x_dir of the grasping frame
                 obj_aff_center_in_obj = np.mean(visible_points_obj[i].reshape(200, 3), axis=0)
-                hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_w - obj_pose_reset[i, :3]).T).T
+                hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_sample_w - obj_pose_reset[i, :3]).T).T
                 hand_dir_x_in_obj = hand_center_obj - obj_aff_center_in_obj
                 hand_dir_x_in_obj = hand_dir_x_in_obj / np.linalg.norm(hand_dir_x_in_obj, axis=1, keepdims=True)
 
                 target_center[i, :] = obj_aff_center_in_obj - 0.01 * hand_dir_x_in_obj
                 pos = obj_aff_center_in_obj + 0.25 * hand_dir_x_in_obj
                 rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single,
-                                                           top=False)
+                                                           top=False, hand="leap")
                 if rot is None:
                     hand_dir_x_in_obj[0, :] = 0
                     hand_dir_x_in_obj[0, 2] = 1
                     rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single,
-                                                               top=True)
+                                                               top=True, hand="leap")
 
-                wrist_in_world = np.matmul(obj_mat_single, rot)
-                wrist_pose = rotations.mat2euler(wrist_in_world)
+                wrist_allegro = rot
+                wrist_leap = np.matmul(wrist_allegro, leaphand_rot)
+                wrist_in_world = np.matmul(obj_mat_single, wrist_leap)
                 qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
 
                 # from grasping frame pos to wrist pos
@@ -393,23 +398,23 @@ for update in range(args.num_iterations):
                 obj_aff_center_in_world = np.matmul(obj_mat_single, obj_aff_center_in_obj.T).T
                 obj_aff_center_in_world = obj_aff_center_in_world + obj_pose_reset[i, :3]
 
-                hand_dir_x = hand_center_w - obj_aff_center_in_world
+                hand_dir_x = hand_center_sample_w - obj_aff_center_in_world
                 hand_dir_x = hand_dir_x / np.linalg.norm(hand_dir_x, axis=1, keepdims=True)
                 hand_dir_x_in_obj = np.matmul(obj_mat_single.T, hand_dir_x.T).T
 
                 rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], env.affordance_pcd[i],
                                                                           hand_dir_x_in_obj, env.affordance_center[i], obj_mat_single,
-                                                                          top=False)
+                                                                          top=False, hand="leap")
                 if rot is None:
                     hand_dir_x_in_obj[0, :] = 0
                     hand_dir_x_in_obj[0, 2] = 1
                     rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], env.affordance_pcd[i],
                                                                               hand_dir_x_in_obj,
-                                                                              env.affordance_center[i], obj_mat_single, top=True)
+                                                                              env.affordance_center[i], obj_mat_single, top=True, hand="leap")
 
-                wrist_mat = rot
-                wrist_in_world = np.matmul(obj_mat_single, wrist_mat)
-                wrist_pose = rotations.mat2euler(wrist_in_world)
+                wrist_allegro = rot
+                wrist_leap = np.matmul(wrist_allegro, leaphand_rot)
+                wrist_in_world = np.matmul(obj_mat_single, wrist_leap)
                 qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
 
                 target_center[i, :] = target[:]
@@ -459,8 +464,9 @@ for update in range(args.num_iterations):
                     else:
                         get_meaningful_ik = True
 
-
-
+    # qpos_reset_r[:] = 0
+    # qpos_reset_r[:, :6] = theta0
+    # obj_pose_reset[:] = [0.15, -0.55, 0.773, 1., 0., 0., 0., 0.]
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -468,6 +474,7 @@ for update in range(args.num_iterations):
                     np.zeros((num_envs, 22), 'float32'),
                     obj_pose_reset,
                     )
+    # time.sleep(100)
 
     obs_new_r, dis_info = env.observe_vision_new()
     show_point = dis_info[:, 17:68].astype('float32').copy()
@@ -481,7 +488,7 @@ for update in range(args.num_iterations):
         obs_r = obs_r[:, :].astype('float32')
 
         # if step > 0:
-        #     time.sleep(2)
+        #     time.sleep(3)
 
         action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
         action_r = action_r.cpu().detach().numpy()

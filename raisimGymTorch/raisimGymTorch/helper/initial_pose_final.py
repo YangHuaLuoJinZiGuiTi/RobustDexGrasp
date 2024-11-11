@@ -1666,7 +1666,7 @@ def get_initial_pose_allegro_arm_rand(obj_mesh, x_dir, aff_center, top=False):
 
     return rot12, pos, target
 
-def get_initial_pose_allegro_arm_rand_test(obj_mesh, obj_pcd_ori, x_dir, aff_center, obj_mat, top=False):
+def get_initial_pose_allegro_arm_rand_test(obj_mesh, obj_pcd_ori, x_dir, aff_center, obj_mat, top=False, hand="allegro"):
     points = obj_pcd_ori
 
     obj_pcd = points.reshape(1,200,3).detach().cpu().numpy()
@@ -1677,8 +1677,12 @@ def get_initial_pose_allegro_arm_rand_test(obj_mesh, obj_pcd_ori, x_dir, aff_cen
         return None, None, None
     z_dir = axis.reshape(1,3)
     z_dir_in_world = np.matmul(obj_mat, z_dir.T).T
-    if z_dir_in_world[0,1] < 0:
-        z_dir = -z_dir
+    if hand is "allegro":
+        if z_dir_in_world[0,1] < 0:
+            z_dir = -z_dir
+    else:
+        if z_dir_in_world[0,1] > 0:
+            z_dir = -z_dir
     y_dir = np.cross(dir, z_dir)
 
     rot_mat= -np.stack((dir, y_dir, z_dir), axis=-1)
@@ -1694,7 +1698,7 @@ def get_initial_pose_allegro_arm_rand_test(obj_mesh, obj_pcd_ori, x_dir, aff_cen
 
 
 
-def get_initial_pose_allegro_arm_partial(partial_obj_pcd, x_dir, obj_mat, top=False):
+def get_initial_pose_allegro_arm_partial(partial_obj_pcd, x_dir, obj_mat, top=False, hand="allegro"):
     obj_pcd = partial_obj_pcd.reshape(1,200,3)
     dir = x_dir.copy()
 
@@ -1703,13 +1707,34 @@ def get_initial_pose_allegro_arm_partial(partial_obj_pcd, x_dir, obj_mat, top=Fa
         return None
     z_dir = axis.reshape(1,3)
     z_dir_in_world = np.matmul(obj_mat, z_dir.T).T
-    if z_dir_in_world[0,1] < 0:
-        z_dir = -z_dir
+    if hand is "allegro":
+        if z_dir_in_world[0,1] < 0:
+            z_dir = -z_dir
+    else:
+        if z_dir_in_world[0,1] > 0:
+            z_dir = -z_dir
     y_dir = np.cross(dir, z_dir)
 
     rot_mat= -np.stack((dir, y_dir, z_dir), axis=-1)
 
     return rot_mat
+
+# def get_initial_pose_leaphand_arm_partial(partial_obj_pcd, z_dir, obj_mat, top=False):
+#     obj_pcd = partial_obj_pcd.reshape(1,200,3)
+#     dir = z_dir.copy()
+#
+#     axis, lat_length, long_length = find_smallest_boundary_axis(obj_pcd[0], dir[0])
+#     if (lat_length > 0.18) and (top is False):
+#         return None
+#     x_dir = axis.reshape(1,3)
+#     x_dir_in_world = np.matmul(obj_mat, x_dir.T).T
+#     if x_dir_in_world[0,1] > 0:
+#         x_dir = -x_dir
+#     y_dir = np.cross(dir, x_dir)
+#
+#     rot_mat= -np.stack((x_dir, y_dir, dir), axis=-1)
+#
+#     return rot_mat
 
 
 # get the initial pose for shadow hand (comparison with UniDexGrasp)
