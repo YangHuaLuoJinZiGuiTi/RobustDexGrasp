@@ -44,7 +44,7 @@ public:
     void updateHandState(const Eigen::VectorXd &eef_pos) final override {
     }
 
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) final override {
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) final override {
         for (int i = 0; i < num_joint_; i++) {
             tar_joint_state_.position[i] = posTarget[i];
         }

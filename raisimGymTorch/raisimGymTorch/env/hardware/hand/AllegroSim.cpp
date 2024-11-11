@@ -26,7 +26,7 @@ public:
         hand_joint_velocity_ = gv.tail(num_joint_);
 
     }
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) final override {
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) final override {
         platform_->setPdTarget(posTarget, velTarget);
     }
 

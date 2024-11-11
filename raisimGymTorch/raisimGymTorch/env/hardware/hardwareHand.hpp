@@ -14,7 +14,7 @@ public:
     virtual void setSimPlatform(raisim::ArticulatedSystem *platform) = 0; // only use in simulation mode
 
     virtual void updateHandState(const Eigen::VectorXd &eef_pos) = 0;
-    virtual void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) = 0;
+    virtual void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) = 0;
 
     virtual void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int tail_shift) const = 0;
     virtual Eigen::VectorXd & getJointPosition() = 0;

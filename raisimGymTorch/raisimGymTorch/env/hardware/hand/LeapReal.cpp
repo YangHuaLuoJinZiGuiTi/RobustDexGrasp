@@ -22,7 +22,7 @@ public:
         std::cout << "updateHandState in real Leap: TBD" << std::endl;
 
     }
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) final override {
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) final override {
         std::cout << "setPdTarget in real Leap: TBD" << std::endl;
     }
 

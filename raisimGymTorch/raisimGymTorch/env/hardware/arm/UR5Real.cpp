@@ -81,12 +81,16 @@ public:
             last_arm_joint_position_ = arm_joint_position_;
         }
     }
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const final override {
         std::vector<double> tar_joint_pos;
         for (int i = 0; i < 6; i++) {
             tar_joint_pos.push_back(posTarget[i]);
         }
-        rtde_control_->moveL_FK(tar_joint_pos, move_vel_, move_acc_);
+        if (async == true) {
+            rtde_control_->moveJ(tar_joint_pos, move_vel_, move_acc_, true);
+        } else {
+            rtde_control_->moveJ(tar_joint_pos, move_vel_, move_acc_, false);
+        }
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const final override {

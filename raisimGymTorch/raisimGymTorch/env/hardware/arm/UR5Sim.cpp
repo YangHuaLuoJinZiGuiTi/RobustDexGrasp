@@ -46,7 +46,7 @@ public:
         end_effector_angle_velocity_ = eef_angle_vel.e();
     }
 
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const final override {
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const final override {
         platform_->setPdTarget(posTarget, velTarget);
     }
 

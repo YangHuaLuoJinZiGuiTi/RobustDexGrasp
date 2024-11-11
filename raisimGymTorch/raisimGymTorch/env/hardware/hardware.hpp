@@ -160,6 +160,12 @@ public:
         if (false == flying_hand_mode_) {
             kinematic_->updateURDFFK(pinocchio_joint);
         }
+
+        // Align the joints position in simulation and the real world
+        if (real_world_mode_) {
+            Eigen::VectorXd now_joint_v(platform_gv_dim_);
+            arm_hand_platform_->setState(now_joint, now_joint_v);
+        }
     }
 
     /**
@@ -254,6 +260,39 @@ public:
      */
     void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel) {
         arm_hand_platform_->setState(genco, genvel);
+
+        if (real_world_mode_) {
+
+            std::cout << "--------------set state = " << genco.transpose() << std::endl;
+            int cnt = 15;
+            while (cnt > 0) {
+                cnt--;
+                arm_->setPdTarget(genco.head(arm_dim_), genvel.head(arm_dim_), false);
+                hand_->setPdTarget(genco.tail(hand_dim_), genvel.tail(hand_dim_), false);
+                usleep(1000000);
+                updateObservation();
+                Eigen::VectorXd now_joint(platform_gc_dim_);
+                now_joint.head(arm_dim_) = arm_->getJointPosition();
+                now_joint.tail(hand_dim_) = hand_->getJointPosition();
+
+                bool end_flag = true;
+                for (int i = 0; i < platform_gc_dim_; i++) {
+                    if (i < 6 && std::abs(now_joint[i] - genco[i]) > 0.05) {
+                        printf("arm joint[%d] has a large gap: %f --- %f\n", i, now_joint[i], genco[i]);
+                        end_flag = false;
+                        break;
+                    } else if (i >= 6 && std::abs(now_joint[i] - genco[i]) > 0.2) {
+                        printf("hand joint[%d] has a large gap: %f --- %f\n", i, now_joint[i], genco[i]);
+                        end_flag = false;
+                        break;
+                    } 
+                }
+                if (end_flag) {
+                    std::cout << " arrive reset pose successfully !!!" << std::endl;
+                    break;
+                }
+            }
+        }
     }
 
     /**
@@ -463,7 +502,7 @@ private:
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareHand>()>> hand_map_ = {
         {"allegro_sim", [](){ return createAllegroSim(); }},
         #ifdef BUILD_ALLEGRO_REAL
-        {"hand_real", [](){ return createAllegroReal(); }},
+        {"allegro_real", [](){ return createAllegroReal(); }},
         #endif
         {"leap_sim", [](){ return createLeapSim(); }},
         #ifdef BUILD_LEAP_REAL

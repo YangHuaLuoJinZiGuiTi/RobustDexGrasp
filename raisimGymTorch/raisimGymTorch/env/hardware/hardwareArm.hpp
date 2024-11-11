@@ -13,7 +13,7 @@ public:
     virtual void setSimPlatform(raisim::ArticulatedSystem *platform) = 0; // only use in simulation mode
 
     virtual void updateArmState() = 0;
-    virtual void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) const = 0;
+    virtual void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const = 0;
 
     virtual void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const = 0;
     virtual const int getDim() const = 0;
