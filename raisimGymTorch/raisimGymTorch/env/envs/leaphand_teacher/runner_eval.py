@@ -55,7 +55,7 @@ exp_name = "arm_rand"
 # weight_saved = '2024-10-31-16-40-52/full_50000_r.pt'
 # weight_saved = '2024-10-31-16-43-20/full_50000_r.pt'
 # weight_saved = '2024-11-04-16-42-02/full_11500_r.pt'
-weight_saved = '2024-11-04-16-42-02/full_50000_r.pt'
+weight_saved = '2024-11-11-15-16-36/full_7500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -222,7 +222,7 @@ for update in range(args.num_iterations):
     qpos_reset_r[:, 10] = 0.8
     qpos_reset_r[:, 14] = 0.8
     qpos_reset_r[:, 18] = 1.57
-    qpos_reset_r[:, 20] = -0.5
+    qpos_reset_r[:, 20] = -1.0
 
     hand_center_sample_w = np.zeros((1, 3))
     hand_center_sample_w[0, 0] = 0.669872 - 0.55

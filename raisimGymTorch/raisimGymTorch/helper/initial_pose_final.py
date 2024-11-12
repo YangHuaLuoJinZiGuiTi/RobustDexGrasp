@@ -1427,7 +1427,7 @@ def get_initial_pose_faive_random(obj_mesh, non_aff_mesh, hand_type='faive', top
     # return rot12, pos, bias, opt_pos
 
 
-def get_initial_pose_allegro_new(obj_mesh, non_aff_mesh, top=False, easy=False):
+def get_initial_pose_allegro_new(obj_mesh, non_aff_mesh, hand_type="allegro", top=False, easy=False):
     # sample 3000 points from the pytorch3d mesh
     points = obj_mesh.vertices if torch.is_tensor(obj_mesh.vertices) else torch.tensor(obj_mesh.vertices,
                                                                                        dtype=torch.float32).unsqueeze(0)
@@ -1718,6 +1718,7 @@ def get_initial_pose_allegro_arm_partial(partial_obj_pcd, x_dir, obj_mat, top=Fa
     rot_mat= -np.stack((dir, y_dir, z_dir), axis=-1)
 
     return rot_mat
+
 
 # def get_initial_pose_leaphand_arm_partial(partial_obj_pcd, z_dir, obj_mat, top=False):
 #     obj_pcd = partial_obj_pcd.reshape(1,200,3)

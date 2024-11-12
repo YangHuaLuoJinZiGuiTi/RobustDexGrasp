@@ -298,25 +298,40 @@ for update in range(args.num_iterations):
                 visible_points_obj[i, :] = locations
                 visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
 
+                # # get the x_dir of the grasping frame
+                # obj_aff_center_in_obj = np.mean(visible_points_obj[i].reshape(200, 3), axis=0)
+                # hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_w - obj_pose_reset[i, :3]).T).T
+                # hand_dir_x_in_obj = hand_center_obj - obj_aff_center_in_obj
+                # hand_dir_x_in_obj = hand_dir_x_in_obj / np.linalg.norm(hand_dir_x_in_obj, axis=1, keepdims=True)
+                #
+                # target_center[i, :] = obj_aff_center_in_obj - 0.01 * hand_dir_x_in_obj
+                # pos = obj_aff_center_in_obj + 0.25 * hand_dir_x_in_obj
+                # rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single,
+                #                                            top=False)
+                # if rot is None:
+                #     hand_dir_x_in_obj[0, :] = 0
+                #     hand_dir_x_in_obj[0, 2] = 1
+                #     rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single,
+                #                                                top=True)
+                #
+                # wrist_in_world = np.matmul(obj_mat_single, rot)
+                # wrist_pose = rotations.mat2euler(wrist_in_world)
+                # qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
+
                 # get the x_dir of the grasping frame
-                obj_aff_center_in_obj = np.mean(visible_points_obj[i].reshape(200, 3), axis=0)
-                hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_w - obj_pose_reset[i, :3]).T).T
-                hand_dir_x_in_obj = hand_center_obj - obj_aff_center_in_obj
-                hand_dir_x_in_obj = hand_dir_x_in_obj / np.linalg.norm(hand_dir_x_in_obj, axis=1, keepdims=True)
+                obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200, 3), axis=0)
+                hand_dir_x_w = hand_center_w - obj_aff_center_in_w
+                hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
-                target_center[i, :] = obj_aff_center_in_obj - 0.01 * hand_dir_x_in_obj
-                pos = obj_aff_center_in_obj + 0.25 * hand_dir_x_in_obj
-                rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single,
-                                                           top=False)
+                # get position and orientation of the wrist
+                pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
+                rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                 if rot is None:
-                    hand_dir_x_in_obj[0, :] = 0
-                    hand_dir_x_in_obj[0, 2] = 1
-                    rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single,
-                                                               top=True)
-
-                wrist_in_world = np.matmul(obj_mat_single, rot)
-                wrist_pose = rotations.mat2euler(wrist_in_world)
-                qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
+                    hand_dir_x_w[0, :] = 0
+                    hand_dir_x_w[0, 2] = 1
+                    rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True)
+                wrist_in_world = rot
+                qpos_reset_r[i, :3] = pos[0, :]
 
                 # from grasping frame pos to wrist pos
                 wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
