@@ -74,24 +74,20 @@ private:
     const double Pgain = 60.0;
     const double Dgain = 0.2;
 
-    const std::string body_parts_flying_[num_bodies_] =  {"z_rotation_joint",
-    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
-    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
-    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
-    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
+    const std::string body_parts_flying_[num_bodies_] = {"TBD"};
 
-    const std::string body_parts_[num_bodies_] =  {"Flange2hand_fixed_joint",
-    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
-    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
-    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
-    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
+    const std::string body_parts_[num_bodies_] =  {"wrist_3_link-tool0_fixed_joint",
+    "leap_joint1", "leap_joint2", "leap_joint3", "leap_joint3_tip",
+    "leap_joint5", "leap_joint6", "leap_joint7", "leap_joint7_tip",
+    "leap_joint9", "leap_joint10", "leap_joint11", "leap_joint11_tip",
+    "leap_joint13", "leap_joint14", "leap_joint15", "leap_joint15_tip"};
 
     // for raisim contact check
-    const std::string contact_bodies_[num_contacts_] =  {"wrist_3_link",
-    "link_1.0", "link_2.0", "link_3.0",
-    "link_5.0", "link_6.0", "link_7.0",
-    "link_9.0", "link_10.0", "link_11.0",
-    "link_13.0", "link_14.0", "link_15.0"};
+    const std::string contact_bodies_[num_contacts_] =   {"wrist_3_link",
+    "pip", "dip", "fingertip",
+    "pip_2", "dip_2", "fingertip_2",
+    "pip_3", "dip_3", "fingertip_3",
+    "pip_4", "thumb_dip", "thumb_fingertip"};
 };
 
 extern "C" std::unique_ptr<HardwareHand> createLeapReal() {

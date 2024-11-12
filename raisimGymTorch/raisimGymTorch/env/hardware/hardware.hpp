@@ -435,6 +435,9 @@ public:
     std::vector<raisim::Contact> &getContacts() {
         return arm_hand_platform_->getContacts();
     }
+    double getTotalMass() const { 
+        return arm_hand_platform_->getTotalMass();
+    }
 
 private:
     template <typename T>

@@ -5,6 +5,9 @@
 
 #pragma once
 
+// project based head file
+#include "../../hardware/hardware.hpp"
+
 #include <stdlib.h>
 #include <set>
 #include "../../RaisimGymEnv.hpp"
@@ -46,10 +49,14 @@ namespace raisim {
                 std::cout<<"hand_model_r: "<<hand_model_r<<std::endl;
             }
             resourceDir_ = resourceDir;
-            mano_r_ = world_->addArticulatedSystem(resourceDir+"/ur5_leaphand/"+hand_model_r,"",{},raisim::COLLISION(0),raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63));
-            mano_r_->setName("LeapHand");
+            mano_r_ = std::make_unique<Hardware>(resourceDir, cfg["hardware"], world_);
+            mano_r_->setName("Leaphand");
 //            hand_mass = mano_r_->getTotalMass();
 
+            num_contacts = mano_r_->getBodies(contact_bodies_r_, false, true);
+            num_bodyparts = mano_r_->getBodies(body_parts_r_, false, false);
+            mano_r_->getBodies(contact_arm_bodies, true, true);
+            mano_r_->getBodies(arm_parts, true, false);
 
             /// add table
             box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "", raisim::COLLISION(1)));
@@ -160,13 +167,7 @@ namespace raisim {
 
 
             /// set PD gains
-            Eigen::VectorXd jointPgain(gcDim_), jointDgain(gvDim_);
-            jointPgain.head(6).setConstant(arm_Pgain);
-            jointDgain.head(6).setConstant(arm_Dgain);
-            jointPgain.tail(gcDim_-6).setConstant(hand_Pgain);
-            jointDgain.tail(gcDim_-6).setConstant(hand_Dgain);
-
-            mano_r_->setPdGains(jointPgain, jointDgain);
+            mano_r_->setPdGains(0);
             mano_r_->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_));
             mano_r_->setGeneralizedCoordinate(Eigen::VectorXd::Zero(gcDim_));
 
@@ -394,12 +395,7 @@ namespace raisim {
             lift = false;
             lift_num = 0;
             /// reset gains (only required in case for inference)
-            Eigen::VectorXd jointPgain(gvDim_), jointDgain(gvDim_);
-            jointPgain.head(6).setConstant(arm_Pgain);
-            jointDgain.head(6).setConstant(arm_Dgain);
-            jointPgain.tail(gcDim_-6).setConstant(hand_Pgain);
-            jointDgain.tail(gcDim_-6).setConstant(hand_Dgain);
-            mano_r_->setPdGains(jointPgain, jointDgain);
+            mano_r_->setPdGains(0);
 
             Eigen::VectorXd gen_force;
             gen_force.setZero(gcDim_);
@@ -635,6 +631,7 @@ namespace raisim {
 
         /// This function computes and updates the observation/state space
         void updateObservation() {
+            mano_r_->updateObservation();
             // update observation
             impulses_r_af.setZero();
             contacts_r_af.setZero();
@@ -958,10 +955,6 @@ namespace raisim {
         double direction_reward = 0.0;
         double obj_weight = 0.0;
         double mano_weight = 0.0;
-        double arm_Pgain = 3000.0;
-        double arm_Dgain = 150;
-        double hand_Pgain = 60.0;
-        double hand_Dgain = 0.2;
 
 
         int num_contacts = 13;
@@ -993,7 +986,8 @@ namespace raisim {
 
         raisim::Mesh *obj_mesh_1, *obj_mesh_2, *obj_mesh_3, *obj_mesh_4;
         raisim::Box *box;
-        raisim::ArticulatedSystem *arctic, *mano_r_;
+        raisim::ArticulatedSystem *arctic;
+        std::unique_ptr<Hardware> mano_r_; 
         raisim::ArticulatedSystemVisual *arcticVisual;
         raisim::Mat<3,3> Obj_orientation, Obj_orientation_temp, Obj_orientation_init;
         raisim::Vec<3> wrist_euler_in_obj_init, wrist_euler_init;
@@ -1022,21 +1016,13 @@ namespace raisim {
 //                                             "right_thumb1_z",  "right_thumb2_z",  "right_thumb3_z"
 //        };
 
-        std::string body_parts_r_[17] =  {"wrist_3_link-tool0_fixed_joint",
-                                         "leap_joint1", "leap_joint2", "leap_joint3", "leap_joint3_tip",
-                                         "leap_joint5", "leap_joint6", "leap_joint7", "leap_joint7_tip",
-                                         "leap_joint9", "leap_joint10", "leap_joint11", "leap_joint11_tip",
-                                         "leap_joint13", "leap_joint14", "leap_joint15", "leap_joint15_tip"};
+        std::vector<std::string> body_parts_r_;
 
         // contact_bodies_实际上跟contact reward相关，因此指定的就是link所连接的collision body跟object的接触情况
-        std::string contact_bodies_r_[13] =  {"wrist_3_link",
-                                              "pip", "dip", "fingertip",
-                                              "pip_2", "dip_2", "fingertip_2",
-                                              "pip_3", "dip_3", "fingertip_3",
-                                              "pip_4", "thumb_dip", "thumb_fingertip"};
+        std::vector<std::string> contact_bodies_r_;
 
-        std::string arm_parts[6] = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
-       std::string contact_arm_bodies[6] = {"shoulder_link", "upper_arm_link", "forearm_link", "wrist_1_link", "wrist_2_link", "wrist_3_link"};
+        std::vector<std::string> arm_parts;
+        std::vector<std::string> contact_arm_bodies;
 
         Eigen::VectorXd mean_pose;
 

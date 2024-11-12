@@ -1,6 +1,32 @@
 seed: 1
 
 environment:
+
+  hardware:
+    kinematic_type: "pinocchio"
+    arm_type: "ur5"                
+    hand_type: "leap"
+    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
+    flying_hand_mode: False
+
+    rsc_model: "ur5_leaphand"
+    sim_model: "ur5_leap"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+    fk_model: "ur5_leap_fk"          # FK model in           rsc/${rsc_model}/${fk_model}.urdf
+    ik_model: "ur5"                     # IK model in           rsc/${rsc_model}/${ik_model}.urdf
+                                        # IK collision model in rsc/${rsc_model}/${ik_model}.srdf
+    vis_group_id: "0"                   # collision_id in raisim
+    vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
+
+    real_velocity_dt_s: 0.1
+  
+    arm_real:
+      ip: "192.168.56.101"
+      freq_hz: 500.0
+      move_vel: 0.5
+      move_acc: 0.3
+
+    hand_real:
+      freq_hz: 500.0
   render: True
   eval_every_n: 500
   update_every_n: 20
