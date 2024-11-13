@@ -53,6 +53,7 @@ parser.add_argument('-ln', '--log_name', type=str, default='single_obj')
 parser.add_argument('-mean', '--mean_pose', action="store_true")
 
 new_allegro = True
+SAMPLE_IN_REAL = True
 
 args = parser.parse_args()
 weight_path = args.weight
@@ -114,6 +115,7 @@ b_thread = threading.Thread(target=data_producer.start_thread)
 b_thread.daemon = True
 b_thread.start()
 obj_init_xyz_qwxyz = None
+obj_pointcloud = None
 try:
     while True:
         time.sleep(2)
@@ -121,9 +123,11 @@ try:
         obj_init_xyz_qwxyz = data_producer.get_data()
         if obj_init_xyz_qwxyz is not None:
             print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
-            time.sleep(6)
+            time.sleep(2)
             obj_init_xyz_qwxyz = data_producer.get_data()
             print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
+            obj_pointcloud = data_producer.get_pcd()
+            print(f" pointcloud shape is \n {obj_pointcloud.shape}" )
             break
 except KeyboardInterrupt:
     data_producer.end_thread()
@@ -201,7 +205,7 @@ for update in range(args.num_iterations):
     qpos_reset_r[:, 11] = 0.8
     qpos_reset_r[:, 15] = 0.8
     qpos_reset_r[:, 19] = 0.
-    qpos_reset_r[:, 20] = -0.5
+    qpos_reset_r[:, 20] = -0.05
 
 
 
@@ -234,47 +238,67 @@ for update in range(args.num_iterations):
     for i in range(num_envs):
         get_meaningful_ik = False
         while not get_meaningful_ik:
-            # sample object states
-            obj_pose_reset[i, :7] = obj_init_xyz_qwxyz
-            obj_pose_reset[i, 7] = 0.
-            quats = np.array([obj_init_xyz_qwxyz[3:]])
+            # sample object states (not relavent for hardware deployment)
+            if SAMPLE_IN_REAL == False:
+                sample_x = 0.15
+                sample_y = 0.2 - 0.75152
+                while True:
+                    angle = np.random.uniform(0, 2 * np.pi)
+                    distance = np.random.uniform(0.45, 0.75)
+                    sample_x = distance * np.cos(angle)
+                    sample_y = distance * np.sin(angle)
+                    if sample_y < 0.3 - 0.75152:
+                        # print(sample_x, sample_y, distance)
+                        break
+                obj_pose_reset[i, 0] = sample_x
+                obj_pose_reset[i, 1] = sample_y
+                obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+                obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
-            # get the partial point cloud
-            obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
+                axis_angles = np.zeros((1, 3))
+                axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+                quats = rotations.axisangle2quat(axis_angles)
+                obj_pose_reset[i, 3:7] = quats
+                
+                # get the partial point cloud
+                obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
 
-            view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
-            view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
-            obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
-            directions = obj_pcd - view_point_obj
-            directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
-            locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
-                                                                                      ray_directions=directions,
-                                                                                      multiple_hits=False)
-            if locations.shape != (200, 3):
-                expanded_locations = np.zeros((200, 3))
-                expanded_locations[:, :] = locations[0, :]
-                expanded_locations[:locations.shape[0], :] = locations
-                locations = expanded_locations
-            visible_points_obj[i, :] = locations
-            visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
+                view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
+                view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
+                obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
+                directions = obj_pcd - view_point_obj
+                directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
+                locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
+                                                                                        ray_directions=directions,
+                                                                                        multiple_hits=False)
+                if locations.shape != (200, 3):
+                    expanded_locations = np.zeros((200, 3))
+                    expanded_locations[:, :] = locations[0, :]
+                    expanded_locations[:locations.shape[0], :] = locations
+                    locations = expanded_locations
+                visible_points_obj[i, :] = locations
+                visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
+            else:
+                # or get from foundationPose !!!
+                obj_pose_reset[i, :7] = obj_init_xyz_qwxyz
+                obj_pose_reset[i, 7] = 0.
+                quats = np.array([obj_init_xyz_qwxyz[3:]])
+                visible_points_w[i, :] = obj_pointcloud
 
             # get the x_dir of the grasping frame
-            obj_aff_center_in_obj = np.mean(visible_points_obj[i].reshape(200,3), axis=0)
-            hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_w - obj_pose_reset[i, :3]).T).T
-            hand_dir_x_in_obj = hand_center_obj - obj_aff_center_in_obj
-            hand_dir_x_in_obj = hand_dir_x_in_obj / np.linalg.norm(hand_dir_x_in_obj, axis=1, keepdims=True)
+            obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
+            hand_dir_x_w = hand_center_w - obj_aff_center_in_w
+            hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
-            target_center[i, :] = obj_aff_center_in_obj - 0.01 * hand_dir_x_in_obj
-            pos = obj_aff_center_in_obj + 0.25 * hand_dir_x_in_obj
-            rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single, top=False)
+            # get position and orientation of the wrist
+            pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
+            rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
             if rot is None:
-                hand_dir_x_in_obj[0, :] = 0
-                hand_dir_x_in_obj[0, 2] = 1
-                rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single, top=True)
-
-            wrist_in_world = np.matmul(obj_mat_single, rot)
-            wrist_pose = rotations.mat2euler(wrist_in_world)
-            qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
+                hand_dir_x_w[0, :] = 0
+                hand_dir_x_w[0, 2] = 1
+                rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True)
+            wrist_in_world = rot
+            qpos_reset_r[i, :3] = pos[0, :]
 
             # from grasping frame pos to wrist pos
             wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
@@ -329,16 +353,14 @@ for update in range(args.num_iterations):
                     obj_pose_reset,
                     )
 
-    r = R.from_quat(obj_pose_reset[0, 3:7])
-    euler = r.as_euler('xyz', degrees=True)
-
     obs_new_r, dis_info = env.observe_vision_new()
     # show_point = dis_info[:, 17:68].astype('float32').copy()
     aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
     env.set_joint_sensor_visual(show_point)
-    env.update_target(target_center)
+    # env.update_target(target_center)
 
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
+
 
     for step in range(n_steps_r):
         obs_r = obs_new_r

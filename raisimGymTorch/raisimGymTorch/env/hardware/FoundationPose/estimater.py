@@ -13,7 +13,7 @@ import itertools
 from learning.training.predict_score import *
 from learning.training.predict_pose_refine import *
 import yaml
-
+from random import sample
 
 class FoundationPose:
   def __init__(self, model_pts, model_normals, symmetry_tfs=None, mesh=None, scorer:ScorePredictor=None, refiner:PoseRefinePredictor=None, glctx=None, debug=0, debug_dir=''):
@@ -155,6 +155,14 @@ class FoundationPose:
 
     return center.reshape(3)
 
+  def get_obj_point_cloud(self, K, rgb, depth, ob_mask, s = 200):
+      depth = erode_depth(depth, radius=2, device='cuda')
+      depth = bilateral_filter_depth(depth, radius=2, device='cuda')
+      xyz_map = depth2xyzmap(depth, K)
+      valid = (xyz_map[...,2]>=0.1) & (ob_mask>0)
+      pc = xyz_map[valid]
+      indices = np.random.choice(pc.shape[0], size=s, replace=False)
+      return pc[indices]
 
   def register(self, K, rgb, depth, ob_mask, ob_id=None, glctx=None, iteration=5):
     '''Copmute pose from given pts to self.pcd

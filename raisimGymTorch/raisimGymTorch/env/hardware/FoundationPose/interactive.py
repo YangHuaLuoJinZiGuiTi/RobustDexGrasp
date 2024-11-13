@@ -69,7 +69,9 @@ class CircularLowPassFilter:
 class FoundationData:
     def __init__(self, mesh_path):
         self.obj_xyz_qwxyz = None
+        self.pcd_object = None
         self.lock = threading.Lock()
+        self.lockpc = threading.Lock()
         self.running = True
         self.mesh_path = mesh_path
         print("---------------- mesh_path = " + mesh_path)
@@ -96,12 +98,16 @@ class FoundationData:
     def get_data(self):
         with self.lock:
             return self.obj_xyz_qwxyz
+        
+    def get_pcd(self):
+        with self.lockpc:
+            return self.pcd_object
     
     def end_thread(self):
         self.running = False
 
     def start_thread(self):
-        USE_ALLEGRO_HAND = True # FALSE MAY USE Inspire hand
+        USE_ALLEGRO_HAND = 2 # FALSE MAY USE Inspire hand
         SHOW_IMAGE =  True
         SHOW_LOG = False
         est_refine_iter=4
@@ -141,10 +147,10 @@ class FoundationData:
         print(f'mesh to_origin xyz={to_origin[:3, 3].reshape((1, 3))},  rpy={self.rot2euler(to_origin[:3, :3])}')
 
         # from txt
-        if USE_ALLEGRO_HAND == True:
+        if USE_ALLEGRO_HAND == 0:
             Tbase2cam = np.loadtxt("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_2/base2cam.txt", delimiter=',')
-        else:
-            Tbase2cam = np.loadtxt("/home/ubuntu/hand/calculate/0_datasets_inspire_hand/base2cam.txt", delimiter=',')
+        elif USE_ALLEGRO_HAND == 2:
+            Tbase2cam = np.loadtxt("/home/ubuntu/hand/calculate/1_datasets_allegro_hand/base2cam.txt", delimiter=',')
         Tbase2cam[0][3] = Tbase2cam[0][3] * 0.001
         Tbase2cam[1][3] = Tbase2cam[1][3] * 0.001
         Tbase2cam[2][3] = Tbase2cam[2][3] * 0.001
@@ -188,12 +194,14 @@ class FoundationData:
         i = 0
 
         mask = cv2.imread(mask_file_path, cv2.IMREAD_UNCHANGED)
-        if USE_ALLEGRO_HAND == True:
+        if USE_ALLEGRO_HAND == 0:
             cam_K = np.array([[606.541260, 0.000000, 324.194061],[0.000000, 606.598267, 256.890228], [0., 0., 1.]]) # allegro_hand 640*480
-        else:
+        elif USE_ALLEGRO_HAND == 1:
             cam_K = np.array([[605.863, 0.000000, 314.97],[0.000000, 605.804, 254.686], [0., 0., 1.]]) # inspire_hand 640*480
+        elif USE_ALLEGRO_HAND == 2:
+            cam_K = np.array([[605.66, 0.000000, 318.829],[0.000000, 605.716, 253.716], [0., 0., 1.]]) # leaphand 640*480
 
-        time.sleep(8)
+        time.sleep(2)
         # Streaming loop
 
         test_xyzrpy = []
@@ -240,10 +248,14 @@ class FoundationData:
                 rz = filter_rz.filter(angle[2])
                 Tcam2obj_filter = self.get_Tmat(x,y,z,rx,ry,rz)
 
+                #print (f"camera frame pose = {Tcam2obj_filter[:3, 3].reshape((1, 3))}")
                 # camera坐标系下。obj的坐标。。
                 Tbase2obj = Tbase2cam @ Tcam2obj_filter 
+                #print (f"realbase frame pose = {Tbase2obj[:3, 3].reshape((1, 3))}")
                 Tsim_base2obj = Tsim2real @ Tbase2obj
+                #print (f"simbase frame pose = {Tsim_base2obj[:3, 3].reshape((1, 3))}")
                 Tsim2realobj = Tsimbase @ Tsim_base2obj
+                #print (f"simworld frame pose = {Tsim2realobj[:3, 3].reshape((1, 3))}")
                 objpos = Tsim2realobj[:3, 3].reshape((1, 3))
                 objquat = self.rot2quar(Tsim2realobj[:3,:3])
                 objeul = self.rot2euler(Tcam2obj_filter[:3,:3])
@@ -257,6 +269,18 @@ class FoundationData:
                     self.obj_xyz_qwxyz[4] = objquat[0] # x
                     self.obj_xyz_qwxyz[5] = objquat[1] # y
                     self.obj_xyz_qwxyz[6] = objquat[2] # z
+                    
+                mask_pcd = est.get_obj_point_cloud(cam_K, color, depth, mask, 200)
+                mask_pcd_homogeneous = np.hstack((mask_pcd, np.ones((mask_pcd.shape[0], 1))))  # (200, 4)
+                #print (f"camera frame pc = {mask_pcd_homogeneous[0]}")
+                tbase2pcd = mask_pcd_homogeneous @ Tbase2cam.T
+                #print (f"realbase frame pc = {tbase2pcd[0]}")
+                tsim_base2pc = tbase2pcd @ Tsim2real.T
+                #print (f"simbase frame pc = {tsim_base2pc[0]}")
+                tsim2realpc = tsim_base2pc @ Tsimbase.T
+                #print (f"simworld frame pc = {tsim2realpc[0]}")
+                with self.lockpc:
+                    self.pcd_object = tsim2realpc[:, :3]
                     
                 if SHOW_IMAGE == True:
                     center_pose = Tcam2obj@np.linalg.inv(to_origin)
