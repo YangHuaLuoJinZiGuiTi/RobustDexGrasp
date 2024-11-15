@@ -23,7 +23,6 @@ public:
 
         std::string robot_ip = cfg["arm_real"]["ip"].As<std::string>();
         double rtde_frequency = cfg["arm_real"]["freq_hz"].As<double>();
-        double dt = 1.0 / rtde_frequency; // 2ms
         uint16_t flags = ur_rtde::RTDEControlInterface::FLAG_USE_EXT_UR_CAP;
 
         rtde_control_ = std::make_unique<ur_rtde::RTDEControlInterface>(robot_ip, rtde_frequency, flags);
@@ -86,11 +85,7 @@ public:
         for (int i = 0; i < 6; i++) {
             tar_joint_pos.push_back(posTarget[i]);
         }
-        if (async == true) {
-            rtde_control_->moveJ(tar_joint_pos, move_vel_, move_acc_, true);
-        } else {
-            rtde_control_->moveJ(tar_joint_pos, move_vel_, move_acc_, false);
-        }
+        rtde_control_->servoJ(tar_joint_pos, 0, 0, 0.01, 0.2, 100);
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const final override {

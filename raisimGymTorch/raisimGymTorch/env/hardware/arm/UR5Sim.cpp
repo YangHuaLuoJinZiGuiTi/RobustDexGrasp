@@ -14,6 +14,34 @@ public:
         end_effector_angle_velocity_.setZero(3);
         arm_init_base_pose_.setZero(6);
         arm_init_base_pose_ << 0.55, 0.75152, 0.0, 0.0, 0.0, 0.0;
+
+        std::ifstream pd_txt;
+        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/arm/UR5Identification.txt");
+        if (pd_txt) {
+            std::string line;
+            int line_cnt = 0;
+            while (getline(pd_txt, line)) {
+                std::stringstream ss(line); 
+                if (line_cnt < num_joint_) {
+                    ss >> Pgain[line_cnt];
+                } else {
+                    ss >> Dgain[line_cnt - num_joint_];
+                }
+                line_cnt++;
+            }
+            if (line_cnt != (num_joint_*2)) {
+                std::cout << "error txt line:" << line_cnt << std::endl;
+                pd_txt.close();
+                exit(0);
+            }
+            pd_txt.close();
+        } else {
+            for (int i = 0; i < num_joint_; i++) {
+                Pgain[i] = Pgain[0];
+                Dgain[i] = Dgain[0];
+            }
+        }
+
     }
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
         platform_ = platform;
@@ -51,8 +79,10 @@ public:
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const final override {
-        pgain.head(head_shift).setConstant(Pgain);
-        dgain.head(head_shift).setConstant(Dgain);
+        for (int i = 0; i < num_joint_; i++) {
+            pgain[i] = Pgain[i];
+            dgain[i] = Dgain[i];
+        }
     }
 
     int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const final override {
@@ -96,10 +126,10 @@ public:
 private:
     raisim::ArticulatedSystem *platform_;
 
-    const double Pgain = 3000.0;
-    const double Dgain = 150.0;
+    const static int num_joint_ = 6;
 
-    const int num_joint_ = 6;
+    double Pgain[num_joint_] = {30.0};
+    double Dgain[num_joint_] = {1.5};
 
     const std::string body_parts_[6] =  {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
     const std::string contact_bodies_[6] =  {"shoulder_link", "upper_arm_link", "forearm_link", "wrist_1_link", "wrist_2_link", "wrist_3_link"};

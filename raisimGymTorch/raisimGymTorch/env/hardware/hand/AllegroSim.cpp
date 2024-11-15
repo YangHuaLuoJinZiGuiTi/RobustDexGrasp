@@ -13,6 +13,34 @@ public:
         hand_joint_velocity_.setZero(num_joint_);
         
         flying_hand_mode_ = cfg["flying_hand_mode"].As<bool>();
+
+        std::ifstream pd_txt;
+        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/hand/AllegroIdentification.txt");
+        if (pd_txt) {
+            std::string line;
+            int line_cnt = 0;
+            while (getline(pd_txt, line)) {
+                std::stringstream ss(line); 
+                if (line_cnt < num_joint_) {
+                    ss >> Pgain[line_cnt];
+                } else {
+                    ss >> Dgain[line_cnt - num_joint_];
+                }
+                line_cnt++;
+            }
+            if (line_cnt != (num_joint_*2)) {
+                std::cout << "error txt line:" << line_cnt << std::endl;
+                pd_txt.close();
+                exit(0);
+            }
+            pd_txt.close();
+        } else {
+            for (int i = 0; i < num_joint_; i++) {
+                Pgain[i] = Pgain[0];
+                Dgain[i] = Dgain[0];
+            }
+        }
+
     }
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
         platform_ = platform;
@@ -31,8 +59,10 @@ public:
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int tail_shift) const final override {
-        pgain.tail(tail_shift).setConstant(Pgain);
-        dgain.tail(tail_shift).setConstant(Dgain);
+        for (int i = 0; i < num_joint_; i++) {
+            pgain.tail(tail_shift)[i] = Pgain[i];
+            dgain.tail(tail_shift)[i] = Dgain[i];
+        }
     }
 
     Eigen::VectorXd & getJointVelocity() final override {
@@ -92,8 +122,8 @@ private:
     const static int num_finger_ = 4;
     const static int num_joint_ = 16;
 
-    const double Pgain = 60.0;
-    const double Dgain = 0.2;
+    double Pgain[num_joint_] = {60.0};
+    double Dgain[num_joint_] = {0.2};
 
     const std::string body_parts_flying_[num_bodies_] =  {"z_rotation_joint",
     "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
