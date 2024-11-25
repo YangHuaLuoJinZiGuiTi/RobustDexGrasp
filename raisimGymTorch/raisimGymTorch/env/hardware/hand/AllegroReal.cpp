@@ -35,6 +35,34 @@ public:
         pub_tar_joints = nh_->advertise<sensor_msgs::JointState>("/allegroHand/joint_cmd", 1);
         sub_cur_joints = nh_->subscribe("/allegroHand/joint_states", 1, &AllegroReal::jointStateCallback, this);
         subscribe_thread_ = std::thread(&AllegroReal::subscribeLoop, this);
+
+        std::ifstream pd_txt;
+        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/hand/AllegroIdentification.txt");
+        if (pd_txt) {
+            std::string line;
+            int line_cnt = 0;
+            while (getline(pd_txt, line)) {
+                std::stringstream ss(line); 
+                if (line_cnt < num_joint_) {
+                    ss >> Pgain[line_cnt];
+                } else {
+                    ss >> Dgain[line_cnt - num_joint_];
+                }
+                line_cnt++;
+            }
+            if (line_cnt != (num_joint_*2)) {
+                std::cout << "error txt line:" << line_cnt << std::endl;
+                pd_txt.close();
+                exit(0);
+            }
+            pd_txt.close();
+        } else {
+            for (int i = 0; i < num_joint_; i++) {
+                Pgain[i] = Pgain[0];
+                Dgain[i] = Dgain[0];
+            }
+        }
+        std::cout << "------------- allegro real init finish !!!!!" << std::endl;
     }
 
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
@@ -52,16 +80,30 @@ public:
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int tail_shift) const final override {
-        pgain.tail(tail_shift).setConstant(Pgain);
-        dgain.tail(tail_shift).setConstant(Dgain);
+        for (int i = 0; i < num_joint_; i++) {
+            pgain.tail(tail_shift)[i] = Pgain[i];
+            dgain.tail(tail_shift)[i] = Dgain[i];
+        }
     }
 
     Eigen::VectorXd & getJointVelocity() final override {
-        std::lock_guard<std::mutex> lock(cb_mutex);
+        std::chrono::milliseconds timeout(100);
+        //std::lock_guard<std::mutex> lock(cb_mutex);
+        if (cb_mutex.try_lock_for(timeout)){
+            cb_mutex.unlock();
+        } else {
+            printf("++++++++++++++++++++++++++++lock timeout get joint vel");
+        }
         return hand_joint_velocity_;
     }
     Eigen::VectorXd & getJointPosition() final override {
-        std::lock_guard<std::mutex> lock(cb_mutex);
+        std::chrono::milliseconds timeout(100);
+        //std::lock_guard<std::mutex> lock(cb_mutex);
+        if (cb_mutex.try_lock_for(timeout)){
+            cb_mutex.unlock();
+        } else {
+            printf("++++++++++++++++++++++++++lock timeout get joint pos");
+        }
         return hand_joint_position_;
     }
     const int getDim() const final override {
@@ -102,7 +144,15 @@ public:
 
 private:
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg) {
-        std::lock_guard<std::mutex> lock(cb_mutex);
+
+        std::chrono::milliseconds timeout(10);
+        //std::lock_guard<std::mutex> lock(cb_mutex);
+        if (cb_mutex.try_lock_for(timeout)){
+            cb_mutex.unlock();
+        } else {
+            printf("+++++++++++++++++++lock timeout cb");
+        }
+
         for (int i = 0; i < num_joint_; i++) {
             hand_joint_position_[i] = msg->position[i];
             hand_joint_velocity_[i] = msg->velocity[i];
@@ -127,8 +177,8 @@ private:
     const static int num_finger_ = 4;
     const static int num_joint_ = 16;
 
-    const double Pgain = 60.0;
-    const double Dgain = 0.2;
+    double Pgain[num_joint_] = {60.0};
+    double Dgain[num_joint_] = {0.2};
 
     const std::string joint_names[num_joint_] = {
         "joint_0.0", "joint_1.0", "joint_2.0", "joint_3.0",
@@ -156,7 +206,7 @@ private:
     sensor_msgs::JointState cur_joint_state_;
     sensor_msgs::JointState tar_joint_state_;
     std::thread subscribe_thread_;
-    std::mutex cb_mutex;
+    std::timed_mutex cb_mutex;
 
     double freq_hz_ = 0.0;
 };

@@ -67,13 +67,14 @@ class CircularLowPassFilter:
         return filtered_yaw_degree
 
 class FoundationData:
-    def __init__(self, mesh_path):
+    def __init__(self, mesh_path, camK_path):
         self.obj_xyz_qwxyz = None
         self.pcd_object = None
         self.lock = threading.Lock()
         self.lockpc = threading.Lock()
         self.running = True
         self.mesh_path = mesh_path
+        self.camK_path = camK_path
         print("---------------- mesh_path = " + mesh_path)
         return
 
@@ -107,7 +108,6 @@ class FoundationData:
         self.running = False
 
     def start_thread(self):
-        USE_ALLEGRO_HAND = 2 # FALSE MAY USE Inspire hand
         SHOW_IMAGE =  True
         SHOW_LOG = False
         est_refine_iter=4
@@ -147,13 +147,10 @@ class FoundationData:
         print(f'mesh to_origin xyz={to_origin[:3, 3].reshape((1, 3))},  rpy={self.rot2euler(to_origin[:3, :3])}')
 
         # from txt
-        if USE_ALLEGRO_HAND == 0:
-            Tbase2cam = np.loadtxt("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_2/base2cam.txt", delimiter=',')
-        elif USE_ALLEGRO_HAND == 2:
-            Tbase2cam = np.loadtxt("/home/ubuntu/hand/calculate/1_datasets_allegro_hand/base2cam.txt", delimiter=',')
-        Tbase2cam[0][3] = Tbase2cam[0][3] * 0.001
-        Tbase2cam[1][3] = Tbase2cam[1][3] * 0.001
-        Tbase2cam[2][3] = Tbase2cam[2][3] * 0.001
+        Tbase2cam = np.loadtxt(self.camK_path + "/base2cam.txt", delimiter=',')
+        Tbase2cam[0][3] = Tbase2cam[0][3]
+        Tbase2cam[1][3] = Tbase2cam[1][3]
+        Tbase2cam[2][3] = Tbase2cam[2][3]
         print(Tbase2cam)
 
         Treal2sim = np.array([[  0., 1., 0., 0.],
@@ -194,12 +191,7 @@ class FoundationData:
         i = 0
 
         mask = cv2.imread(mask_file_path, cv2.IMREAD_UNCHANGED)
-        if USE_ALLEGRO_HAND == 0:
-            cam_K = np.array([[606.541260, 0.000000, 324.194061],[0.000000, 606.598267, 256.890228], [0., 0., 1.]]) # allegro_hand 640*480
-        elif USE_ALLEGRO_HAND == 1:
-            cam_K = np.array([[605.863, 0.000000, 314.97],[0.000000, 605.804, 254.686], [0., 0., 1.]]) # inspire_hand 640*480
-        elif USE_ALLEGRO_HAND == 2:
-            cam_K = np.array([[605.66, 0.000000, 318.829],[0.000000, 605.716, 253.716], [0., 0., 1.]]) # leaphand 640*480
+        cam_K = np.loadtxt(self.camK_path + "/camK_640x480.txt", delimiter=',')
 
         time.sleep(2)
         # Streaming loop

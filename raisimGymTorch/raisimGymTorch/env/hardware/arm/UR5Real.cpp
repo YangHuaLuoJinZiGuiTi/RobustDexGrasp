@@ -31,6 +31,35 @@ public:
         move_vel_ = cfg["arm_real"]["move_vel"].As<double>();
         move_acc_ = cfg["arm_real"]["move_acc"].As<double>();
         velocity_dt_s_ = cfg["real_velocity_dt_s"].As<double>();
+
+
+        std::ifstream pd_txt;
+        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/arm/UR5Identification.txt");
+        if (pd_txt) {
+            std::string line;
+            int line_cnt = 0;
+            while (getline(pd_txt, line)) {
+                std::stringstream ss(line); 
+                if (line_cnt < num_joint_) {
+                    ss >> Pgain[line_cnt];
+                } else {
+                    ss >> Dgain[line_cnt - num_joint_];
+                }
+                line_cnt++;
+            }
+            if (line_cnt != (num_joint_*2)) {
+                std::cout << "error txt line:" << line_cnt << std::endl;
+                pd_txt.close();
+                exit(0);
+            }
+            pd_txt.close();
+        } else {
+            for (int i = 0; i < num_joint_; i++) {
+                Pgain[i] = Pgain[0];
+                Dgain[i] = Dgain[0];
+            }
+        }
+        std::cout << "------------- ur5 real init finish !!!!!" << std::endl;
     }
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
         platform_ = platform;
@@ -55,12 +84,14 @@ public:
         for (int i = 0; i < 6; i++) {
             arm_joint_position_[i] = joint_positions[i];
         }
+
         // Actual speed of the tool given in Cartesian coordinates
         std::vector<double> actual_tcp_speed = rtde_receive_->getActualTCPSpeed();
         for (int i = 0; i < 3; i++) {
             end_effector_velocity_[i] = actual_tcp_speed[i];
         }
 
+        #if 0
         // calculate average velocity
         if (diff_time_s > velocity_dt_s_) {
             if (diff_time_s < 1.0) {
@@ -72,13 +103,14 @@ public:
                     end_effector_angle_velocity_[i] = const_angle(end_effector_pose_[i + 3] - last_end_effector_pose_[i + 3]) / diff_time_s;
                 }
             } else {
-                std::cout << "first init or sth. block" << std::endl;
+                //std::cout << "first init or sth. block" << std::endl;
             }
 
             last_time_ = now_time;
             last_end_effector_pose_ = end_effector_pose_;
             last_arm_joint_position_ = arm_joint_position_;
         }
+        #endif
     }
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const final override {
         std::vector<double> tar_joint_pos;
@@ -89,8 +121,10 @@ public:
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const final override {
-        pgain.head(head_shift).setConstant(Pgain);
-        dgain.head(head_shift).setConstant(Dgain);
+        for (int i = 0; i < num_joint_; i++) {
+            pgain[i] = Pgain[i];
+            dgain[i] = Dgain[i];
+        }
     }
     int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const final override {
         if (contact_flag) {
@@ -133,10 +167,10 @@ public:
 private:
     double const_angle(double in) {
         double out = in;
-        while (in > M_PI) {
+        while (out > M_PI) {
             out -= 2*M_PI;
         }
-        while (in < -M_PI) {
+        while (out < -M_PI) {
             out += 2*M_PI;
         }
         return out;
@@ -145,10 +179,10 @@ private:
 private:
     raisim::ArticulatedSystem *platform_;
 
-    const double Pgain = 3000.0;
-    const double Dgain = 150.0;
+    const static int num_joint_ = 6;
 
-    const int num_joint_ = 6;
+    double Pgain[num_joint_] = {3000.0};
+    double Dgain[num_joint_] = {150.0};
 
     const std::string body_parts_[6] =  {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
     const std::string contact_bodies_[6] =  {"shoulder_link", "upper_arm_link", "forearm_link", "wrist_1_link", "wrist_2_link", "wrist_3_link"};

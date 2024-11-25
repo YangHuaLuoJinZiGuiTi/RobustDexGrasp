@@ -128,8 +128,8 @@ private:
 
     const static int num_joint_ = 6;
 
-    double Pgain[num_joint_] = {30.0};
-    double Dgain[num_joint_] = {1.5};
+    double Pgain[num_joint_] = {3000.0};
+    double Dgain[num_joint_] = {150};
 
     const std::string body_parts_[6] =  {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
     const std::string contact_bodies_[6] =  {"shoulder_link", "upper_arm_link", "forearm_link", "wrist_1_link", "wrist_2_link", "wrist_3_link"};

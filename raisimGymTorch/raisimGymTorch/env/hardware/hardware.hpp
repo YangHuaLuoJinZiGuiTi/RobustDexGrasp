@@ -51,6 +51,8 @@ public:
     explicit Hardware(const std::string &rsc_pth, const Yaml::Node &cfg, std::unique_ptr<raisim::World> &world) {
         real_world_mode_ = cfg["real_world_mode"].As<bool>();
         flying_hand_mode_ = cfg["flying_hand_mode"].As<bool>();
+        save_state_ = cfg["save_state_mode"].As<bool>();
+
         std::string rsc_pth_simplify = simplifyPath(rsc_pth);
 
         std::string type_suffix = real_world_mode_ ? "_real" : "_sim";
@@ -76,11 +78,9 @@ public:
             rsc_pth_simplify + "/" + cfg["rsc_model"].As<std::string>() + "/" + cfg["sim_model"].As<std::string>() + ".urdf", "", {},
             raisim::COLLISION(std::stoi(cfg["vis_group_id"].As<std::string>())), mask);
         //arm_hand_platform_->setName("arm_hand_platform_");
-        
-        if (false == real_world_mode_) {
-            arm_->setSimPlatform(arm_hand_platform_);
-            hand_->setSimPlatform(arm_hand_platform_);
-        }
+
+        arm_->setSimPlatform(arm_hand_platform_);
+        hand_->setSimPlatform(arm_hand_platform_);
 
         // set PD control mode
         arm_hand_platform_->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
@@ -95,6 +95,39 @@ public:
             exit(0);
         }
         //printf("*****finish init***** gc: hand(%d) + arm(%d) = platform(%d)\n", hand_dim_, arm_dim_, platform_gc_dim_);
+
+        if (save_state_) {
+            std::string save_state_path = cfg["save_state_path"].As<std::string>();
+            csv_file_.open(save_state_path.c_str(), std::ios::out);
+            if (!csv_file_.is_open()) {
+                std::cout << "open file fail: " << save_state_path << std::endl;
+                exit(0);
+            }
+            save_target_.setZero(platform_gc_dim_);
+            csv_file_ << "ur5_tar_joint0,ur5_real_joint0,ur5_sim_joint0,";
+            csv_file_ << "ur5_tar_joint1,ur5_real_joint1,ur5_sim_joint1,";
+            csv_file_ << "ur5_tar_joint2,ur5_real_joint2,ur5_sim_joint2,";
+            csv_file_ << "ur5_tar_joint3,ur5_real_joint3,ur5_sim_joint3,";
+            csv_file_ << "ur5_tar_joint4,ur5_real_joint4,ur5_sim_joint4,";
+            csv_file_ << "ur5_tar_joint5,ur5_real_joint5,ur5_sim_joint5,";
+
+            csv_file_ << "hand_tar_joint0,hand_real_joint0,hand_sim_joint0,";
+            csv_file_ << "hand_tar_joint1,hand_real_joint1,hand_sim_joint1,";
+            csv_file_ << "hand_tar_joint2,hand_real_joint2,hand_sim_joint2,";
+            csv_file_ << "hand_tar_joint3,hand_real_joint3,hand_sim_joint3,";
+            csv_file_ << "hand_tar_joint4,hand_real_joint4,hand_sim_joint4,";
+            csv_file_ << "hand_tar_joint5,hand_real_joint5,hand_sim_joint5,";
+            csv_file_ << "hand_tar_joint6,hand_real_joint6,hand_sim_joint6,";
+            csv_file_ << "hand_tar_joint7,hand_real_joint7,hand_sim_joint7,";
+            csv_file_ << "hand_tar_joint8,hand_real_joint8,hand_sim_joint8,";
+            csv_file_ << "hand_tar_joint9,hand_real_joint9,hand_sim_joint9,";
+            csv_file_ << "hand_tar_joint10,hand_real_joint10,hand_sim_joint10,";
+            csv_file_ << "hand_tar_joint11,hand_real_joint11,hand_sim_joint11,";
+            csv_file_ << "hand_tar_joint12,hand_real_joint12,hand_sim_joint12,";
+            csv_file_ << "hand_tar_joint13,hand_real_joint13,hand_sim_joint13,";
+            csv_file_ << "hand_tar_joint14,hand_real_joint14,hand_sim_joint14,";
+            csv_file_ << "hand_tar_joint15,hand_real_joint15,hand_sim_joint15\n";
+        }
 
         srand((unsigned)time(NULL));
     }
@@ -112,6 +145,12 @@ public:
         if (real_world_mode_) {
             arm_->setPdTarget(posTarget.head(arm_dim_), velTarget.head(arm_dim_));
             hand_->setPdTarget(posTarget.tail(hand_dim_), velTarget.tail(hand_dim_));
+            if (save_state_) {
+                arm_hand_platform_->setPdTarget(posTarget, velTarget);
+                for (int i = 0; i < platform_gc_dim_; i++) {
+                    save_target_[i] = posTarget[i];
+                }
+            }
         } else {
             arm_hand_platform_->setPdTarget(posTarget, velTarget);
         }
@@ -142,7 +181,7 @@ public:
      * need to update after step(), reset(), reset_state()
      * @return None
      */
-    void updateObservation() {
+    void updateObservation(bool start = false) {
         arm_->updateArmState();
         Eigen::VectorXd eef_pos = arm_->getEefPose();
         hand_->updateHandState(eef_pos);
@@ -159,6 +198,16 @@ public:
 
         if (false == flying_hand_mode_) {
             kinematic_->updateURDFFK(pinocchio_joint);
+        }
+
+        // save state
+        if (save_state_ && start) {
+            Eigen::VectorXd gc(platform_gc_dim_), gv(platform_gv_dim_);
+            arm_hand_platform_->getState(gc, gv);
+            for (int i = 0; i < platform_gc_dim_; i++) {
+                csv_file_ << save_target_[i] << "," << now_joint[i] << "," << gc[i] << ",";
+            }
+            csv_file_ << "\n";
         }
 
         // Align the joints position in simulation and the real world
@@ -259,10 +308,7 @@ public:
      * @return None
      */
     void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel) {
-        arm_hand_platform_->setState(genco, genvel);
-
         if (real_world_mode_) {
-
             std::cout << "--------------set state = " << genco.transpose() << std::endl;
             int cnt = 15;
             while (cnt > 0) {
@@ -281,7 +327,7 @@ public:
                         printf("arm joint[%d] has a large gap: %f --- %f\n", i, now_joint[i], genco[i]);
                         end_flag = false;
                         break;
-                    } else if (i >= 6 && std::abs(now_joint[i] - genco[i]) > 0.2) {
+                    } else if (i >= 6 && std::abs(now_joint[i] - genco[i]) > 0.15) {
                         printf("hand joint[%d] has a large gap: %f --- %f\n", i, now_joint[i], genco[i]);
                         end_flag = false;
                         break;
@@ -289,9 +335,12 @@ public:
                 }
                 if (end_flag) {
                     std::cout << " arrive reset pose successfully !!!" << std::endl;
+                    arm_hand_platform_->setState(now_joint, genvel);
                     break;
                 }
             }
+        } else {
+            arm_hand_platform_->setState(genco, genvel);
         }
     }
 
@@ -493,11 +542,14 @@ private:
 
     bool flying_hand_mode_ = false;
     bool real_world_mode_ = false;
+    bool save_state_ = false;
+    std::ofstream csv_file_;
+    Eigen::VectorXd save_target_;
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareArm>()>> arm_map_ = {
         {"ur5_sim", [](){ return createUR5Sim(); }},
         #ifdef BUILD_UR5_REAL
-        {"arm_real", [](){ return createUR5Real(); }},
+        {"ur5_real", [](){ return createUR5Real(); }},
         #endif
         {"flying_sim", [](){ return createFlyingSim(); }},
     };
