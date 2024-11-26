@@ -30,11 +30,12 @@ import torch
 
 import threading
 from raisimGymTorch.env.hardware.FoundationPose.interactive import FoundationData
+from raisimGymTorch.env.hardware.FoundationPose.RGBDPointCloud import GetPointCloud
 
 exp_name = "arm_rand_student"
 
-weight_saved = './../arm_rand/teacher1/full_16000_r.pt'
-weight_path_student = 'student2/full_3000_r.pt'
+weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
+weight_path_student = 'hui/full_10000_r.pt'
 
 
 # configuration
@@ -54,6 +55,7 @@ parser.add_argument('-mean', '--mean_pose', action="store_true")
 
 new_allegro = True
 SAMPLE_IN_REAL = True
+GET_OBJ_POSE = False
 
 args = parser.parse_args()
 weight_path = args.weight
@@ -110,30 +112,39 @@ obj_ori_list = folder_names
 obj_item = cfg['environment']['real_obj_item']
 
 # foundation pose
-data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"))
-b_thread = threading.Thread(target=data_producer.start_thread)
-b_thread.daemon = True
-b_thread.start()
-obj_init_xyz_qwxyz = None
-obj_pointcloud = None
-try:
-    while True:
-        time.sleep(2)
-        print("waiting for the initial of foundation pose...")
-        obj_init_xyz_qwxyz = data_producer.get_data()
-        if obj_init_xyz_qwxyz is not None:
-            print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
+if GET_OBJ_POSE == True:
+    data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['camera_K_path'])
+    b_thread = threading.Thread(target=data_producer.start_thread)
+    b_thread.daemon = True
+    b_thread.start()
+    obj_init_xyz_qwxyz = None
+    obj_pointcloud = None
+    try:
+        while True:
             time.sleep(2)
+            print("waiting for the initial of foundation pose...")
             obj_init_xyz_qwxyz = data_producer.get_data()
-            print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
-            obj_pointcloud = data_producer.get_pcd()
-            print(f" pointcloud shape is \n {obj_pointcloud.shape}" )
-            break
-except KeyboardInterrupt:
-    data_producer.end_thread()
-    print("end")
-    exit(0)
-
+            if obj_init_xyz_qwxyz is not None:
+                print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
+                time.sleep(2)
+                obj_init_xyz_qwxyz = data_producer.get_data()
+                print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
+                obj_pointcloud = data_producer.get_pcd()
+                print(f" pointcloud shape is \n {obj_pointcloud.shape}" )
+                break
+    except KeyboardInterrupt:
+        data_producer.end_thread()
+        print("end")
+        exit(0)
+else:
+    obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['camera_K_path'])
+    obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
+    obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
+    print(f" ================== obj pose center = {obj_pos_mean}")
+    nparray = obj_pointcloud.reshape(200,3)
+    print(f"x:  mean={np.mean(nparray[:, 0])},\t var={np.var(nparray[:, 0])},\t max={np.max(nparray[:, 0])},\t min={np.min(nparray[:, 0])}\t\t(m)")
+    print(f"y:  mean={np.mean(nparray[:, 1])},\t var={np.var(nparray[:, 1])},\t max={np.max(nparray[:, 1])},\t min={np.min(nparray[:, 1])}\t\t(m)")
+    print(f"z:  mean={np.mean(nparray[:, 2])},\t var={np.var(nparray[:, 2])},\t max={np.max(nparray[:, 2])},\t min={np.min(nparray[:, 2])}\t\t(m)")
 
 # Environment definition
 env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
@@ -279,11 +290,8 @@ for update in range(args.num_iterations):
                 visible_points_obj[i, :] = locations
                 visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
             else:
-                # or get from foundationPose !!!
-                obj_pose_reset[i, :7] = obj_init_xyz_qwxyz
-                obj_pose_reset[i, 7] = 0.
-                quats = np.array([obj_init_xyz_qwxyz[3:]])
-                visible_points_w[i, :] = obj_pointcloud
+                obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # get from foundationPose for visualization in raisim UI
+                visible_points_w[i, :] = obj_pointcloud # sample randomly from RGBD in mask
 
             # get the x_dir of the grasping frame
             obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
@@ -363,14 +371,13 @@ for update in range(args.num_iterations):
 
 
     for step in range(n_steps_r):
+
+        frame_start = time.time()
+
+        # cost 0.3~1.3ms 
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
-
-        # if step > 0:
-        #     time.sleep(2)
-
         encode_obs = torch.from_numpy(obs_r[:, :tobeEncode_dim * t_steps]).to(device)
-
         student_latent = prop_latent_encoder(encode_obs)
         student_mlp_obs = torch.cat((torch.from_numpy(obs_r[:, -ob_dim_r:-ob_dim_r + tobeEncode_dim]),
                                      student_latent.cpu(),
@@ -380,9 +387,6 @@ for update in range(args.num_iterations):
         action_r = actor_student_r.architecture.architecture(student_mlp_obs.to(device))
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
-        # action_r[:, :6] = 0
-
-
         if step < grasp_steps:
             final_actions = action_r
         else:
@@ -392,21 +396,20 @@ for update in range(args.num_iterations):
                 print("lift")
                 env.switch_root_guidance(True)
 
-        frame_start = time.time()
+        frame_start2 = time.time()
 
+        # cost 0.3~1ms in simulation
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
+        frame_start3 = time.time()
+
+        # cost 1-5ms
         obs_new_r, dis_info = env.observe_vision_new()
         aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
         # show_point = dis_info[:, 17:68].astype('float32').copy()
         env.set_joint_sensor_visual(show_point)
-
-        frame_end = time.time()
-        wait_time = cfg['environment']['control_dt'] - (frame_end - frame_start)
-        if wait_time > 0.:
-            time.sleep(wait_time)
-
+        
+        frame_start4 = time.time()
+        print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{frame_start4 - frame_start}")
     print("end")
-
-
 

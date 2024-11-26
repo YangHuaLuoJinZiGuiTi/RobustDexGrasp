@@ -8,7 +8,9 @@ environment:
     hand_type: "allegro"
     real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
     flying_hand_mode: False
-
+    save_state_mode: False
+    save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/joint.csv"
+    camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
     rsc_model: "ur5_allegro"
     sim_model: "ur5_allegro_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
     fk_model: "ur5_allegro_fk"          # FK model in           rsc/${rsc_model}/${fk_model}.urdf

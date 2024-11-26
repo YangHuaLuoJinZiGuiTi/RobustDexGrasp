@@ -188,7 +188,7 @@ public:
                     diff_t_[i] = -diff_R_[i] * last_t_[i] + hand_fk_data_->oMf[id].translation();
                 }
             } else {
-                std::cout << "first init or sth. block dt=" << diff_time_s_ << std::endl;
+                //std::cout << "first init or sth. block dt=" << diff_time_s_ << std::endl;
                 calculate_velocity_flag_ = false;
             }
 
