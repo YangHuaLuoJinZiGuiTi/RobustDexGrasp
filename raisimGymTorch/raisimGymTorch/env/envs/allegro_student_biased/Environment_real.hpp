@@ -522,6 +522,7 @@ namespace raisim {
 
 
            raisim::Vec<3> obj_pose, wrist_pos_obj, hand_pose_trans, obj_pose_wrist;
+           obj_pose.setZero();wrist_pos_obj.setZero();obj_pose_wrist.setZero();Obj_Position.setZero();
            raisim::RotmatToEuler(wrist_mat_r_trans, hand_pose_trans);
 
             global_state_ << obj_pose_wrist.e(),
