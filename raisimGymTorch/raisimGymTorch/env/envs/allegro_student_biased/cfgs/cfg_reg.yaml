@@ -37,7 +37,7 @@ environment:
   update_every_n: 20
   num_threads: 32
   simulation_dt: 0.0025
-  control_dt: 0.01
+  control_dt: 0.02
   max_time: 4.0
   root_guided: True
   visualize: False

@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
-from raisimGymTorch.env.bin import arm_rand_student_partial as mano
+from raisimGymTorch.env.bin import allegro_student_biased as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.arm_rand_student_partial import NormalSampler
+from raisimGymTorch.env.bin.allegro_student_biased import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial
 from scipy.spatial.transform import Rotation as R
 from random import choice
@@ -165,7 +165,7 @@ print('act dim', act_dim)
 tobeEncode_dim = 44
 t_steps = 10
 prop_latent_dim=26
-aff_vec_dim = 54
+aff_vec_dim = 51
 total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 
 # Training
@@ -228,10 +228,10 @@ for update in range(args.num_iterations):
     view_point_world[:, 1] = 0.2 - 0.75152
     view_point_world[:, 2] = 1.5
 
-    hand_center_w = np.zeros((1, 3))
-    hand_center_w[0, 0] = 0.669872 - 0.55
-    hand_center_w[0, 1] = 0.141735 - 0.75152
-    hand_center_w[0, 2] = 1.5  # 1.11052
+    hand_center_sample_w = np.zeros((1, 3))
+    hand_center_sample_w[0, 0] = 0.669872 - 0.55
+    hand_center_sample_w[0, 1] = 0.141735 - 0.75152
+    hand_center_sample_w[0, 2] = 1.5  # 1.11052
 
     wrist_bias = np.zeros((1, 3))
     wrist_bias[0, 0] = -0.0091
@@ -295,7 +295,7 @@ for update in range(args.num_iterations):
 
             # get the x_dir of the grasping frame
             obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
-            hand_dir_x_w = hand_center_w - obj_aff_center_in_w
+            hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
             # get position and orientation of the wrist
@@ -361,10 +361,9 @@ for update in range(args.num_iterations):
                     obj_pose_reset,
                     )
 
-    obs_new_r, dis_info = env.observe_vision_new()
+    obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
     # show_point = dis_info[:, 17:68].astype('float32').copy()
-    aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-    env.set_joint_sensor_visual(show_point)
+    #env.set_joint_sensor_visual(show_point)
     # env.update_target(target_center)
 
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
@@ -404,10 +403,9 @@ for update in range(args.num_iterations):
         frame_start3 = time.time()
 
         # cost 1-5ms
-        obs_new_r, dis_info = env.observe_vision_new()
-        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
         # show_point = dis_info[:, 17:68].astype('float32').copy()
-        env.set_joint_sensor_visual(show_point)
+        #env.set_joint_sensor_visual(show_point)
         
         frame_start4 = time.time()
         print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{frame_start4 - frame_start}")

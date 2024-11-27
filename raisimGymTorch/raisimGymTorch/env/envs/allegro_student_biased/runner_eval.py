@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
-from raisimGymTorch.env.bin import arm_rand_student_partial as mano
+from raisimGymTorch.env.bin import allegro_student_biased as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.arm_rand_student_partial import NormalSampler
+from raisimGymTorch.env.bin.allegro_student_biased import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial
 from scipy.spatial.transform import Rotation as R
 from random import choice
@@ -47,7 +47,7 @@ exp_name = "arm_rand_student"
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
 weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 
-weight_path_student = '2024-11-07-11-43-38/full_10000_r.pt'
+weight_path_student = 'hui/full_10000_r.pt'
 
 
 # configuration
@@ -161,7 +161,7 @@ print('act dim', act_dim)
 tobeEncode_dim = 44
 t_steps = 10
 prop_latent_dim=26
-aff_vec_dim = 54
+aff_vec_dim = 51
 total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 
 # Training

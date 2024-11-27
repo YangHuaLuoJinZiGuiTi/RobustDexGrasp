@@ -240,126 +240,126 @@ class RaisimGymVecEnvTest:
 
         return rotation_matrices
 
-    def observe_temp(self, contain_non_aff, allegro=False):
-        self.wrapper.observe(self._observation_r, self._observation_l)
-        self.wrapper.get_global_state(self._global_state)
-
-        global_state = self._global_state.copy()
-        obs_r = self._observation_r.copy()
-
-        num_envs = global_state.shape[0]
-
-        joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
-
-        af_dists = torch.cdist(joints, self.affordance_pcd)
-        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
-
-        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
-        af_vec = af_points - joints
-
-        obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
-        obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
-
-        r_obj = self.euler_to_rotation_matrix(obj_euler_wrist).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
-        af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
-        af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
-
-        obs_r = np.concatenate([obs_r, af_vec], axis=-1)
-
-
-        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
-        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
-
-        return obs_r, dis_info
-
-    def observe_vision(self, contain_non_aff, allegro=False):
-        self.wrapper.observe(self._observation_r, self._observation_l)
-        self.wrapper.get_global_state(self._global_state)
-
-        global_state = self._global_state.copy()
-        obs_r = self._observation_r.copy()
-
-        num_envs = global_state.shape[0]
-
-        # if allegro:
-        joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
-        # else:
-        #     joints = torch.from_numpy(global_state[:, 66:129].reshape(num_envs, -1, 3)).to('cuda')
-
-        af_dists = torch.cdist(joints, self.affordance_pcd)
-        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
-
-        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
-        af_vec = af_points - joints
-
-        obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
-        obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
-
-
-        # r_obj = obj_euler_wrist.cpu().numpy()[:, np.newaxis].repeat(joints.shape[1], 1).reshape(-1, 3)
-        # r_obj = R.from_euler('XYZ', r_obj, degrees=False)
-        # af_vec = r_obj.apply(af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
-
-        r_obj = self.euler_to_rotation_matrix(obj_euler_wrist).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
-        af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
-        af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
-
-        af_points_average_obj = torch.mean(af_points, dim=1).reshape(num_envs, -1)
-        wrist_pos_obj = torch.from_numpy(global_state[:, 121:124]).to('cuda')
-        af_points_average = af_points_average_obj - wrist_pos_obj
-        r_obj_single = self.euler_to_rotation_matrix(obj_euler_wrist)
-        af_points_average = torch.matmul(r_obj_single, af_points_average.to('cuda').unsqueeze(-1)).squeeze(-1).cpu().numpy().astype('float32')
-        obs_r = np.concatenate([obs_r, af_vec, af_points_average], axis=-1)
-
-        # obs_r = np.concatenate([obs_r, af_vec], axis=-1)
-
-
-        # r_obj_pt = obj_euler_world.cpu().numpy()[:, np.newaxis].repeat(self.affordance_pcd.shape[1], 1).reshape(-1, 3)
-        # r_obj_pt = R.from_euler('XYZ', r_obj_pt, degrees=False)
-        # pt_in_world = r_obj_pt.apply(self.affordance_pcd.reshape(-1, 3).cpu()).reshape(num_envs, -1, 3).astype('float32')
-
-        r_obj_pt = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, self.affordance_pcd.shape[1], 1, 1)
-        pt_in_world = torch.matmul(r_obj_pt, self.affordance_pcd.reshape(num_envs, -1, 3).unsqueeze(-1).to('cuda')).squeeze(-1).cpu().numpy().astype('float32')
-
-        pt_in_world[:, :, :] = pt_in_world[:, :, :] + global_state[:, np.newaxis, 105:108] - global_state[:, np.newaxis, 112:115]
-        hand_euler_world_trans = global_state[:, 108:111]
-
-        # r_wrist_trans = hand_euler_world_trans[:, np.newaxis].repeat(self.affordance_pcd.shape[1], 1).reshape(-1, 3)
-        # r_wrist_trans = R.from_euler('XYZ', r_wrist_trans, degrees=False)
-        # pt_in_wrist = r_wrist_trans.apply(pt_in_world.reshape(-1, 3)).reshape(num_envs, -1, 3).astype('float32')
-        r_wrist_trans = self.euler_to_rotation_matrix(torch.from_numpy(hand_euler_world_trans).to('cuda')).unsqueeze(1).repeat(1, self.affordance_pcd.shape[1], 1, 1)
-        pt_in_wrist = torch.matmul(r_wrist_trans, torch.from_numpy(pt_in_world).to('cuda').reshape(num_envs, -1, 3).unsqueeze(-1).to('cuda')).squeeze(-1).cpu().numpy().astype('float32')
-        pt_in_wrist[:, :, 0] -= 0.06
-        pt_in_wrist[:, :, 2] -= 0.08
-        center_dis = np.linalg.norm(pt_in_wrist, axis=-1)
-        min_idx = np.argmin(center_dis, axis=1)
-        min_dis_point = pt_in_wrist[np.arange(num_envs), min_idx]
-        x_dis_to_min_point = pt_in_wrist[:, :, 0] - min_dis_point[:, np.newaxis, 0]
-        y_dis_to_min_point = pt_in_wrist[:, :, 1] - min_dis_point[:, np.newaxis, 1]
-        close_points_mask = np.logical_and(np.abs(x_dis_to_min_point) < 0.1, np.abs(y_dis_to_min_point) < 0.05)
-        close_points = np.where(close_points_mask[:, :, np.newaxis], pt_in_wrist, np.nan)
-        pt_range_z = (np.nanmax(close_points[:, :, 2], axis=1) - np.nanmin(close_points[:, :, 2], axis=1)).reshape(num_envs, 1)
-        # center_dis = torch.norm(pt_in_wrist, dim=-1)
-        # min_idx = torch.argmin(center_dis, dim=1)
-        # min_dis_point = pt_in_wrist[torch.arange(num_envs), min_idx]
-        # x_dis_to_min_point = pt_in_wrist[:, :, 0] - min_dis_point[:, None, 0]
-        # y_dis_to_min_point = pt_in_wrist[:, :, 1] - min_dis_point[:, None, 1]
-        # close_points_mask = torch.logical_and(torch.abs(x_dis_to_min_point) < 0.1, torch.abs(y_dis_to_min_point) < 0.05)
-        # close_points = torch.where(close_points_mask[:, :, None], pt_in_wrist, torch.tensor(float('nan'), device=pt_in_wrist.device))
-        # close_points_for_max = close_points.clone()
-        # close_points_for_min = close_points.clone()
-        # close_points_for_max = torch.where(torch.isnan(close_points_for_max), torch.full_like(close_points_for_max, float('-inf')), close_points_for_max)
-        # close_points_for_min = torch.where(torch.isnan(close_points_for_min), torch.full_like(close_points_for_min, float('inf')), close_points_for_min)
-        # pt_range_z = (torch.max(close_points[:, :, 2], dim=1)[0] - torch.min(close_points[:, :, 2], dim=1)[0]).reshape(num_envs, 1).cpu().numpy()
-
-        # pt_range_z = np.zeros((num_envs, 1), 'float32')
-
-
-        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
-        af_points_average_obj = af_points_average_obj.cpu().numpy().astype('float32')
-        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point, pt_range_z, af_points_average_obj], axis=-1)
-
-        return obs_r, dis_info
+    # def observe_temp(self, contain_non_aff, allegro=False):
+    #     self.wrapper.observe(self._observation_r, self._observation_l)
+    #     self.wrapper.get_global_state(self._global_state)
+    #
+    #     global_state = self._global_state.copy()
+    #     obs_r = self._observation_r.copy()
+    #
+    #     num_envs = global_state.shape[0]
+    #
+    #     joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+    #
+    #     af_dists = torch.cdist(joints, self.affordance_pcd)
+    #     min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+    #
+    #     af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+    #     af_vec = af_points - joints
+    #
+    #     obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
+    #     obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
+    #
+    #     r_obj = self.euler_to_rotation_matrix(obj_euler_wrist).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
+    #     af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
+    #     af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
+    #
+    #     obs_r = np.concatenate([obs_r, af_vec], axis=-1)
+    #
+    #
+    #     show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+    #     dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
+    #
+    #     return obs_r, dis_info
+    #
+    # def observe_vision(self, contain_non_aff, allegro=False):
+    #     self.wrapper.observe(self._observation_r, self._observation_l)
+    #     self.wrapper.get_global_state(self._global_state)
+    #
+    #     global_state = self._global_state.copy()
+    #     obs_r = self._observation_r.copy()
+    #
+    #     num_envs = global_state.shape[0]
+    #
+    #     # if allegro:
+    #     joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+    #     # else:
+    #     #     joints = torch.from_numpy(global_state[:, 66:129].reshape(num_envs, -1, 3)).to('cuda')
+    #
+    #     af_dists = torch.cdist(joints, self.affordance_pcd)
+    #     min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+    #
+    #     af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+    #     af_vec = af_points - joints
+    #
+    #     obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
+    #     obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
+    #
+    #
+    #     # r_obj = obj_euler_wrist.cpu().numpy()[:, np.newaxis].repeat(joints.shape[1], 1).reshape(-1, 3)
+    #     # r_obj = R.from_euler('XYZ', r_obj, degrees=False)
+    #     # af_vec = r_obj.apply(af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
+    #
+    #     r_obj = self.euler_to_rotation_matrix(obj_euler_wrist).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
+    #     af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
+    #     af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
+    #
+    #     af_points_average_obj = torch.mean(af_points, dim=1).reshape(num_envs, -1)
+    #     wrist_pos_obj = torch.from_numpy(global_state[:, 121:124]).to('cuda')
+    #     af_points_average = af_points_average_obj - wrist_pos_obj
+    #     r_obj_single = self.euler_to_rotation_matrix(obj_euler_wrist)
+    #     af_points_average = torch.matmul(r_obj_single, af_points_average.to('cuda').unsqueeze(-1)).squeeze(-1).cpu().numpy().astype('float32')
+    #     obs_r = np.concatenate([obs_r, af_vec, af_points_average], axis=-1)
+    #
+    #     # obs_r = np.concatenate([obs_r, af_vec], axis=-1)
+    #
+    #
+    #     # r_obj_pt = obj_euler_world.cpu().numpy()[:, np.newaxis].repeat(self.affordance_pcd.shape[1], 1).reshape(-1, 3)
+    #     # r_obj_pt = R.from_euler('XYZ', r_obj_pt, degrees=False)
+    #     # pt_in_world = r_obj_pt.apply(self.affordance_pcd.reshape(-1, 3).cpu()).reshape(num_envs, -1, 3).astype('float32')
+    #
+    #     r_obj_pt = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, self.affordance_pcd.shape[1], 1, 1)
+    #     pt_in_world = torch.matmul(r_obj_pt, self.affordance_pcd.reshape(num_envs, -1, 3).unsqueeze(-1).to('cuda')).squeeze(-1).cpu().numpy().astype('float32')
+    #
+    #     pt_in_world[:, :, :] = pt_in_world[:, :, :] + global_state[:, np.newaxis, 105:108] - global_state[:, np.newaxis, 112:115]
+    #     hand_euler_world_trans = global_state[:, 108:111]
+    #
+    #     # r_wrist_trans = hand_euler_world_trans[:, np.newaxis].repeat(self.affordance_pcd.shape[1], 1).reshape(-1, 3)
+    #     # r_wrist_trans = R.from_euler('XYZ', r_wrist_trans, degrees=False)
+    #     # pt_in_wrist = r_wrist_trans.apply(pt_in_world.reshape(-1, 3)).reshape(num_envs, -1, 3).astype('float32')
+    #     r_wrist_trans = self.euler_to_rotation_matrix(torch.from_numpy(hand_euler_world_trans).to('cuda')).unsqueeze(1).repeat(1, self.affordance_pcd.shape[1], 1, 1)
+    #     pt_in_wrist = torch.matmul(r_wrist_trans, torch.from_numpy(pt_in_world).to('cuda').reshape(num_envs, -1, 3).unsqueeze(-1).to('cuda')).squeeze(-1).cpu().numpy().astype('float32')
+    #     pt_in_wrist[:, :, 0] -= 0.06
+    #     pt_in_wrist[:, :, 2] -= 0.08
+    #     center_dis = np.linalg.norm(pt_in_wrist, axis=-1)
+    #     min_idx = np.argmin(center_dis, axis=1)
+    #     min_dis_point = pt_in_wrist[np.arange(num_envs), min_idx]
+    #     x_dis_to_min_point = pt_in_wrist[:, :, 0] - min_dis_point[:, np.newaxis, 0]
+    #     y_dis_to_min_point = pt_in_wrist[:, :, 1] - min_dis_point[:, np.newaxis, 1]
+    #     close_points_mask = np.logical_and(np.abs(x_dis_to_min_point) < 0.1, np.abs(y_dis_to_min_point) < 0.05)
+    #     close_points = np.where(close_points_mask[:, :, np.newaxis], pt_in_wrist, np.nan)
+    #     pt_range_z = (np.nanmax(close_points[:, :, 2], axis=1) - np.nanmin(close_points[:, :, 2], axis=1)).reshape(num_envs, 1)
+    #     # center_dis = torch.norm(pt_in_wrist, dim=-1)
+    #     # min_idx = torch.argmin(center_dis, dim=1)
+    #     # min_dis_point = pt_in_wrist[torch.arange(num_envs), min_idx]
+    #     # x_dis_to_min_point = pt_in_wrist[:, :, 0] - min_dis_point[:, None, 0]
+    #     # y_dis_to_min_point = pt_in_wrist[:, :, 1] - min_dis_point[:, None, 1]
+    #     # close_points_mask = torch.logical_and(torch.abs(x_dis_to_min_point) < 0.1, torch.abs(y_dis_to_min_point) < 0.05)
+    #     # close_points = torch.where(close_points_mask[:, :, None], pt_in_wrist, torch.tensor(float('nan'), device=pt_in_wrist.device))
+    #     # close_points_for_max = close_points.clone()
+    #     # close_points_for_min = close_points.clone()
+    #     # close_points_for_max = torch.where(torch.isnan(close_points_for_max), torch.full_like(close_points_for_max, float('-inf')), close_points_for_max)
+    #     # close_points_for_min = torch.where(torch.isnan(close_points_for_min), torch.full_like(close_points_for_min, float('inf')), close_points_for_min)
+    #     # pt_range_z = (torch.max(close_points[:, :, 2], dim=1)[0] - torch.min(close_points[:, :, 2], dim=1)[0]).reshape(num_envs, 1).cpu().numpy()
+    #
+    #     # pt_range_z = np.zeros((num_envs, 1), 'float32')
+    #
+    #
+    #     show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+    #     af_points_average_obj = af_points_average_obj.cpu().numpy().astype('float32')
+    #     dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point, pt_range_z, af_points_average_obj], axis=-1)
+    #
+    #     return obs_r, dis_info
 
     def observe_vision_new(self):
         self.wrapper.observe(self._observation_r, self._observation_l)
@@ -411,7 +411,7 @@ class RaisimGymVecEnvTest:
 
         num_envs = global_state.shape[0]
 
-        joints = torch.from_numpy(global_state[:, 128:182].reshape(num_envs, -1, 3)).to('cuda')
+        joints = torch.from_numpy(global_state[:, 128:179].reshape(num_envs, -1, 3)).to('cuda')
 
         af_dists = torch.cdist(joints, visible_points)
         min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
@@ -426,131 +426,155 @@ class RaisimGymVecEnvTest:
         return af_vec, show_af_point
 
 
-    def observe(self, contain_non_aff, allegro=False, partial_obs=False, test=True):
+    def observe_student_deploy(self, visible_points):
         self.wrapper.observe(self._observation_r, self._observation_l)
         self.wrapper.get_global_state(self._global_state)
+        # current_time = time.time()
 
         global_state = self._global_state.copy()
-
-        num_envs = global_state.shape[0]
-
-        if allegro:
-            joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
-        else:
-            joints = torch.from_numpy(global_state[:, 66:129].reshape(num_envs, -1, 3)).to('cuda')
-
-        af_dists = torch.cdist(joints, self.affordance_pcd)
-        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
-
-        non_aff_dists = torch.cdist(joints, self.non_affordance_pcd)
-        min_dis_non_af, min_idx_non_af = torch.min(non_aff_dists, dim=2)
-
-        # dis_info = np.concatenate([min_dis_af.cpu().numpy()], axis=-1)
-        non_aff_dis = min_dis_non_af.cpu().numpy().copy()
-        for i in range(num_envs):
-            if self.non_affordance_center[i, 0] == 100: #if contain_non_aff[i] < 0.5:
-                non_aff_dis[i, :] = 0
-        dis_info = np.concatenate([min_dis_af.cpu().numpy(), non_aff_dis], axis=-1)
-
         obs_r = self._observation_r.copy()
-        obj_euler_wrist = global_state[:, :3]
-        r_obj = obj_euler_wrist[:, np.newaxis].repeat(joints.shape[1], 1).reshape(-1, 3)
-        r_obj = R.from_euler('XYZ', r_obj, degrees=False)
-
-
-        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
-
-        # point_feature = np.zeros((num_envs, 192), 'float32')
-        # point_cloud_w = r_obj.apply(af_points.reshape(-1, 3).cpu()).reshape(num_envs, -1, 3).astype(
-        #     'float32')
-        # for k in range(num_envs):
-        #     current_point_cloud = point_cloud_w[k]
-        #     current_bps_encoding = self.bps.encode(torch.from_numpy(current_point_cloud).to('cuda'),
-        #                                            feature_type=['dists', 'deltas'],
-        #                                            x_features=None,
-        #                                            custom_basis=None)
-        #     point_feature[k] = current_bps_encoding['deltas'].cpu().numpy().reshape(-1)
-
-        af_vec = af_points - joints
-        af_vec = r_obj.apply(af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
-
-        non_af_points = torch.gather(self.non_affordance_pcd, 1, min_idx_non_af.unsqueeze(2).expand(-1, -1, 3))
-        non_af_vec = non_af_points - joints
-        non_af_vec = r_obj.apply(non_af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
-
-        non_aff_vec_obs = non_af_vec.copy()
-        for i in range(num_envs):
-            if self.non_affordance_center[i, 0] == 100: #if contain_non_aff[i] < 0.5:
-                non_aff_vec_obs[i, :] = 0
-
-        # df = pd.DataFrame(af_vec)
-        # df.to_csv('arrays.csv', mode='a', header=False, index=False)
-        # obs_r = np.concatenate([obs_r, af_vec, non_aff_vec_obs, point_feature], axis=-1)
-        obs_r = np.concatenate([obs_r, af_vec, non_aff_vec_obs], axis=-1)
-        return obs_r, dis_info
-
-    def observe_l(self, contain_non_aff, allegro=False, partial_obs=False):
-        self.wrapper.observe(self._observation_r, self._observation_l)
-        self.wrapper.get_global_state_l(self._global_state_l)
-
-        global_state = self._global_state_l.copy()
 
         num_envs = global_state.shape[0]
 
-        if allegro:
-            joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
-        else:
-            joints = torch.from_numpy(global_state[:, 66:129].reshape(num_envs, -1, 3)).to('cuda')
+        joints = torch.from_numpy(global_state[:, 128:179].reshape(num_envs, -1, 3)).to('cuda')
 
-        af_dists = torch.cdist(joints, self.affordance_pcd)
+        af_dists = torch.cdist(joints, visible_points)
         min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
 
-        non_aff_dists = torch.cdist(joints, self.non_affordance_pcd)
-        min_dis_non_af, min_idx_non_af = torch.min(non_aff_dists, dim=2)
-
-        # dis_info = np.concatenate([min_dis_af.cpu().numpy()], axis=-1)
-        non_aff_dis = min_dis_non_af.cpu().numpy().copy()
-        for i in range(num_envs):
-            if self.non_affordance_center[i, 0] == 100: #if contain_non_aff[i] < 0.5:
-                non_aff_dis[i, :] = 0
-        dis_info = np.concatenate([min_dis_af.cpu().numpy(), non_aff_dis], axis=-1)
-
-        obs_l = self._observation_l.copy()
-        obj_euler_wrist = global_state[:, :3]
-        r_obj = obj_euler_wrist[:, np.newaxis].repeat(joints.shape[1], 1).reshape(-1, 3)
-        r_obj = R.from_euler('XYZ', r_obj, degrees=False)
-
-
-        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
-
-        # point_feature = np.zeros((num_envs, 192), 'float32')
-        # point_cloud_w = r_obj.apply(af_points.reshape(-1, 3).cpu()).reshape(num_envs, -1, 3).astype(
-        #     'float32')
-        # for k in range(num_envs):
-        #     current_point_cloud = point_cloud_w[k]
-        #     current_bps_encoding = self.bps.encode(torch.from_numpy(current_point_cloud).to('cuda'),
-        #                                            feature_type=['dists', 'deltas'],
-        #                                            x_features=None,
-        #                                            custom_basis=None)
-        #     point_feature[k] = current_bps_encoding['deltas'].cpu().numpy().reshape(-1)
-
+        af_points = torch.gather(visible_points, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
         af_vec = af_points - joints
-        af_vec = r_obj.apply(af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
 
-        non_af_points = torch.gather(self.non_affordance_pcd, 1, min_idx_non_af.unsqueeze(2).expand(-1, -1, 3))
-        non_af_vec = non_af_points - joints
-        non_af_vec = r_obj.apply(non_af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
+        af_vec = af_vec.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
 
-        non_aff_vec_obs = non_af_vec.copy()
-        for i in range(num_envs):
-            if self.non_affordance_center[i, 0] == 100: #if contain_non_aff[i] < 0.5:
-                non_aff_vec_obs[i, :] = 0
+        obs_r = np.concatenate([obs_r, af_vec], axis=-1)
 
-        # df = pd.DataFrame(af_vec)
-        # df.to_csv('arrays.csv', mode='a', header=False, index=False)
-        # obs_l = np.concatenate([obs_l, af_vec, non_aff_vec_obs, point_feature], axis=-1)
-        obs_l = np.concatenate([obs_l, af_vec, non_aff_vec_obs], axis=-1)
-        return obs_l, dis_info
+        return obs_r, af_vec
+
+    # def observe(self, contain_non_aff, allegro=False, partial_obs=False, test=True):
+    #     self.wrapper.observe(self._observation_r, self._observation_l)
+    #     self.wrapper.get_global_state(self._global_state)
+    #
+    #     global_state = self._global_state.copy()
+    #
+    #     num_envs = global_state.shape[0]
+    #
+    #     if allegro:
+    #         joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+    #     else:
+    #         joints = torch.from_numpy(global_state[:, 66:129].reshape(num_envs, -1, 3)).to('cuda')
+    #
+    #     af_dists = torch.cdist(joints, self.affordance_pcd)
+    #     min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+    #
+    #     non_aff_dists = torch.cdist(joints, self.non_affordance_pcd)
+    #     min_dis_non_af, min_idx_non_af = torch.min(non_aff_dists, dim=2)
+    #
+    #     # dis_info = np.concatenate([min_dis_af.cpu().numpy()], axis=-1)
+    #     non_aff_dis = min_dis_non_af.cpu().numpy().copy()
+    #     for i in range(num_envs):
+    #         if self.non_affordance_center[i, 0] == 100: #if contain_non_aff[i] < 0.5:
+    #             non_aff_dis[i, :] = 0
+    #     dis_info = np.concatenate([min_dis_af.cpu().numpy(), non_aff_dis], axis=-1)
+    #
+    #     obs_r = self._observation_r.copy()
+    #     obj_euler_wrist = global_state[:, :3]
+    #     r_obj = obj_euler_wrist[:, np.newaxis].repeat(joints.shape[1], 1).reshape(-1, 3)
+    #     r_obj = R.from_euler('XYZ', r_obj, degrees=False)
+    #
+    #
+    #     af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+    #
+    #     # point_feature = np.zeros((num_envs, 192), 'float32')
+    #     # point_cloud_w = r_obj.apply(af_points.reshape(-1, 3).cpu()).reshape(num_envs, -1, 3).astype(
+    #     #     'float32')
+    #     # for k in range(num_envs):
+    #     #     current_point_cloud = point_cloud_w[k]
+    #     #     current_bps_encoding = self.bps.encode(torch.from_numpy(current_point_cloud).to('cuda'),
+    #     #                                            feature_type=['dists', 'deltas'],
+    #     #                                            x_features=None,
+    #     #                                            custom_basis=None)
+    #     #     point_feature[k] = current_bps_encoding['deltas'].cpu().numpy().reshape(-1)
+    #
+    #     af_vec = af_points - joints
+    #     af_vec = r_obj.apply(af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
+    #
+    #     non_af_points = torch.gather(self.non_affordance_pcd, 1, min_idx_non_af.unsqueeze(2).expand(-1, -1, 3))
+    #     non_af_vec = non_af_points - joints
+    #     non_af_vec = r_obj.apply(non_af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
+    #
+    #     non_aff_vec_obs = non_af_vec.copy()
+    #     for i in range(num_envs):
+    #         if self.non_affordance_center[i, 0] == 100: #if contain_non_aff[i] < 0.5:
+    #             non_aff_vec_obs[i, :] = 0
+    #
+    #     # df = pd.DataFrame(af_vec)
+    #     # df.to_csv('arrays.csv', mode='a', header=False, index=False)
+    #     # obs_r = np.concatenate([obs_r, af_vec, non_aff_vec_obs, point_feature], axis=-1)
+    #     obs_r = np.concatenate([obs_r, af_vec, non_aff_vec_obs], axis=-1)
+    #     return obs_r, dis_info
+    #
+    # def observe_l(self, contain_non_aff, allegro=False, partial_obs=False):
+    #     self.wrapper.observe(self._observation_r, self._observation_l)
+    #     self.wrapper.get_global_state_l(self._global_state_l)
+    #
+    #     global_state = self._global_state_l.copy()
+    #
+    #     num_envs = global_state.shape[0]
+    #
+    #     if allegro:
+    #         joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+    #     else:
+    #         joints = torch.from_numpy(global_state[:, 66:129].reshape(num_envs, -1, 3)).to('cuda')
+    #
+    #     af_dists = torch.cdist(joints, self.affordance_pcd)
+    #     min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+    #
+    #     non_aff_dists = torch.cdist(joints, self.non_affordance_pcd)
+    #     min_dis_non_af, min_idx_non_af = torch.min(non_aff_dists, dim=2)
+    #
+    #     # dis_info = np.concatenate([min_dis_af.cpu().numpy()], axis=-1)
+    #     non_aff_dis = min_dis_non_af.cpu().numpy().copy()
+    #     for i in range(num_envs):
+    #         if self.non_affordance_center[i, 0] == 100: #if contain_non_aff[i] < 0.5:
+    #             non_aff_dis[i, :] = 0
+    #     dis_info = np.concatenate([min_dis_af.cpu().numpy(), non_aff_dis], axis=-1)
+    #
+    #     obs_l = self._observation_l.copy()
+    #     obj_euler_wrist = global_state[:, :3]
+    #     r_obj = obj_euler_wrist[:, np.newaxis].repeat(joints.shape[1], 1).reshape(-1, 3)
+    #     r_obj = R.from_euler('XYZ', r_obj, degrees=False)
+    #
+    #
+    #     af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+    #
+    #     # point_feature = np.zeros((num_envs, 192), 'float32')
+    #     # point_cloud_w = r_obj.apply(af_points.reshape(-1, 3).cpu()).reshape(num_envs, -1, 3).astype(
+    #     #     'float32')
+    #     # for k in range(num_envs):
+    #     #     current_point_cloud = point_cloud_w[k]
+    #     #     current_bps_encoding = self.bps.encode(torch.from_numpy(current_point_cloud).to('cuda'),
+    #     #                                            feature_type=['dists', 'deltas'],
+    #     #                                            x_features=None,
+    #     #                                            custom_basis=None)
+    #     #     point_feature[k] = current_bps_encoding['deltas'].cpu().numpy().reshape(-1)
+    #
+    #     af_vec = af_points - joints
+    #     af_vec = r_obj.apply(af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
+    #
+    #     non_af_points = torch.gather(self.non_affordance_pcd, 1, min_idx_non_af.unsqueeze(2).expand(-1, -1, 3))
+    #     non_af_vec = non_af_points - joints
+    #     non_af_vec = r_obj.apply(non_af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
+    #
+    #     non_aff_vec_obs = non_af_vec.copy()
+    #     for i in range(num_envs):
+    #         if self.non_affordance_center[i, 0] == 100: #if contain_non_aff[i] < 0.5:
+    #             non_aff_vec_obs[i, :] = 0
+    #
+    #     # df = pd.DataFrame(af_vec)
+    #     # df.to_csv('arrays.csv', mode='a', header=False, index=False)
+    #     # obs_l = np.concatenate([obs_l, af_vec, non_aff_vec_obs, point_feature], axis=-1)
+    #     obs_l = np.concatenate([obs_l, af_vec, non_aff_vec_obs], axis=-1)
+    #     return obs_l, dis_info
 
     def get_global_state(self, update_mean=True):
         self.wrapper.get_global_state(self._global_state)

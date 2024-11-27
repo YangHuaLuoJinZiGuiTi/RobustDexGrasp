@@ -1438,7 +1438,7 @@ def get_initial_pose_allegro_new(obj_mesh, non_aff_mesh, hand_type="allegro", to
     y_axis = np.array([1, 0, 0])
     z_axis = np.array([0, 0, 1])
 
-    if hand_type == 'faive':
+    if hand_type == 'faive' or hand_type == 'leap':
         rot_mat = [[0, 0, -1], [-1, 0, 0], [0, 1, 0]]
         rot_mat = np.array(rot_mat).reshape(3, 3)
     elif hand_type == 'shadow':
@@ -1677,7 +1677,7 @@ def get_initial_pose_allegro_arm_rand_test(obj_mesh, obj_pcd_ori, x_dir, aff_cen
         return None, None, None
     z_dir = axis.reshape(1,3)
     z_dir_in_world = np.matmul(obj_mat, z_dir.T).T
-    if hand is "allegro":
+    if hand == "allegro":
         if z_dir_in_world[0,1] < 0:
             z_dir = -z_dir
     else:
@@ -1707,7 +1707,7 @@ def get_initial_pose_allegro_arm_partial(partial_obj_pcd, x_dir, obj_mat, top=Fa
         return None
     z_dir = axis.reshape(1,3)
     z_dir_in_world = np.matmul(obj_mat, z_dir.T).T
-    if hand is "allegro":
+    if hand == "allegro":
         if z_dir_in_world[0,1] < 0:
             z_dir = -z_dir
     else:

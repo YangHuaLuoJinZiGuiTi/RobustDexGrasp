@@ -114,6 +114,7 @@ namespace raisim {
             wrist_euler_init.setZero();
             wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
             afford_center.setZero();
+            obj_base_pos.setZero();
 //            wrist_target_o.setZero();
             init_center.setZero();
             frame_y_in_obj.setZero(num_bodyparts*3);
@@ -879,6 +880,16 @@ namespace raisim {
             arm_gc_lift = gc_r_.head(6);
             lift_num = 0;
         }
+        void switch_obj_pos(Eigen::Ref<EigenVec> obj_pos_bias) {
+            Eigen::Vector3d obj_pos_bias_temp;
+            obj_pos_bias_temp = obj_pos_bias.cast<double>();
+            obj_base_pos.setZero();
+            arctic->getBasePosition(obj_base_pos);
+            obj_base_pos[0] += obj_pos_bias_temp[0];
+            obj_base_pos[1] += obj_pos_bias_temp[1];
+            arctic->setBasePos(obj_base_pos);
+            updateObservation();
+        }
         /// Since the episode lengths are fixed, this function is used to catch instabilities in simulation and reset the env in such cases
         bool isTerminalState(float& terminalReward) final {
             raisim::Vec<3> obj_current_pos;
@@ -976,6 +987,7 @@ namespace raisim {
         Eigen::VectorXd frame_y_in_obj, joint_pos_in_obj, joint_height_w, arm_height_w;
         raisim::Vec<3> Position;
         raisim::Vec<3> wrist_vel, wrist_qvel;
+        raisim::Vec<3> obj_base_pos;
         Eigen::Vector3d wrist_vel_in_wrist, wrist_qvel_in_wrist;
         Eigen::VectorXd right_hand_torque;
         Eigen::VectorXd pTarget_clipped_r;
