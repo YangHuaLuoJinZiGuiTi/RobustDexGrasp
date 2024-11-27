@@ -577,8 +577,11 @@ class RaisimGymVecEnvTest:
     def set_rootguidance(self):
         self.wrapper.set_rootguidance()
 
-    def switch_root_guidance(self, is_on):
-        self.wrapper.switch_root_guidance(is_on)
+    def switch_root_guidance(self, obj_pos_bias):
+        self.wrapper.switch_root_guidance(obj_pos_bias)
+
+    def switch_obj_pos(self, is_on):
+        self.wrapper.switch_obj_pos(is_on)
 
     def control_switch(self, left, right):
         self.wrapper.control_switch(left, right)

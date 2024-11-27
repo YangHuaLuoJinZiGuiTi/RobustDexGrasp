@@ -95,6 +95,7 @@ class RaisimGymEnv {
   virtual void load_articulated(const std::string& obj_model){};
   virtual void load_multi_articulated(const std::vector<std::string>& obj_models){};
   virtual void switch_root_guidance(bool is_on){};
+  virtual void switch_obj_pos(Eigen::Ref<EigenVec> obj_pos_bias){};
   virtual void control_switch(int right, int left){};
   virtual void control_switch_all(const Eigen::Ref<EigenVec>& right, const Eigen::Ref<EigenVec>& left){};
   virtual void curriculumUpdate() {};

@@ -322,6 +322,12 @@ class VectorizedEnvironment {
                   environments_[i]->switch_root_guidance(is_on);
   }
 
+  void switch_obj_pos(Eigen::Ref<EigenRowMajorMat> obj_pos_bias) {
+        #pragma omp parallel for
+              for (int i = 0; i < num_envs_; i++)
+                  environments_[i]->switch_obj_pos(obj_pos_bias.row(i));
+  }
+
   void control_switch(int left, int right) {
         #pragma omp parallel for
               for (int i = 0; i < num_envs_; i++)

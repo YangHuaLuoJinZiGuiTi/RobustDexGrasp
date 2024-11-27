@@ -224,10 +224,10 @@ for update in range(args.num_iterations):
     view_point_world[:, 1] = 0.2 - 0.75152
     view_point_world[:, 2] = 1.5
 
-    hand_center_w = np.zeros((1, 3))
-    hand_center_w[0, 0] = 0.669872 - 0.55
-    hand_center_w[0, 1] = 0.141735 - 0.75152
-    hand_center_w[0, 2] = 1.5  # 1.11052
+    hand_center_sample_w = np.zeros((1, 3))
+    hand_center_sample_w[0, 0] = 0.669872 - 0.55
+    hand_center_sample_w[0, 1] = 0.141735 - 0.75152
+    hand_center_sample_w[0, 2] = 1.5  # 1.11052
 
     wrist_bias = np.zeros((1, 3))
     wrist_bias[0, 0] = -0.0091
@@ -287,7 +287,7 @@ for update in range(args.num_iterations):
 
             # # get the x_dir of the grasping frame
             # obj_aff_center_in_obj = np.mean(visible_points_obj[i].reshape(200,3), axis=0)
-            # hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_w - obj_pose_reset[i, :3]).T).T
+            # hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_sample_w - obj_pose_reset[i, :3]).T).T
             # hand_dir_x_in_obj = hand_center_obj - obj_aff_center_in_obj
             # hand_dir_x_in_obj = hand_dir_x_in_obj / np.linalg.norm(hand_dir_x_in_obj, axis=1, keepdims=True)
             #
@@ -304,7 +304,7 @@ for update in range(args.num_iterations):
 
             # get the x_dir of the grasping frame
             obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
-            hand_dir_x_w = hand_center_w - obj_aff_center_in_w
+            hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
             # get position and orientation of the wrist
@@ -378,6 +378,13 @@ for update in range(args.num_iterations):
 
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
+    biased = False
+    if biased:
+        obj_biased = np.zeros((num_envs, 1), dtype='float32')
+        obj_pos_bias = np.random.uniform(-0.05, 0.05, (num_envs, 3)).astype('float32')
+    else:
+        obj_pos_bias = np.zeros((num_envs, 3), dtype='float32')
+
     for step in range(n_steps_r):
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
@@ -396,8 +403,6 @@ for update in range(args.num_iterations):
         action_r = actor_student_r.architecture.architecture(student_mlp_obs.to(device))
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
-        # action_r[:, :6] = 0
-
 
         if step < grasp_steps:
             final_actions = action_r
@@ -416,6 +421,15 @@ for update in range(args.num_iterations):
         aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
         # show_point = dis_info[:, 17:68].astype('float32').copy()
         env.set_joint_sensor_visual(show_point)
+
+        if biased:
+            obj_pos_bias_current = np.zeros((num_envs, 3), dtype='float32')
+            for i in range(num_envs):
+                if np.min(dis_info[i, 0:17]) < 0.07 and obj_biased[i] == 0:
+                # if random.uniform (0, 1) < 0.3 and obj_biased[i] == 0 and np.min(dis_info[i, 0:17]) > 0.07:
+                    obj_biased[i] = 1
+                    obj_pos_bias_current[i] = obj_pos_bias[i]
+            env.switch_obj_pos(obj_pos_bias_current)
 
         frame_end = time.time()
         wait_time = cfg['environment']['control_dt'] - (frame_end - frame_start)
