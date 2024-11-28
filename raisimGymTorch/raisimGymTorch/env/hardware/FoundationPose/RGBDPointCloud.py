@@ -24,12 +24,14 @@ def depth2xyzmap(depth, K, uvs=None):
     xyz_map[invalid_mask] = 0
     return xyz_map
 
-def get_obj_point_cloud(K, depth, ob_mask, s = 200):
+def get_obj_point_cloud(K, depth, ob_mask, s = 200, valid = None, indices = None):
     xyz_map = depth2xyzmap(depth, K)
-    valid = (xyz_map[...,2]>=0.1) & (ob_mask>0)
+    if valid is None:
+        valid = (xyz_map[...,2]>=0.1) & (ob_mask>0)
     pc = xyz_map[valid]
-    indices = np.random.choice(pc.shape[0], size=s, replace=False)
-    return pc[indices]
+    if indices is None:
+        indices = np.random.choice(pc.shape[0], size=s, replace=False)
+    return pc[indices], valid, indices
 
 def create_mask():
     points = []
@@ -107,6 +109,9 @@ def GetPointCloud(camK_path):
                         [ 0., 0., 1., 0.771],
                         [ 0., 0., 0., 1.]])
     
+    # https://support.intelrealsense.com/hc/en-us/community/posts/4405875311123-About-make-sure-FOV-specification-of-D435i 
+    # tf from RGB to left-IR camera
+
     # realsense get rgb mask
     mask_file_path = create_mask()
     
@@ -128,17 +133,20 @@ def GetPointCloud(camK_path):
     align = rs.align(align_to)
 
     mask = cv2.imread(mask_file_path, cv2.IMREAD_UNCHANGED)
-    cam_K = np.loadtxt(camK_path + "/camK_640x480.txt", delimiter=',')
-    
-    time.sleep(5)
-    # Streaming loop
+    cam_K = np.loadtxt(camK_path + "/depthK_640x480.txt", delimiter=',')
 
+    wait_cnt = 0
+    check_indice = None
+    valid = None
+    check_array = []
     while True:
+        time.sleep(0.01)
+        wait_cnt += 1
         frames = pipeline.wait_for_frames()
         aligned_frames = align.process(frames)
         aligned_depth_frame = aligned_frames.get_depth_frame()
         color_frame = aligned_frames.get_color_frame()
-        if not aligned_depth_frame or not color_frame:
+        if not aligned_depth_frame or not color_frame or wait_cnt < 500:
             continue
         depth_image = np.asanyarray(aligned_depth_frame.get_data())/1e3
         color_image = np.asanyarray(color_frame.get_data())
@@ -155,8 +163,14 @@ def GetPointCloud(camK_path):
                     mask = mask[...,c]
                     break
         mask = cv2.resize(mask, (W,H), interpolation=cv2.INTER_NEAREST).astype(bool).astype(np.uint8)
-
-        mask_pcd = get_obj_point_cloud(cam_K, depth, mask, 200)
+        
+        mask_pcd, valid, check_indice = get_obj_point_cloud(cam_K, depth, mask, 200, valid, check_indice)
+        check_array.append(mask_pcd)
+        if wait_cnt > 1000:
+            check_array = np.array(check_array) # (502, 200, 3)
+            mask_pcd = np.mean(check_array, axis=0) # (200, 3)
+        else:
+            continue
         mask_pcd_homogeneous = np.hstack((mask_pcd, np.ones((mask_pcd.shape[0], 1))))  # (200, 4)
         print (f"camera frame pc = {mask_pcd_homogeneous[0]}")
         tbase2pcd = mask_pcd_homogeneous @ Tbase2cam.T
