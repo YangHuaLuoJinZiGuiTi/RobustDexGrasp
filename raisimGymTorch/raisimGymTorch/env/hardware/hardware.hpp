@@ -104,29 +104,16 @@ public:
                 exit(0);
             }
             save_target_.setZero(platform_gc_dim_);
-            csv_file_ << "ur5_tar_joint0,ur5_real_joint0,ur5_sim_joint0,";
-            csv_file_ << "ur5_tar_joint1,ur5_real_joint1,ur5_sim_joint1,";
-            csv_file_ << "ur5_tar_joint2,ur5_real_joint2,ur5_sim_joint2,";
-            csv_file_ << "ur5_tar_joint3,ur5_real_joint3,ur5_sim_joint3,";
-            csv_file_ << "ur5_tar_joint4,ur5_real_joint4,ur5_sim_joint4,";
-            csv_file_ << "ur5_tar_joint5,ur5_real_joint5,ur5_sim_joint5,";
-
-            csv_file_ << "hand_tar_joint0,hand_real_joint0,hand_sim_joint0,";
-            csv_file_ << "hand_tar_joint1,hand_real_joint1,hand_sim_joint1,";
-            csv_file_ << "hand_tar_joint2,hand_real_joint2,hand_sim_joint2,";
-            csv_file_ << "hand_tar_joint3,hand_real_joint3,hand_sim_joint3,";
-            csv_file_ << "hand_tar_joint4,hand_real_joint4,hand_sim_joint4,";
-            csv_file_ << "hand_tar_joint5,hand_real_joint5,hand_sim_joint5,";
-            csv_file_ << "hand_tar_joint6,hand_real_joint6,hand_sim_joint6,";
-            csv_file_ << "hand_tar_joint7,hand_real_joint7,hand_sim_joint7,";
-            csv_file_ << "hand_tar_joint8,hand_real_joint8,hand_sim_joint8,";
-            csv_file_ << "hand_tar_joint9,hand_real_joint9,hand_sim_joint9,";
-            csv_file_ << "hand_tar_joint10,hand_real_joint10,hand_sim_joint10,";
-            csv_file_ << "hand_tar_joint11,hand_real_joint11,hand_sim_joint11,";
-            csv_file_ << "hand_tar_joint12,hand_real_joint12,hand_sim_joint12,";
-            csv_file_ << "hand_tar_joint13,hand_real_joint13,hand_sim_joint13,";
-            csv_file_ << "hand_tar_joint14,hand_real_joint14,hand_sim_joint14,";
-            csv_file_ << "hand_tar_joint15,hand_real_joint15,hand_sim_joint15\n";
+            save_current_.setZero(platform_gc_dim_);
+            csv_file_ << "arm0,,";
+            for (int i = 1; i < 16+6; i++) {
+                if (i > 5) {
+                    csv_file_ << "hand" << std::to_string(i-6) << ",,";
+                } else {
+                    csv_file_ << "arm" << std::to_string(i) << ",,";
+                }
+            }
+            csv_file_ << "\n";
         }
 
         srand((unsigned)time(NULL));
@@ -142,15 +129,15 @@ public:
      */
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) {
         //std::cout << "set:" << posTarget.transpose() << std::endl;
+        if (save_state_) {
+            arm_hand_platform_->setPdTarget(posTarget, velTarget);
+            for (int i = 0; i < platform_gc_dim_; i++) {
+                save_target_[i] = posTarget[i];
+            }
+        }
         if (real_world_mode_) {
             arm_->setPdTarget(posTarget.head(arm_dim_), velTarget.head(arm_dim_));
             hand_->setPdTarget(posTarget.tail(hand_dim_), velTarget.tail(hand_dim_));
-            if (save_state_) {
-                arm_hand_platform_->setPdTarget(posTarget, velTarget);
-                for (int i = 0; i < platform_gc_dim_; i++) {
-                    save_target_[i] = posTarget[i];
-                }
-            }
         } else {
             arm_hand_platform_->setPdTarget(posTarget, velTarget);
         }
@@ -205,7 +192,8 @@ public:
             Eigen::VectorXd gc(platform_gc_dim_), gv(platform_gv_dim_);
             arm_hand_platform_->getState(gc, gv);
             for (int i = 0; i < platform_gc_dim_; i++) {
-                csv_file_ << save_target_[i] << "," << now_joint[i] << "," << gc[i] << ",";
+                csv_file_ << now_joint[i] - gc[i] << "," << abs(save_target_[i] - save_current_[i])<< ",";
+                save_current_[i] = now_joint[i];
             }
             csv_file_ << "\n";
         }
@@ -545,6 +533,7 @@ private:
     bool save_state_ = false;
     std::ofstream csv_file_;
     Eigen::VectorXd save_target_;
+    Eigen::VectorXd save_current_;
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareArm>()>> arm_map_ = {
         {"ur5_sim", [](){ return createUR5Sim(); }},

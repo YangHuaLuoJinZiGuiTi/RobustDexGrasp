@@ -525,6 +525,14 @@ namespace raisim {
            obj_pose.setZero();wrist_pos_obj.setZero();obj_pose_wrist.setZero();Obj_Position.setZero();
            raisim::RotmatToEuler(wrist_mat_r_trans, hand_pose_trans);
 
+            // check self-collision before set reset pose
+            if (start == true) {
+                for(auto& contact_arm: mano_r_->getContacts()) {
+    //                if (contact_arm.skip()) continue;
+                    contacts_arm_all[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
+                }
+            }
+
             global_state_ << obj_pose_wrist.e(),
                              frame_y_in_obj,
                              joint_pos_in_obj,

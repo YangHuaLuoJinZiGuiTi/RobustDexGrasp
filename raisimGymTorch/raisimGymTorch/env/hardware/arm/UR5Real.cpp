@@ -23,6 +23,7 @@ public:
 
         std::string robot_ip = cfg["arm_real"]["ip"].As<std::string>();
         double rtde_frequency = cfg["arm_real"]["freq_hz"].As<double>();
+        control_dt_ = 1.0 / rtde_frequency;
         uint16_t flags = ur_rtde::RTDEControlInterface::FLAG_USE_EXT_UR_CAP;
 
         rtde_control_ = std::make_unique<ur_rtde::RTDEControlInterface>(robot_ip, rtde_frequency, flags);
@@ -31,7 +32,8 @@ public:
         move_vel_ = cfg["arm_real"]["move_vel"].As<double>();
         move_acc_ = cfg["arm_real"]["move_acc"].As<double>();
         velocity_dt_s_ = cfg["real_velocity_dt_s"].As<double>();
-
+        servoJ_ahead_time_ = cfg["arm_real"]["servoJ_ahead_time"].As<double>();
+        servoJ_gain_ = cfg["arm_real"]["servoJ_gain"].As<double>();
 
         std::ifstream pd_txt;
         pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/arm/UR5Identification.txt");
@@ -117,13 +119,16 @@ public:
         for (int i = 0; i < 6; i++) {
             tar_joint_pos.push_back(posTarget[i]);
         }
-        rtde_control_->servoJ(tar_joint_pos, 0, 0, 0.01, 0.2, 100);
+        //rtde_control_->stopJ(false);
+        //rtde_control_->moveJ(tar_joint_pos, 0.5, 0.5, true);
+        rtde_control_->servoJ(tar_joint_pos, 0, 0, control_dt_, servoJ_ahead_time_, servoJ_gain_);
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const final override {
         for (int i = 0; i < num_joint_; i++) {
             pgain[i] = Pgain[i];
             dgain[i] = Dgain[i];
+            std::cout << "joint[" << i << "] P=" << pgain[i] << ", D=" << dgain[i] << std::endl;
         }
     }
     int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const final override {
@@ -190,6 +195,9 @@ private:
     double move_vel_ = 0.0;
     double move_acc_ = 0.0;
     double velocity_dt_s_ = 0.0;
+    double control_dt_ = 0.0;
+    double servoJ_gain_ = 0.0;
+    double servoJ_ahead_time_ = 0.0;
 
     std::unique_ptr<ur_rtde::RTDEControlInterface> rtde_control_;
     std::unique_ptr<ur_rtde::RTDEReceiveInterface> rtde_receive_;

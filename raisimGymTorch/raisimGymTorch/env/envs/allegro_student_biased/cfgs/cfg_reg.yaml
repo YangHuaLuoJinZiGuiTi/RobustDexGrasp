@@ -6,7 +6,7 @@ environment:
     kinematic_type: "pinocchio"
     arm_type: "ur5"                
     hand_type: "allegro"
-    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
+    real_world_mode: True          # add suffix "_real" or "_sim" for arm_type and hand_type
     flying_hand_mode: False
     save_state_mode: False
     save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/joint.csv"
@@ -23,12 +23,14 @@ environment:
   
     arm_real:
       ip: "192.168.56.101"
-      freq_hz: 500.0
+      freq_hz: 200.0
       move_vel: 0.5
       move_acc: 0.3
+      servoJ_ahead_time: 0.05 # range [0.03,0.2] smoothens the trajectory with this lookahead time
+      servoJ_gain: 1300 # for following target position, range [100,2000]
 
     hand_real:
-      freq_hz: 500.0
+      freq_hz: 200.0
 
   real_obj_item: '035_power_drill'
 
@@ -36,8 +38,8 @@ environment:
   eval_every_n: 500
   update_every_n: 20
   num_threads: 32
-  simulation_dt: 0.0025
-  control_dt: 0.02
+  simulation_dt: 0.005
+  control_dt: 0.05
   max_time: 4.0
   root_guided: True
   visualize: False
