@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import time
 
+from ..sam.sam import calculate_mask
+
 def depth2xyzmap(depth, K, uvs=None):
     
     invalid_mask = (depth<0.1)
@@ -33,7 +35,50 @@ def get_obj_point_cloud(K, depth, ob_mask, s = 200, valid = None, indices = None
         indices = np.random.choice(pc.shape[0], size=s, replace=False)
     return pc[indices], valid, indices
 
-def create_mask():
+def create_mask_auto(in_img):
+    return calculate_mask(in_img)
+
+def create_mask_from_align_sensor(color_frame):
+    points = []
+    mask_path = './mask.png'
+
+    def select_points(event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            points.append((x, y))
+            cv2.circle(image_display, (x, y), 3, (0, 255, 0), -1)
+            cv2.imshow("Image", image_display)
+
+    def generate_mask(image, points):
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        points_array = np.array(points, dtype=np.int32)
+        cv2.fillPoly(mask, [points_array], 255)
+        return mask
+
+    # Convert image to numpy array
+    image = np.asanyarray(color_frame.get_data())
+    image_display = image.copy()
+
+    cv2.namedWindow("Image")
+    cv2.setMouseCallback("Image", select_points)
+
+    print("Click on the image to select points. Press Enter when done.")
+
+    while True:
+        cv2.imshow("Image", image_display)
+        key = cv2.waitKey(1) & 0xFF
+        if key == 13:  # Enter key
+            break
+
+    mask = generate_mask(image, points)
+
+    # Save the mask image
+    cv2.imwrite(mask_path, mask)
+    print("------------------write masks success !!!!!!!!!")
+    cv2.destroyAllWindows()
+
+    return mask
+
+def create_mask_from_rgb_sensor():
     points = []
     mask_path = './mask.png'
 
@@ -112,41 +157,31 @@ def GetPointCloud(camK_path):
     # https://support.intelrealsense.com/hc/en-us/community/posts/4405875311123-About-make-sure-FOV-specification-of-D435i 
     # tf from RGB to left-IR camera
 
-    # realsense get rgb mask
-    mask_file_path = create_mask()
-    
     # realsense get depth
     pipeline = rs.pipeline()
     config = rs.config()
-    pipeline_wrapper = rs.pipeline_wrapper(pipeline)
-    pipeline_profile = config.resolve(pipeline_wrapper)
-    device = pipeline_profile.get_device()
-    device_product_line = str(device.get_info(rs.camera_info.product_line))
     config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
     config.enable_stream(rs.stream.color, 640, 480, rs.format.rgb8, 30)
     profile = pipeline.start(config)
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
-    clipping_distance_in_meters = 1 #1 meter
-    clipping_distance = clipping_distance_in_meters / depth_scale
     align_to = rs.stream.color
     align = rs.align(align_to)
 
-    mask = cv2.imread(mask_file_path, cv2.IMREAD_UNCHANGED)
-    cam_K = np.loadtxt(camK_path + "/depthK_640x480.txt", delimiter=',')
+    cam_K = np.loadtxt(camK_path + "/camK_640x480.txt", delimiter=',')
 
     wait_cnt = 0
+    mask = None
     check_indice = None
     valid = None
     check_array = []
     while True:
-        time.sleep(0.01)
         wait_cnt += 1
         frames = pipeline.wait_for_frames()
         aligned_frames = align.process(frames)
         aligned_depth_frame = aligned_frames.get_depth_frame()
         color_frame = aligned_frames.get_color_frame()
-        if not aligned_depth_frame or not color_frame or wait_cnt < 500:
+        if not aligned_depth_frame or not color_frame or wait_cnt < 100:
             continue
         depth_image = np.asanyarray(aligned_depth_frame.get_data())/1e3
         color_image = np.asanyarray(color_frame.get_data())
@@ -157,6 +192,11 @@ def GetPointCloud(camK_path):
         depth = cv2.resize(depth_image_scaled, (W,H), interpolation=cv2.INTER_NEAREST)
         depth[(depth<0.1) | (depth>=np.inf)] = 0
 
+        # realsense get rgb mask
+        if mask is None:
+            #mask = create_mask_from_align_sensor(color)
+            mask = create_mask_auto(color)
+
         if len(mask.shape)==3:
             for c in range(3):
                 if mask[...,c].sum()>0:
@@ -166,7 +206,7 @@ def GetPointCloud(camK_path):
         
         mask_pcd, valid, check_indice = get_obj_point_cloud(cam_K, depth, mask, 200, valid, check_indice)
         check_array.append(mask_pcd)
-        if wait_cnt > 1000:
+        if wait_cnt > 150:
             check_array = np.array(check_array) # (502, 200, 3)
             mask_pcd = np.mean(check_array, axis=0) # (200, 3)
         else:
