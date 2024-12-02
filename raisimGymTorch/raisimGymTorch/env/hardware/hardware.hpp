@@ -105,13 +105,14 @@ public:
             }
             save_target_.setZero(platform_gc_dim_);
             save_current_.setZero(platform_gc_dim_);
-            csv_file_ << "arm0,,";
-            for (int i = 1; i < 16+6; i++) {
+            for (int i = 0; i < 16+6; i++) {
+                std::string c;
                 if (i > 5) {
-                    csv_file_ << "hand" << std::to_string(i-6) << ",,";
+                    c = std::to_string(i-6);
                 } else {
-                    csv_file_ << "arm" << std::to_string(i) << ",,";
+                    c = std::to_string(i);
                 }
+                csv_file_ << c << ": tar-cur--------," << c << ": tar-real," << c << ": tar-sim," << c << ": real-sim,";
             }
             csv_file_ << "\n";
         }
@@ -130,9 +131,13 @@ public:
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) {
         //std::cout << "set:" << posTarget.transpose() << std::endl;
         if (save_state_) {
+            Eigen::VectorXd now_joint(platform_gc_dim_);
+            now_joint.head(arm_dim_) = arm_->getJointPosition();
+            now_joint.tail(hand_dim_) = hand_->getJointPosition();
             arm_hand_platform_->setPdTarget(posTarget, velTarget);
             for (int i = 0; i < platform_gc_dim_; i++) {
                 save_target_[i] = posTarget[i];
+                save_current_[i] = now_joint[i];
             }
         }
         if (real_world_mode_) {
@@ -192,8 +197,7 @@ public:
             Eigen::VectorXd gc(platform_gc_dim_), gv(platform_gv_dim_);
             arm_hand_platform_->getState(gc, gv);
             for (int i = 0; i < platform_gc_dim_; i++) {
-                csv_file_ << now_joint[i] - gc[i] << "," << abs(save_target_[i] - save_current_[i])<< ",";
-                save_current_[i] = now_joint[i];
+                csv_file_ << save_target_[i] - save_current_[i] << "," << save_target_[i] - now_joint[i] << "," << save_target_[i] - gc[i] << "," << now_joint[i] - gc[i] << ",";
             }
             csv_file_ << "\n";
         }
