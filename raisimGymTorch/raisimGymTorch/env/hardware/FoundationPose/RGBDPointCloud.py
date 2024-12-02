@@ -2,8 +2,29 @@ import pyrealsense2 as rs
 import cv2
 import numpy as np
 import time
+from scipy.spatial import KDTree
 
 from ..sam.sam import calculate_mask
+
+# KD tree to calculate K-Nearest Neighbors for each point
+def remove_outliers(point_cloud, k=5, threshold=1.5):
+    tree = KDTree(point_cloud)
+    
+    # search KNN for each point (including K itself, so it is k+1)
+    distances, _ = tree.query(point_cloud, k=k+1)
+    
+    # mean distance of each KNN point
+    mean_distances = np.mean(distances[:, 1:], axis=1)
+    
+    # calculate Median of mean distance and MAD（Mean Absolute Deviation)
+    median_distance = np.median(mean_distances)
+    mad_distance = np.median(np.abs(mean_distances - median_distance))
+    
+    # use threshold to ignore outliers
+    normalized_distances = np.abs(mean_distances - median_distance) / (mad_distance + 1e-8)
+    inliers = normalized_distances < threshold
+    
+    return point_cloud[inliers]
 
 def depth2xyzmap(depth, K, uvs=None):
     
@@ -54,8 +75,9 @@ def create_mask_from_align_sensor(color_frame):
         cv2.fillPoly(mask, [points_array], 255)
         return mask
 
+    color_frame = cv2.cvtColor(color_frame, cv2.COLOR_BGR2RGB)
     # Convert image to numpy array
-    image = np.asanyarray(color_frame.get_data())
+    image = color_frame
     image_display = image.copy()
 
     cv2.namedWindow("Image")
@@ -181,7 +203,7 @@ def GetPointCloud(camK_path):
         aligned_frames = align.process(frames)
         aligned_depth_frame = aligned_frames.get_depth_frame()
         color_frame = aligned_frames.get_color_frame()
-        if not aligned_depth_frame or not color_frame or wait_cnt < 100:
+        if not aligned_depth_frame or not color_frame or wait_cnt < 200:
             continue
         depth_image = np.asanyarray(aligned_depth_frame.get_data())/1e3
         color_image = np.asanyarray(color_frame.get_data())
@@ -204,14 +226,19 @@ def GetPointCloud(camK_path):
                     break
         mask = cv2.resize(mask, (W,H), interpolation=cv2.INTER_NEAREST).astype(bool).astype(np.uint8)
         
-        mask_pcd, valid, check_indice = get_obj_point_cloud(cam_K, depth, mask, 200, valid, check_indice)
+        mask_pcd, valid, check_indice = get_obj_point_cloud(cam_K, depth, mask, 400, valid, check_indice)
         check_array.append(mask_pcd)
-        if wait_cnt > 150:
+        if wait_cnt > 225:
             check_array = np.array(check_array) # (502, 200, 3)
             mask_pcd = np.mean(check_array, axis=0) # (200, 3)
         else:
             continue
-        mask_pcd_homogeneous = np.hstack((mask_pcd, np.ones((mask_pcd.shape[0], 1))))  # (200, 4)
+
+        filtered_point_cloud = remove_outliers(mask_pcd, k=15, threshold=2.0)
+        selected_indices = np.random.choice(filtered_point_cloud.shape[0], 200, replace=False)
+        mask_pcd_new = filtered_point_cloud[selected_indices]
+
+        mask_pcd_homogeneous = np.hstack((mask_pcd_new, np.ones((mask_pcd_new.shape[0], 1))))  # (200, 4)
         print (f"camera frame pc = {mask_pcd_homogeneous[0]}")
         tbase2pcd = mask_pcd_homogeneous @ Tbase2cam.T
         print (f"realbase frame pc = {tbase2pcd[0]}")

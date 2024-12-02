@@ -239,6 +239,9 @@ namespace raisim {
                 aff_center_visual[6] = server_->addVisualSphere(body_parts_r_[6]+"_aff_center", 0.02, 1, 1, 0, 1);
                 wrist_target[0] = server_->addVisualSphere("wrist_target", 0.03, 1, 0, 1, 1);
                 wrist_target[1] = server_->addVisualSphere("wrist_start", 0.03, 1, 0, 1, 1);
+                for (int i = 0; i <200; i++) {
+                    sample_point[i] = server_->addVisualSphere(std::to_string(i), 0.001, 0, 1, 0, 1);
+                }
 
                 if(server_) server_->unlockVisualizationServerMutex();
             }
@@ -248,6 +251,16 @@ namespace raisim {
         void load_object(const Eigen::Ref<EigenVecInt>& obj_idx, const Eigen::Ref<EigenVec>& obj_weight, const Eigen::Ref<EigenVec>& obj_dim, const Eigen::Ref<EigenVecInt>& obj_type) final {}
         /// This function loads the object into the environment
         void load_articulated(const std::string& obj_model){
+        }
+
+        void set_sample_point_visual(const Eigen::Ref<EigenVec>& joint_sensor_visual) final {
+            for(int i = 0; i < 200; i++) {
+                raisim::Vec<3> sample_point_pos;
+                sample_point_pos = joint_sensor_visual.segment(i*3,3).cast<double>();
+                if (visualizable_){
+                    sample_point[i]->setPosition(sample_point_pos.e());
+                }
+            }
         }
 
         void set_joint_sensor_visual(const Eigen::Ref<EigenVec>& joint_sensor_visual) final {
@@ -713,6 +726,7 @@ namespace raisim {
         raisim::Visuals *aff_center_visual[7];
         raisim::Visuals *wrist_target[2];
         raisim::Visuals *obj_pose_sphere;
+        raisim::Visuals *sample_point[200];
         
         raisim::Vec<3> base_pos;
         raisim::Mat<3,3> base_mat;

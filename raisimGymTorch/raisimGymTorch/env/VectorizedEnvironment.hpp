@@ -349,6 +349,13 @@ class VectorizedEnvironment {
               }
   }
 
+  void set_sample_point_visual(Eigen::Ref<EigenRowMajorMat> &joint_vector){
+        #pragma omp parallel for
+              for (int i = 0; i < num_envs_; i++){
+                environments_[i]->set_sample_point_visual(joint_vector.row(i));
+              }
+  }
+
   void set_joint_sensor_visual_l(Eigen::Ref<EigenRowMajorMat> &joint_vector){
         #pragma omp parallel for
               for (int i = 0; i < num_envs_; i++){
