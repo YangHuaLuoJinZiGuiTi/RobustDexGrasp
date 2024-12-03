@@ -1,36 +1,17 @@
 seed: 1
 
 environment:
-
   hardware:
-    kinematic_type: "pinocchio"
+    kinematic_type: "simfk"
     arm_type: "ur5"                
     hand_type: "allegro"
-    real_world_mode: True          # add suffix "_real" or "_sim" for arm_type and hand_type
+    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
     flying_hand_mode: False
-    save_state_mode: True
-    save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/joint.csv"
-    camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
+    save_state_mode: False
     rsc_model: "ur5_allegro"
     sim_model: "ur5_allegro_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
-    fk_model: "ur5_allegro_fk"          # FK model in           rsc/${rsc_model}/${fk_model}.urdf
-    ik_model: "ur5"                     # IK model in           rsc/${rsc_model}/${ik_model}.urdf
-                                        # IK collision model in rsc/${rsc_model}/${ik_model}.srdf
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
-
-    real_velocity_dt_s: 0.1
-  
-    arm_real:
-      ip: "192.168.56.101"
-      freq_hz: 500.0
-      move_vel: 1.0
-      move_acc: 1.0
-      servoJ_ahead_time: 0.08 # range [0.03,0.2] smoothens the trajectory with this lookahead time
-      servoJ_gain: 2000 # for following target position, range [100,2000]
-
-    hand_real:
-      freq_hz: 200.0
 
   render: True
   eval_every_n: 500

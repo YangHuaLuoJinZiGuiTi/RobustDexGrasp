@@ -131,11 +131,11 @@ private:
     "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
     "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
 
-    const std::string body_parts_[num_bodies_] =  {"Flange_base_link",
-    "joint_1.0", "joint_2.0", "joint_3.0", "link_3.0_tip",
-    "joint_5.0", "joint_6.0", "joint_7.0", "link_7.0_tip",
-    "joint_9.0", "joint_10.0", "joint_11.0", "link_11.0_tip",
-    "joint_13.0", "joint_14.0", "joint_15.0", "link_15.0_tip"};
+    const std::string body_parts_[num_bodies_] =  {"Flange2hand_fixed_joint",
+    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
+    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
+    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
+    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
 
     // for raisim contact check
     const std::string contact_bodies_[num_contacts_] =  {"wrist_3_link",

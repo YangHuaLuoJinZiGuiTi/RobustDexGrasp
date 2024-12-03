@@ -21,7 +21,10 @@
 #include <time.h>
 #include <stack>
 
+extern "C" std::unique_ptr<HardwareKinematic> createSimFK();
+#ifdef BUILD_PINOCCHIO
 extern "C" std::unique_ptr<HardwareKinematic> createPinocchio();
+#endif
 
 extern "C" std::unique_ptr<HardwareArm> createFlyingSim();
 extern "C" std::unique_ptr<HardwareArm> createUR5Sim();
@@ -81,6 +84,7 @@ public:
 
         arm_->setSimPlatform(arm_hand_platform_);
         hand_->setSimPlatform(arm_hand_platform_);
+        kinematic_->setSimPlatform(arm_hand_platform_);
 
         // set PD control mode
         arm_hand_platform_->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
@@ -562,7 +566,10 @@ private:
     };
 
     std::unordered_map<std::string, std::function<std::unique_ptr<HardwareKinematic>()>> kinematic_map_ = {
+        {"simfk", [](){ return createSimFK(); }},
+        #ifdef BUILD_PINOCCHIO
         {"pinocchio", [](){ return createPinocchio(); }},
+        #endif
     };
 };
 

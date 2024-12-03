@@ -5,11 +5,11 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/en
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env/bin)
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env/bin)
 
-set(BUILD_UR5_REAL          ON)
-set(BUILD_ALLEGRO_REAL      ON)
-set(BUILD_LEAP_REAL         ON)
-set(BUILD_PINOCCHIO         ON)
-set(BUILD_IKFAST            ON)
+set(BUILD_UR5_REAL          OFF)
+set(BUILD_ALLEGRO_REAL      OFF)
+set(BUILD_LEAP_REAL         OFF)
+set(BUILD_PINOCCHIO         OFF)
+set(BUILD_IKFAST            OFF)
 
 ######################
 ### help functions ###
@@ -39,6 +39,7 @@ raisimGymTorch/env/hardware/arm/FlyingSim.cpp
 raisimGymTorch/env/hardware/arm/UR5Sim.cpp
 raisimGymTorch/env/hardware/hand/AllegroSim.cpp
 raisimGymTorch/env/hardware/hand/LeapSim.cpp
+raisimGymTorch/env/hardware/kinematic/SimFK.cpp
 )
 
 # kinematic: IKFast

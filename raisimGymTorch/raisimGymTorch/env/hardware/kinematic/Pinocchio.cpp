@@ -165,6 +165,9 @@ public:
         return IK_SELF_COLLISION;
     }
 
+    void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
+    }
+
     void updateHandFK(const Eigen::VectorXd &hand_q, const Eigen::VectorXd &eef_pos) const override {
         Eigen::VectorXd set_q(hand_q.size() + eef_pos.size());
         set_q.head(hand_q.size()) = hand_q;
