@@ -305,8 +305,8 @@ public:
             int cnt = 15;
             while (cnt > 0) {
                 cnt--;
-                arm_->setPdTarget(genco.head(arm_dim_), genvel.head(arm_dim_), false);
                 hand_->setPdTarget(genco.tail(hand_dim_), genvel.tail(hand_dim_), false);
+                arm_->setPdTarget(genco.head(arm_dim_), genvel.head(arm_dim_), false);
                 usleep(1000000);
                 updateObservation();
                 Eigen::VectorXd now_joint(platform_gc_dim_);

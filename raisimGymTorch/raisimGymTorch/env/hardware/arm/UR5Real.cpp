@@ -119,16 +119,25 @@ public:
         for (int i = 0; i < 6; i++) {
             tar_joint_pos.push_back(posTarget[i]);
         }
-        //rtde_control_->stopJ(false);
-        //rtde_control_->moveJ(tar_joint_pos, 0.5, 0.5, true);
-        rtde_control_->servoJ(tar_joint_pos, 0, 0, control_dt_, servoJ_ahead_time_, servoJ_gain_);
+
+        if (async == false) {
+            rtde_control_->servoStop();
+            rtde_control_->stopScript();
+            usleep(50000);
+            rtde_control_->moveJ(tar_joint_pos, 0.5, 0.5);
+            usleep(50000);
+            rtde_control_->stopJ();
+            rtde_control_->stopScript();
+        } else {
+            rtde_control_->servoJ(tar_joint_pos, 0, 0, control_dt_, servoJ_ahead_time_, servoJ_gain_);
+        }
     }
 
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const final override {
         for (int i = 0; i < num_joint_; i++) {
             pgain[i] = Pgain[i];
             dgain[i] = Dgain[i];
-            std::cout << "joint[" << i << "] P=" << pgain[i] << ", D=" << dgain[i] << std::endl;
+            std::cout << "UR5 Sim joint[" << i << "] P=" << pgain[i] << ", D=" << dgain[i] << std::endl;
         }
     }
     int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const final override {
