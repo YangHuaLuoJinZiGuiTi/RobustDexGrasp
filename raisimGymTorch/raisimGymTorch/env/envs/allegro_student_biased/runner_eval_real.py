@@ -336,24 +336,7 @@ for update in range(args.num_iterations):
                 continue
             else:
                 # check self collision
-                env.reset_state(qpos_reset_r,
-                                qpos_reset_l,
-                                np.zeros((num_envs, 22), 'float32'),
-                                np.zeros((num_envs, 22), 'float32'),
-                                obj_pose_reset,
-                                )
-                temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
-                temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
-                _, _, _ = env.step(temp_action_r, temp_action_l)
-                global_state = env.get_global_state()
-                one_check = global_state[:, 124:128]
-                contains_one = np.any(one_check == 1, axis=1)
-                true_indices = np.where(contains_one)[0]
-                if len(true_indices) > 0:
-                    print(" +++++++++++++++++++++++++++++++++++++++++++++++ resample !!!")
-                    continue
-                else:
-                    get_meaningful_ik = True
+                get_meaningful_ik = env.check_collision(qpos_reset_r)
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,

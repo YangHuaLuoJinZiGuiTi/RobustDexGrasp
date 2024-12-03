@@ -110,6 +110,7 @@ class RaisimGymEnv {
   virtual void set_joint_sensor_visual(const Eigen::Ref<EigenVec>& joint_vector){};
   virtual void set_joint_sensor_visual_l(const Eigen::Ref<EigenVec>& joint_vector){};
   virtual void set_sample_point_visual(const Eigen::Ref<EigenVec>& joint_vector){};
+  virtual bool check_collision(const Eigen::Ref<EigenVec>& joint_vector) {};
 
   virtual void debugShowObs(const Eigen::Ref<EigenVec>& ob_r){};
   ////////////////////////////////

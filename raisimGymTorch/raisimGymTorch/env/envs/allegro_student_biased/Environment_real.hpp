@@ -240,7 +240,7 @@ namespace raisim {
                 wrist_target[0] = server_->addVisualSphere("wrist_target", 0.03, 1, 0, 1, 1);
                 wrist_target[1] = server_->addVisualSphere("wrist_start", 0.03, 1, 0, 1, 1);
                 for (int i = 0; i <200; i++) {
-                    sample_point[i] = server_->addVisualSphere(std::to_string(i), 0.001, 0, 1, 0, 1);
+                    sample_point[i] = server_->addVisualSphere(std::to_string(i), 0.003, 0, 1, 0, 1);
                 }
 
                 if(server_) server_->unlockVisualizationServerMutex();
@@ -260,6 +260,30 @@ namespace raisim {
                 if (visualizable_){
                     sample_point[i]->setPosition(sample_point_pos.e());
                 }
+            }
+        }
+
+        bool check_collision(const Eigen::Ref<EigenVec>& joint_state) final {
+            Eigen::VectorXd sc, sv;
+            sc = joint_state.cast<double>();
+            sv.setZero(gvDim_);
+            mano_r_->setState(sc, sv);
+
+            for (int i = 0; i < 4; i++) {
+                if(server_) server_->lockVisualizationServerMutex();
+                world_->integrate();
+                if(server_) server_->unlockVisualizationServerMutex();
+            }
+
+            for(auto& contact_arm: mano_r_->getContacts()) {
+                contacts_arm_all[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
+            }
+
+            if (contacts_arm_all[0] > 0 || contacts_arm_all[1] > 0 || contacts_arm_all[2] > 0 || contacts_arm_all[3] > 0) {
+                std::cout << "the joint config have a self-collision" << contacts_arm_all.transpose() << std::endl;
+                return false;
+            } else {
+                return true;
             }
         }
 
@@ -451,14 +475,28 @@ namespace raisim {
             /// Set PD targets (velocity zero)
             mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
 
+            double max_step_distance = 0.0;
+            for (int i = 0; i < 6; i++) {
+                if (max_step_distance < abs(pTarget_clipped_r[i] - gc_r_[i])) {
+                    max_step_distance = abs(pTarget_clipped_r[i] - gc_r_[i]);
+                }
+            }
+            double delay_cnt = int(max_step_distance / 0.01) + 1;
+            if (delay_cnt > 4) {
+                delay_cnt = 4;
+            }
+            if (delay_cnt > 1) {
+                std::cout << "max_step_distance = " << max_step_distance << ", will delay times = " << delay_cnt << std::endl;
+            }
+
             /// Apply N control steps
             int step_cnt = 0;
             auto starttime = std::chrono::system_clock::now();
             while (1) {
                 auto diff_time = std::chrono::system_clock::now() - starttime;
-                if ((real_ == true) && (diff_time.count() / 1e9 > control_dt_ - 0.0005)) {
+                if ((real_ == true) && (diff_time.count() / 1e9 > control_dt_ * delay_cnt - 0.0005)) {
                     break;
-                } else if ((real_ == false) && (step_cnt > int(control_dt_ / simulation_dt_ + 1e-10))) {
+                } else if ((real_ == false) && (step_cnt > int(control_dt_ / simulation_dt_ * delay_cnt + 1e-10))) {
                     break;
                 }
                 step_cnt++;
@@ -537,14 +575,6 @@ namespace raisim {
            raisim::Vec<3> obj_pose, wrist_pos_obj, hand_pose_trans, obj_pose_wrist;
            obj_pose.setZero();wrist_pos_obj.setZero();obj_pose_wrist.setZero();Obj_Position.setZero();
            raisim::RotmatToEuler(wrist_mat_r_trans, hand_pose_trans);
-
-            // check self-collision before set reset pose
-            if (start == true) {
-                for(auto& contact_arm: mano_r_->getContacts()) {
-    //                if (contact_arm.skip()) continue;
-                    contacts_arm_all[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
-                }
-            }
 
             global_state_ << obj_pose_wrist.e(),
                              frame_y_in_obj,

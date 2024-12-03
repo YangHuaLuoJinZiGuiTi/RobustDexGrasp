@@ -664,6 +664,9 @@ class RaisimGymVecEnvTest:
     def set_sample_point_visual(self, joint_sensor_visual):
         self.wrapper.set_sample_point_visual(joint_sensor_visual)
 
+    def check_collision(self, joint_state):
+        return self.wrapper.check_collision(joint_state)
+
     def set_joint_sensor_visual_l(self, joint_sensor_visual):
         self.wrapper.set_joint_sensor_visual_l(joint_sensor_visual)
 

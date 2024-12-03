@@ -69,6 +69,7 @@ PYBIND11_MODULE(RAISIMGYM_TORCH_ENV_NAME, m) {
     .def("set_joint_sensor_visual", &VectorizedEnvironment<ENVIRONMENT>::set_joint_sensor_visual)
     .def("set_joint_sensor_visual_l", &VectorizedEnvironment<ENVIRONMENT>::set_joint_sensor_visual_l)
     .def("set_sample_point_visual", &VectorizedEnvironment<ENVIRONMENT>::set_sample_point_visual)
+    .def("check_collision", &VectorizedEnvironment<ENVIRONMENT>::check_collision)
     .def("debugShowObs", &VectorizedEnvironment<ENVIRONMENT>::debugShowObs)
     .def(py::pickle(
         [](const VectorizedEnvironment<ENVIRONMENT> &p) { // __getstate__ --> Pickling to Python

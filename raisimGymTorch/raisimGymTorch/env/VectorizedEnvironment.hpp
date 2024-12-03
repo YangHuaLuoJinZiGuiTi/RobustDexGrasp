@@ -356,6 +356,10 @@ class VectorizedEnvironment {
               }
   }
 
+  bool check_collision(Eigen::Ref<EigenRowMajorMat> &joint_vector){
+    return environments_[0]->check_collision(joint_vector.row(0));
+  }
+
   void set_joint_sensor_visual_l(Eigen::Ref<EigenRowMajorMat> &joint_vector){
         #pragma omp parallel for
               for (int i = 0; i < num_envs_; i++){

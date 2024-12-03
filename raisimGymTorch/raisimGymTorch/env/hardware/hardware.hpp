@@ -299,7 +299,12 @@ public:
      * @param[in] genvel joint velocity (rad/s)
      * @return None
      */
-    void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel) {
+    void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel, bool vis_in_sim = false) {
+        if (true == vis_in_sim || false == real_world_mode_) {
+            arm_hand_platform_->setState(genco, genvel);
+            return;
+        }
+
         if (real_world_mode_) {
             std::cout << "--------------set state = " << genco.transpose() << std::endl;
             int cnt = 15;
@@ -331,8 +336,6 @@ public:
                     break;
                 }
             }
-        } else {
-            arm_hand_platform_->setState(genco, genvel);
         }
     }
 
