@@ -35,7 +35,7 @@ from raisimGymTorch.env.hardware.FoundationPose.RGBDPointCloud import GetPointCl
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'hui/full_10000_r.pt'
+weight_path_student = 'hui/full_4000_r.pt'
 
 
 # configuration
@@ -142,9 +142,9 @@ else:
     obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
     print(f" ================== obj pose center = {obj_pos_mean}")
     nparray = obj_pointcloud.reshape(200,3)
-    print(f"x:  mean={np.mean(nparray[:, 0])},\t var={np.var(nparray[:, 0])},\t max={np.max(nparray[:, 0])},\t min={np.min(nparray[:, 0])}\t\t(m)")
-    print(f"y:  mean={np.mean(nparray[:, 1])},\t var={np.var(nparray[:, 1])},\t max={np.max(nparray[:, 1])},\t min={np.min(nparray[:, 1])}\t\t(m)")
-    print(f"z:  mean={np.mean(nparray[:, 2])},\t var={np.var(nparray[:, 2])},\t max={np.max(nparray[:, 2])},\t min={np.min(nparray[:, 2])}\t\t(m)")
+    #print(f"x:  mean={np.mean(nparray[:, 0])},\t var={np.var(nparray[:, 0])},\t max={np.max(nparray[:, 0])},\t min={np.min(nparray[:, 0])}\t\t(m)")
+    #print(f"y:  mean={np.mean(nparray[:, 1])},\t var={np.var(nparray[:, 1])},\t max={np.max(nparray[:, 1])},\t min={np.min(nparray[:, 1])}\t\t(m)")
+    #print(f"z:  mean={np.mean(nparray[:, 2])},\t var={np.var(nparray[:, 2])},\t max={np.max(nparray[:, 2])},\t min={np.min(nparray[:, 2])}\t\t(m)")
 
 # Environment definition
 env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
@@ -350,6 +350,7 @@ for update in range(args.num_iterations):
                 contains_one = np.any(one_check == 1, axis=1)
                 true_indices = np.where(contains_one)[0]
                 if len(true_indices) > 0:
+                    print(" +++++++++++++++++++++++++++++++++++++++++++++++ resample !!!")
                     continue
                 else:
                     get_meaningful_ik = True
@@ -361,13 +362,17 @@ for update in range(args.num_iterations):
                     obj_pose_reset,
                     )
 
-    obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-    # show_point = dis_info[:, 17:68].astype('float32').copy()
-    #env.set_joint_sensor_visual(show_point)
-    # env.update_target(target_center)
+    #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+    obs_new_r, dis_info = env.observe_vision_new()
+    aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+    env.set_joint_sensor_visual(show_point)
+    vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
+    env.set_sample_point_visual(vis_point)
 
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
+    print("---------------start")
+    time.sleep(3)
 
     for step in range(n_steps_r):
 
@@ -400,14 +405,22 @@ for update in range(args.num_iterations):
         # cost 0.3~1ms in simulation
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
+        #time.sleep(0.5)
         frame_start3 = time.time()
 
         # cost 1-5ms
-        obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-        # show_point = dis_info[:, 17:68].astype('float32').copy()
-        #env.set_joint_sensor_visual(show_point)
-        
+        #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+        obs_new_r, dis_info = env.observe_vision_new()
+        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        env.set_joint_sensor_visual(show_point)
+
         frame_start4 = time.time()
-        print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{frame_start4 - frame_start}")
+        wait_time = cfg['environment']['control_dt'] - (frame_start4 - frame_start)
+        if wait_time > 0.:
+            time.sleep(wait_time)
+
+        end = time.time()
+        print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
     print("end")
+    exit(0)
 

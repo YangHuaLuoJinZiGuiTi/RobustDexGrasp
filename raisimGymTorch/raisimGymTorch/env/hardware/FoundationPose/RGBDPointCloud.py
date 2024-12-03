@@ -234,7 +234,7 @@ def GetPointCloud(camK_path):
         else:
             continue
 
-        filtered_point_cloud = remove_outliers(mask_pcd, k=15, threshold=2.0)
+        filtered_point_cloud = remove_outliers(mask_pcd, k=15, threshold=3.0)
         selected_indices = np.random.choice(filtered_point_cloud.shape[0], 200, replace=False)
         mask_pcd_new = filtered_point_cloud[selected_indices]
 
