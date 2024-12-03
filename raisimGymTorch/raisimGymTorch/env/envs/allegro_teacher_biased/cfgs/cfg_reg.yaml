@@ -32,8 +32,8 @@ environment:
   eval_every_n: 500
   update_every_n: 20
   num_threads: 32
-  simulation_dt: 0.0025
-  control_dt: 0.01
+  simulation_dt: 0.005
+  control_dt: 0.05
   max_time: 4.0
   root_guided: True
   visualize: False
@@ -86,10 +86,10 @@ environment:
 
 
     wrist_vel_reward_:
-      coeff: -0.001
+      coeff: -1.0
     #      coeff: -0.0
     wrist_qvel_reward_:
-      coeff: -0.0001
+      coeff: -0.1
     #      coeff: -0.0
 
     obj_vel_reward_:
@@ -97,6 +97,8 @@ environment:
     obj_qvel_reward_:
       coeff: -0.01
 
+    arm_joint_vel_reward_:
+      coeff: -1.0
 
 
 

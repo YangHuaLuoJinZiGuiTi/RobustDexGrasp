@@ -500,6 +500,7 @@ for update in range(args.num_iterations):
 
 
     for step in range(n_steps_r):
+        frame_start = time.time()
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
 
@@ -519,8 +520,6 @@ for update in range(args.num_iterations):
             if step == grasp_steps:
                 print("lift")
                 env.switch_root_guidance(True)
-
-        frame_start = time.time()
 
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 

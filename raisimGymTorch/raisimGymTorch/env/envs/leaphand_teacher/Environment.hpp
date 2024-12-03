@@ -50,7 +50,7 @@ namespace raisim {
             }
             resourceDir_ = resourceDir;
             mano_r_ = std::make_unique<Hardware>(resourceDir, cfg["hardware"], world_);
-            mano_r_->setName("Leaphand");
+            mano_r_->setName("LeapHand");
 //            hand_mass = mano_r_->getTotalMass();
 
             num_contacts = mano_r_->getBodies(contact_bodies_r_, false, true);

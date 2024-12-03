@@ -6,11 +6,13 @@ environment:
     kinematic_type: "pinocchio"
     arm_type: "ur5"                
     hand_type: "leap"
-    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
+    real_world_mode: True          # add suffix "_real" or "_sim" for arm_type and hand_type
     flying_hand_mode: False
-
-    rsc_model: "ur5_leaphand"
-    sim_model: "ur5_leap"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+    save_state_mode: True
+    save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/joint.csv"
+    camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
+    rsc_model: "ur5_leap"
+    sim_model: "ur5_leap_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
     fk_model: "ur5_leap_fk"          # FK model in           rsc/${rsc_model}/${fk_model}.urdf
     ik_model: "ur5"                     # IK model in           rsc/${rsc_model}/${ik_model}.urdf
                                         # IK collision model in rsc/${rsc_model}/${ik_model}.srdf
@@ -22,11 +24,14 @@ environment:
     arm_real:
       ip: "192.168.56.101"
       freq_hz: 500.0
-      move_vel: 0.5
-      move_acc: 0.3
+      move_vel: 1.0
+      move_acc: 1.0
+      servoJ_ahead_time: 0.08 # range [0.03,0.2] smoothens the trajectory with this lookahead time
+      servoJ_gain: 2000 # for following target position, range [100,2000]
 
     hand_real:
-      freq_hz: 500.0
+      freq_hz: 200.0
+
   render: True
   eval_every_n: 500
   update_every_n: 20

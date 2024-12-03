@@ -231,7 +231,7 @@ for update in range(args.num_iterations):
 
     wrist_bias = np.zeros((1, 3))
     wrist_bias[0, 0] = -0.0091
-    wrist_bias[0, 2] = -0.085
+    wrist_bias[0, 2] = -0.095
 
     ur5_to_world = np.eye(3)
     ur5_to_world[0, 0] = 0

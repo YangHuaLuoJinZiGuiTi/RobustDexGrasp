@@ -45,9 +45,9 @@ exp_name = "arm_rand_student"
 # weight_saved = '2024-10-25-17-16-54/full_23000_r.pt'
 # weight_saved = '2024-10-26-15-58-30/full_40000_r.pt'
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
-weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
+weight_saved = './../arm_rand/2024-11-19-18-53-10/full_44000_r.pt'
 
-weight_path_student = 'hui/full_10000_r.pt'
+weight_path_student = '2024-11-27-13-39-45/full_1500_r.pt'
 
 
 # configuration
@@ -370,11 +370,7 @@ for update in range(args.num_iterations):
                     obj_pose_reset,
                     )
 
-    obs_new_r, dis_info = env.observe_vision_new()
-    # show_point = dis_info[:, 17:68].astype('float32').copy()
-    aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-    env.set_joint_sensor_visual(show_point)
-    # env.update_target(target_center)
+    obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
 
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
@@ -390,10 +386,6 @@ for update in range(args.num_iterations):
 
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
-
-        # if step > 0:
-        #     time.sleep(2)
-
         encode_obs = torch.from_numpy(obs_r[:, :tobeEncode_dim * t_steps]).to(device)
 
         student_latent = prop_latent_encoder(encode_obs)
@@ -417,10 +409,7 @@ for update in range(args.num_iterations):
 
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
-        obs_new_r, dis_info = env.observe_vision_new()
-        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-        # show_point = dis_info[:, 17:68].astype('float32').copy()
-        env.set_joint_sensor_visual(show_point)
+        obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
 
         if biased:
             obj_pos_bias_current = np.zeros((num_envs, 3), dtype='float32')

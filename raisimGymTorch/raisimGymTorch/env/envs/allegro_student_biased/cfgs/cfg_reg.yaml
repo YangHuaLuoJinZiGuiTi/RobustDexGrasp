@@ -8,7 +8,7 @@ environment:
     hand_type: "allegro"
     real_world_mode: True          # add suffix "_real" or "_sim" for arm_type and hand_type
     flying_hand_mode: False
-    save_state_mode: False
+    save_state_mode: True
     save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/joint.csv"
     camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
     rsc_model: "ur5_allegro"
@@ -23,16 +23,14 @@ environment:
   
     arm_real:
       ip: "192.168.56.101"
-      freq_hz: 200.0
-      move_vel: 0.5
-      move_acc: 0.3
-      servoJ_ahead_time: 0.05 # range [0.03,0.2] smoothens the trajectory with this lookahead time
-      servoJ_gain: 1300 # for following target position, range [100,2000]
+      freq_hz: 500.0
+      move_vel: 1.0
+      move_acc: 1.0
+      servoJ_ahead_time: 0.08 # range [0.03,0.2] smoothens the trajectory with this lookahead time
+      servoJ_gain: 2000 # for following target position, range [100,2000]
 
     hand_real:
       freq_hz: 200.0
-
-  real_obj_item: '035_power_drill'
 
   render: True
   eval_every_n: 500
@@ -50,7 +48,7 @@ environment:
 #  hand_model_r: "ur5_allegro.urdf"
   hand_model_r: "ur5_allegro_ori.urdf"
   finger_action_std: 0.015
-  rot_action_std: 0.01
+  rot_action_std: 0.005
   reward:
     affordance_reward:
       coeff: 0.5
@@ -87,22 +85,27 @@ environment:
       coeff: -0.1
     center_reward:
       coeff: -1.0
-    obj_displacement_reward:
-      coeff: -1.0
 
 
     wrist_vel_reward_:
-      coeff: -0.001
+      coeff: -1.0
     #      coeff: -0.0
     wrist_qvel_reward_:
-      coeff: -0.0001
+      coeff: -0.1
     #      coeff: -0.0
 
     obj_vel_reward_:
-      coeff: -1.5
+#      coeff: -1.5
+      coeff: -15.0
     obj_qvel_reward_:
-      coeff: -0.01
+#      coeff: -0.01
+      coeff: -0.2
+    obj_displacement_reward:
+#      coeff: -1.0
+      coeff: -5.0
 
+    arm_joint_vel_reward_:
+      coeff: -1.0
 
 
 

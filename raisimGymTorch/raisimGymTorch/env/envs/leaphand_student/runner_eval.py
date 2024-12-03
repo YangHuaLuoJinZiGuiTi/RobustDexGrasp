@@ -29,7 +29,7 @@ import wandb
 import torch
 
 
-exp_name = "arm_rand_student"
+exp_name = "leaphand_student"
 
 # weight_saved = '2024-10-22-16-46-35/full_24500_r.pt'
 # weight_saved = '2024-10-23-08-13-36/full_20000_r.pt'
@@ -45,9 +45,9 @@ exp_name = "arm_rand_student"
 # weight_saved = '2024-10-25-17-16-54/full_23000_r.pt'
 # weight_saved = '2024-10-26-15-58-30/full_40000_r.pt'
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
-weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
+weight_saved = './../leaphand_teacher/2024-11-21-16-02-19/full_35000_r.pt'
 
-weight_path_student = '2024-11-07-11-43-38/full_10000_r.pt'
+weight_path_student = '2024-11-24-11-21-53/full_7500_r.pt'
 
 
 # configuration
@@ -161,7 +161,7 @@ print('act dim', act_dim)
 tobeEncode_dim = 44
 t_steps = 10
 prop_latent_dim=26
-aff_vec_dim = 54
+aff_vec_dim = 51
 total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 
 # Training
@@ -206,13 +206,18 @@ for update in range(args.num_iterations):
 
     target_center = np.zeros_like(env.affordance_center)
 
-    # qpos_reset_r[:, 6:] = 0.2
-    # qpos_reset_r[:, -4] = 1.57
-    qpos_reset_r[:, 6] = 0.8
-    qpos_reset_r[:, 10] = 0.8
-    qpos_reset_r[:, 14] = 0.8
-    qpos_reset_r[:, 18] = 1.57
-    qpos_reset_r[:, 20] = -0.5
+    # qpos_reset_r[:, 6] = 0.8
+    # qpos_reset_r[:, 10] = 0.8
+    # qpos_reset_r[:, 14] = 0.8
+    # qpos_reset_r[:, 18] = 1.57
+    # qpos_reset_r[:, 20] = -0.4
+
+    qpos_reset_r[:, 6] = 0.3
+    qpos_reset_r[:, 10] = 0.3
+    qpos_reset_r[:, 14] = 0.3
+    qpos_reset_r[:, 18] = 1.8
+    qpos_reset_r[:, 20] = -1.0
+    qpos_reset_r[:, 21] = -1.0
 
     hand_center_sample_w = np.zeros((1, 3))
     hand_center_sample_w[0, 0] = 0.669872 - 0.55
@@ -292,24 +297,39 @@ for update in range(args.num_iterations):
             visible_points_obj[i, :] = locations
             visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
 
+            # # get the x_dir of the grasping frame
+            # obj_aff_center_in_obj = np.mean(visible_points_obj[i].reshape(200,3), axis=0)
+            # hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_sample_w - obj_pose_reset[i, :3]).T).T
+            # hand_dir_x_in_obj = hand_center_obj - obj_aff_center_in_obj
+            # hand_dir_x_in_obj = hand_dir_x_in_obj / np.linalg.norm(hand_dir_x_in_obj, axis=1, keepdims=True)
+            #
+            # target_center[i, :] = obj_aff_center_in_obj - 0.01 * hand_dir_x_in_obj
+            # pos = obj_aff_center_in_obj + 0.25 * hand_dir_x_in_obj
+            # rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single, top=False, hand="leap")
+            # if rot is None:
+            #     hand_dir_x_in_obj[0, :] = 0
+            #     hand_dir_x_in_obj[0, 2] = 1
+            #     rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single, top=True, hand="leap")
+            #
+            # wrist_allegro = rot
+            # wrist_leap = np.matmul(wrist_allegro, leaphand_rot)
+            # wrist_in_world = np.matmul(obj_mat_single, wrist_leap)
+            # qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
+
             # get the x_dir of the grasping frame
-            obj_aff_center_in_obj = np.mean(visible_points_obj[i].reshape(200,3), axis=0)
-            hand_center_obj = np.matmul(obj_mat_single.T, (hand_center_sample_w - obj_pose_reset[i, :3]).T).T
-            hand_dir_x_in_obj = hand_center_obj - obj_aff_center_in_obj
-            hand_dir_x_in_obj = hand_dir_x_in_obj / np.linalg.norm(hand_dir_x_in_obj, axis=1, keepdims=True)
+            obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200, 3), axis=0)
+            hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
+            hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
-            target_center[i, :] = obj_aff_center_in_obj - 0.01 * hand_dir_x_in_obj
-            pos = obj_aff_center_in_obj + 0.25 * hand_dir_x_in_obj
-            rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single, top=False, hand="leap")
+            # get position and orientation of the wrist
+            pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
+            rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False, hand="leap")
             if rot is None:
-                hand_dir_x_in_obj[0, :] = 0
-                hand_dir_x_in_obj[0, 2] = 1
-                rot = get_initial_pose_allegro_arm_partial(visible_points_obj[i], hand_dir_x_in_obj, obj_mat_single, top=True, hand="leap")
-
-            wrist_allegro = rot
-            wrist_leap = np.matmul(wrist_allegro, leaphand_rot)
-            wrist_in_world = np.matmul(obj_mat_single, wrist_leap)
-            qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
+                hand_dir_x_w[0, :] = 0
+                hand_dir_x_w[0, 2] = 1
+                rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True, hand="leap")
+            wrist_in_world = np.matmul(rot, leaphand_rot)
+            qpos_reset_r[i, :3] = pos[0, :]
 
             # from grasping frame pos to wrist pos
             wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T

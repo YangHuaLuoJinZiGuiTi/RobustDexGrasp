@@ -147,6 +147,7 @@ namespace raisim {
             contacts_arm_all.setZero(6);
 
             pTarget_clipped_r.setZero(gcDim_);
+            pTarget_prev_r.setZero(gcDim_);
 
             /// initialize 3D positions weights for fingertips higher than for other fingerparts
             finger_weights_contact.setOnes(num_contacts);
@@ -194,7 +195,7 @@ namespace raisim {
 
             /// set actuation parameters
             actionStd_r_.setConstant(finger_action_std);
-            actionStd_r_.head(6).setConstant(0.005);
+            actionStd_r_.head(6).setConstant(rot_action_std);
 //            actionStd_r_.segment(3,3).setConstant(0.005);
 
             /// Initialize reward
@@ -372,6 +373,7 @@ namespace raisim {
                 gv_set_r_.setZero(gvDim_);
                 pTarget_r_ = gc_set_r_;
                 pTarget_clipped_r = gc_set_r_;
+                pTarget_prev_r = gc_set_r_;
                 vTarget_r_.setZero(gvDim_);
                 actionMean_r_.setZero();
 //                actionMean_r_.tail(gcDim_-6) = gc_set_r_.tail(gcDim_-6);
@@ -543,15 +545,31 @@ namespace raisim {
 
             pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
 
-            /// Set PD targets (velocity zero)
-            mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
+//            /// Set PD targets (velocity zero)
+//            mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
+
+            // randomly sample delay_flag with C++:
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<> dis(0, 1);
+            bool delay_flag = dis(gen);
 
             /// Apply N control steps
             for (int i = 0; i < int(control_dt_ / simulation_dt_ + 1e-10); i++){
+                if((delay_flag == 0)&&(i == 0)){
+                    mano_r_->setPdTarget(pTarget_prev_r, vTarget_r_);
+                }
+                else{
+                    mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
+                }
+
                 if(server_) server_->lockVisualizationServerMutex();
                 world_->integrate();
                 if(server_) server_->unlockVisualizationServerMutex();
             }
+
+            pTarget_prev_r = pTarget_clipped_r;
+
             /// update observation and set new mean to the latest pose
             updateObservation();
             actionMean_r_ = gc_r_;
@@ -596,6 +614,25 @@ namespace raisim {
             obj_qvel_reward_r = Obj_qvel.e().squaredNorm();
 
 
+
+//            arm_joint_vel_reward = (gv_r_.head(6)).squaredNorm();
+
+            if(wrist_vel_in_wrist.norm() > 0.25){
+                wrist_vel_reward_r *= 10;
+            }
+
+            Eigen::VectorXd arm_joint_vel = gv_r_.head(6);
+            for(int i = 0; i < 6; i++){
+                if(arm_joint_vel[i] > 0.5){
+                    arm_joint_vel[i] *= 4;
+                }
+                if(arm_joint_vel[i] < -0.5){
+                    arm_joint_vel[i] *= 4;
+                }
+            }
+            arm_joint_vel_reward = arm_joint_vel.squaredNorm();
+
+
            raisim::Mat<3,3> obj_rot_w_trans, wrist_mat_r_in_obj;
            raisim::Vec<3> wrist_euler_in_obj;
            mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
@@ -619,6 +656,7 @@ namespace raisim {
             rewards_r_.record("wrist_vel_reward_", std::max(0.0, wrist_vel_reward_r));
             rewards_r_.record("wrist_qvel_reward_", std::max(0.0, wrist_qvel_reward_r));
             rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
+            rewards_r_.record("arm_joint_vel_reward_", std::max(0.0, arm_joint_vel_reward));
             rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
             rewards_r_.record("torque", std::max(0.0, (right_hand_torque.squaredNorm())));
 
@@ -963,6 +1001,7 @@ namespace raisim {
         double arm_table_contact_reward = 0.0;
         double arm_table_impulse_reward = 0.0;
         double obj_displacement_reward = 0.0;
+        double arm_joint_vel_reward = 0.0;
         double direction_reward = 0.0;
         double obj_weight = 0.0;
         double mano_weight = 0.0;
@@ -990,7 +1029,7 @@ namespace raisim {
         raisim::Vec<3> obj_base_pos;
         Eigen::Vector3d wrist_vel_in_wrist, wrist_qvel_in_wrist;
         Eigen::VectorXd right_hand_torque;
-        Eigen::VectorXd pTarget_clipped_r;
+        Eigen::VectorXd pTarget_clipped_r, pTarget_prev_r;
         Eigen::Vector3d hand_center, afford_center, wrist_target_o, obj_center_o;
 //        Eigen::Vector3d grasp_axis_o, across_axis_o, across_axis_wrist;
 
