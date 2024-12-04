@@ -405,7 +405,7 @@ public:
      * @param[out] orientation_W the rotation of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) {
-        kinematic_->getFrameOrientation(frameName, orientation_W);
+        kinematic_->getFrameOrientation(frameName, hand_->changeJointToLinkName(frameName), orientation_W);
     }
 
     /**
@@ -414,7 +414,7 @@ public:
      * @param[out] orientation_W the position of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) {
-        kinematic_->getFramePosition(frameName, point_W);
+        kinematic_->getFramePosition(frameName, hand_->changeJointToLinkName(frameName), point_W);
     }
 
     /**
@@ -423,7 +423,7 @@ public:
      * @param[out] orientation_W the angular velocity of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) {
-        arm_hand_platform_->getFrameAngularVelocity(hand_->changeLinkToJointName(frameName), angVel_W);
+        arm_hand_platform_->getFrameAngularVelocity(frameName, angVel_W);
     }
 
     /**
@@ -432,7 +432,7 @@ public:
      * @param[out] vel_W the linear velocity of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) {
-        arm_hand_platform_->getFrameVelocity(hand_->changeLinkToJointName(frameName), vel_W);
+        arm_hand_platform_->getFrameVelocity(frameName, vel_W);
     }
 
     /**

@@ -29,11 +29,11 @@ public:
     void updateURDFFK(const Eigen::VectorXd &joint) override {
     }
 
-    void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) final override {
-        platform_->getFrameOrientation(frameName, orientation_W);
+    void getFrameOrientation(const std::string &jointName, const std::string &linkName, raisim::Mat<3, 3> &orientation_W) final override {
+        platform_->getFrameOrientation(jointName, orientation_W);
     }
-    void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) final override {
-        platform_->getFramePosition(frameName, point_W);
+    void getFramePosition(const std::string &jointName, const std::string &linkName, raisim::Vec<3> &point_W) final override {
+        platform_->getFramePosition(jointName, point_W);
     }
     void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) final override {
         platform_->getFrameAngularVelocity(frameName, angVel_W);

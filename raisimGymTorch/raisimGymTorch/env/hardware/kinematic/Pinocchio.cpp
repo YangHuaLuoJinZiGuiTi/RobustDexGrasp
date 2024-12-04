@@ -203,19 +203,19 @@ public:
             }
         }
     }
-    void getFrameOrientation(const std::string &frameName, raisim::Mat<3, 3> &orientation_W) final override {
-        int id = hand_fk_model_->getJointId(frameName);
+    void getFrameOrientation(const std::string &jointName, const std::string &linkName, raisim::Mat<3, 3> &orientation_W) final override {
+        int id = hand_fk_model_->getJointId(jointName);
         if (id == hand_fk_model_->njoints) {
-            id = hand_fk_model_->getBodyId(frameName);
+            id = hand_fk_model_->getBodyId(linkName);
             orientation_W.e() = hand_fk_data_->oMf[id].rotation();
         } else {
             orientation_W.e() = hand_fk_data_->oMi[id].rotation();
         }
     }
-    void getFramePosition(const std::string &frameName, raisim::Vec<3> &point_W) final override {
-        int id = hand_fk_model_->getJointId(frameName);
+    void getFramePosition(const std::string &jointName, const std::string &linkName, raisim::Vec<3> &point_W) final override {
+        int id = hand_fk_model_->getJointId(jointName);
         if (id == hand_fk_model_->njoints) {
-            id = hand_fk_model_->getBodyId(frameName);
+            id = hand_fk_model_->getBodyId(linkName);
             point_W.e() = hand_fk_data_->oMf[id].translation();
         } else {
             point_W.e() = hand_fk_data_->oMi[id].translation();

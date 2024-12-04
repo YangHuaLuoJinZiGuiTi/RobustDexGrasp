@@ -126,17 +126,17 @@ public:
         }
     }
 
-    std::string changeLinkToJointName(std::string frameName) const final override {
-        if (!frameName.compare("Flange_base_link")) {
-            return std::string("Flange2hand_fixed_joint");
-        } else if (!frameName.compare("link_3.0_tip")) {
-            return std::string("joint_3.0_tip");
-        } else if (!frameName.compare("link_7.0_tip")) {
-            return std::string("joint_7.0_tip");
-        } else if (!frameName.compare("link_11.0_tip")) {
-            return std::string("joint_11.0_tip");
-        } else if (!frameName.compare("link_15.0_tip")) {
-            return std::string("joint_15.0_tip");
+    std::string changeJointToLinkName(std::string frameName) const final override {
+        if (!frameName.compare("Flange2hand_fixed_joint")) {
+            return std::string("Flange_base_link");
+        } else if (!frameName.compare("joint_3.0_tip")) {
+            return std::string("link_3.0_tip");
+        } else if (!frameName.compare("joint_7.0_tip")) {
+            return std::string("link_7.0_tip");
+        } else if (!frameName.compare("joint_11.0_tip")) {
+            return std::string("link_11.0_tip");
+        } else if (!frameName.compare("joint_15.0_tip")) {
+            return std::string("link_15.0_tip");
         } else {
             return frameName;
         }
@@ -187,11 +187,11 @@ private:
         "joint_12.0", "joint_13.0", "joint_14.0", "joint_15.0"
     };
 
-    const std::string body_parts_[num_bodies_] =  {"Flange_base_link",
-    "joint_1.0", "joint_2.0", "joint_3.0", "link_3.0_tip",
-    "joint_5.0", "joint_6.0", "joint_7.0", "link_7.0_tip",
-    "joint_9.0", "joint_10.0", "joint_11.0", "link_11.0_tip",
-    "joint_13.0", "joint_14.0", "joint_15.0", "link_15.0_tip"};
+    const std::string body_parts_[num_bodies_] =  {"Flange2hand_fixed_joint",
+    "joint_1.0", "joint_2.0", "joint_3.0", "joint_3.0_tip",
+    "joint_5.0", "joint_6.0", "joint_7.0", "joint_7.0_tip",
+    "joint_9.0", "joint_10.0", "joint_11.0", "joint_11.0_tip",
+    "joint_13.0", "joint_14.0", "joint_15.0", "joint_15.0_tip"};
 
     // for raisim contact check
     const std::string contact_bodies_[num_contacts_] =  {"Flange2hand_fixed_joint",

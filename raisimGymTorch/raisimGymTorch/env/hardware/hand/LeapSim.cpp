@@ -71,7 +71,7 @@ public:
         }
     }
 
-    std::string changeLinkToJointName(std::string frameName) const final override {
+    std::string changeJointToLinkName(std::string frameName) const final override {
         return frameName;
     }
 

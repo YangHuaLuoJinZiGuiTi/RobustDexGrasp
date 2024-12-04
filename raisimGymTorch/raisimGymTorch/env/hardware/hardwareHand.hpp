@@ -22,7 +22,7 @@ public:
     virtual const int getDim() const = 0;
     virtual const int getNumFinger() const = 0;
     virtual int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const = 0;
-    virtual std::string changeLinkToJointName(std::string frameName) const = 0;
+    virtual std::string changeJointToLinkName(std::string frameName) const = 0;
 
     virtual ~HardwareHand() = default;
 

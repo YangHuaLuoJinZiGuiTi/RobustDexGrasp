@@ -96,17 +96,17 @@ public:
         }
     }
 
-    std::string changeLinkToJointName(std::string frameName) const final override {
-        if (!frameName.compare("Flange_base_link")) {
-            return std::string("Flange2hand_fixed_joint");
-        } else if (!frameName.compare("link_3.0_tip")) {
-            return std::string("joint_3.0_tip");
-        } else if (!frameName.compare("link_7.0_tip")) {
-            return std::string("joint_7.0_tip");
-        } else if (!frameName.compare("link_11.0_tip")) {
-            return std::string("joint_11.0_tip");
-        } else if (!frameName.compare("link_15.0_tip")) {
-            return std::string("joint_15.0_tip");
+    std::string changeJointToLinkName(std::string frameName) const final override {
+        if (!frameName.compare("Flange2hand_fixed_joint")) {
+            return std::string("Flange_base_link");
+        } else if (!frameName.compare("joint_3.0_tip")) {
+            return std::string("link_3.0_tip");
+        } else if (!frameName.compare("joint_7.0_tip")) {
+            return std::string("link_7.0_tip");
+        } else if (!frameName.compare("joint_11.0_tip")) {
+            return std::string("link_11.0_tip");
+        } else if (!frameName.compare("joint_15.0_tip")) {
+            return std::string("link_15.0_tip");
         } else {
             return frameName;
         }
