@@ -40,28 +40,49 @@ def write_masks_to_folder(masks: List[Dict[str, Any]], path: str) -> None:
 
     return
 
-def calculate_mask(in_img):
-    cv2.namedWindow("RGB")
-    cv2.namedWindow("MASK")
-    sam = sam_model_registry['default'](checkpoint=os.path.join(os.path.dirname(__file__), 'sam_vit_h_4b8939.pth'))
-    _ = sam.to(device="cuda")
-    generator = SamAutomaticMaskGenerator(sam, output_mode="binary_mask")
-    masks = generator.generate(in_img)
-    write_masks_to_folder(masks, os.path.join(os.path.dirname(__file__), 'out'))
+def calculate_mask(in_img, generator = None, continue_flag = False):
+    if continue_flag == False: 
+        cv2.namedWindow("RGB")
+        cv2.namedWindow("MASK")
 
+    if generator is None:
+        sam = sam_model_registry['default'](checkpoint=os.path.join(os.path.dirname(__file__), 'sam_vit_h_4b8939.pth'))
+        _ = sam.to(device="cuda")
+        generator = SamAutomaticMaskGenerator(sam, output_mode="binary_mask")
+
+    masks = generator.generate(in_img)
+    # method to find the best result (IOU , area% , size)
     H, W = in_img.shape[:2]
-    max_iou = 0.
+    
+    # Invert the picture with white background
+    area_list = []
+    for i, mask_data in enumerate(masks):
+        if mask_data["bbox"][2] > W - 40 or mask_data["bbox"][3] > H - 40:
+            masks[i]["segmentation"] = ~mask_data["segmentation"]
+            masks[i]["segmentation"][0:10, :] = False
+            masks[i]["segmentation"][-10:, :] = False
+            masks[i]["area"] =  np.count_nonzero(masks[i]["segmentation"])
+
+        area_list.append(masks[i]["area"])        
+    area_list = np.array(area_list)
+
+    write_masks_to_folder(masks, os.path.join(os.path.dirname(__file__), 'out'))
+    
+    max_threshold = 0.
     max_index = 0.
     for i, mask_data in enumerate(masks):
-        if mask_data["bbox"][2] < W - 40 and mask_data["bbox"][3] < H - 40 and mask_data["predicted_iou"] > max_iou:
-            max_iou = mask_data["predicted_iou"]
+        now_threshold = mask_data["predicted_iou"] + mask_data["area"] / np.max(area_list)
+        if max_threshold < now_threshold:
+            max_threshold = now_threshold
             max_index = i
     mask = np.array(masks[max_index]["segmentation"] * 255, dtype=np.uint8)
 
     cv2.imshow("RGB", in_img)
     cv2.imshow("MASK", mask)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    
+    if continue_flag == False:
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     return mask
 
@@ -76,16 +97,18 @@ def main() -> None:
     pipeline = rs.pipeline()
     config = rs.config()
     config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+    config.enable_stream(rs.stream.color, 640, 480, rs.format.rgb8, 30)
     profile = pipeline.start(config)
     
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
     align_to = rs.stream.color
     align = rs.align(align_to)
+    
+    for i in range(200):
+        frames = pipeline.wait_for_frames()
 
     cv2.namedWindow("RGB")
-    cv2.namedWindow("DEPTH")
     cv2.namedWindow("MASK")
 
     while True:
@@ -107,24 +130,13 @@ def main() -> None:
         depth = cv2.resize(depth_image_scaled, (W,H), interpolation=cv2.INTER_NEAREST)
         depth[(depth<0.2) | (depth>=np.inf)] = 0
 
-        masks = generator.generate(color_image)
-
-        write_masks_to_folder(masks, os.path.join(os.path.dirname(__file__), 'out'))
-
-        cv2.imshow("RGB", color)
-        cv2.imshow("DEPTH", depth)
-
-        max_iou = 0.
-        max_index = 0.
-        for i, mask_data in enumerate(masks):
-            if mask_data["bbox"][2] < W - 40 and mask_data["bbox"][3] < H - 40 and mask_data["predicted_iou"] > max_iou:
-                max_iou = mask_data["predicted_iou"]
-                max_index = i
-        mask = np.array(masks[max_index]["segmentation"] * 255, dtype=np.uint8) 
-        cv2.imshow("MASK", mask)
+        calculate_mask(color_image, generator, True)
         key = cv2.waitKey(0) & 0xFF
         if key == 13:  # Enter key
             break
+        
+        print("update once")
+
     pipeline.stop()
     cv2.destroyAllWindows()
 

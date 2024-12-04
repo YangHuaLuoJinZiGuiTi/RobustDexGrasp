@@ -113,7 +113,7 @@ obj_item = cfg['environment']['real_obj_item']
 
 # foundation pose
 if GET_OBJ_POSE == True:
-    data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['camera_K_path'])
+    data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
     b_thread = threading.Thread(target=data_producer.start_thread)
     b_thread.daemon = True
     b_thread.start()
@@ -137,7 +137,7 @@ if GET_OBJ_POSE == True:
         print("end")
         exit(0)
 else:
-    obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['camera_K_path'])
+    obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], cfg['environment']['hardware']['pointcloud_real']['use_sam_flag'])
     obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
     obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
     print(f" ================== obj pose center = {obj_pos_mean}")
@@ -224,8 +224,8 @@ for update in range(args.num_iterations):
     visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
 
     view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = 0.8 - 0.55
-    view_point_world[:, 1] = 0.2 - 0.75152
+    view_point_world[:, 0] = 0.0
+    view_point_world[:, 1] = -0.6
     view_point_world[:, 2] = 1.5
 
     hand_center_sample_w = np.zeros((1, 3))

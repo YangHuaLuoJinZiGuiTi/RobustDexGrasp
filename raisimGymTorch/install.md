@@ -11,3 +11,7 @@
 
     sudo apt install -qqy robotpkg-py3*-pinocchio
 
+
+# install ikfast
+    sudo apt-get install libblas-dev liblapack-dev
+

@@ -26,11 +26,11 @@ class Pinocchio : public HardwareKinematic {
 public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) override {
         const std::string pth = rsc_pth + "/" + cfg["rsc_model"].As<std::string>();
-        const std::string fk_hand_urdf_pth = pth + "/" + cfg["fk_model"].As<std::string>() + ".urdf";
-        const std::string ik_arm_urdf_pth = pth + "/" + cfg["ik_model"].As<std::string>() + ".urdf";
-        const std::string ik_arm_srdf_pth = pth + "/" + cfg["ik_model"].As<std::string>() + ".srdf";
+        const std::string fk_hand_urdf_pth = pth + "/" + cfg["kinematic_real"]["fk_model"].As<std::string>() + ".urdf";
+        const std::string ik_arm_urdf_pth = pth + "/" + cfg["kinematic_real"]["ik_model"].As<std::string>() + ".urdf";
+        const std::string ik_arm_srdf_pth = pth + "/" + cfg["kinematic_real"]["ik_model"].As<std::string>() + ".srdf";
         flying_mode_ = cfg["flying_hand_mode"].As<bool>();
-        velocity_dt_s_ = cfg["real_velocity_dt_s"].As<double>();
+        velocity_dt_s_ = cfg["kinematic_real"]["real_velocity_dt_s"].As<double>();
 
         hand_fk_model_ = std::make_unique<pinocchio::Model>();
         pinocchio::urdf::buildModel(fk_hand_urdf_pth, *hand_fk_model_);

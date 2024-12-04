@@ -53,7 +53,10 @@ def get_obj_point_cloud(K, depth, ob_mask, s = 200, valid = None, indices = None
         valid = (xyz_map[...,2]>=0.1) & (ob_mask>0)
     pc = xyz_map[valid]
     if indices is None:
-        indices = np.random.choice(pc.shape[0], size=s, replace=False)
+        replace_flag = False
+        if pc.shape[0] < s:
+            replace_flag = True
+        indices = np.random.choice(pc.shape[0], size=s, replace=replace_flag)
     return pc[indices], valid, indices
 
 def create_mask_auto(in_img):
@@ -162,7 +165,7 @@ def create_mask_from_rgb_sensor():
         # Stop streaming
         pipeline.stop()
 
-def GetPointCloud(camK_path):
+def GetPointCloud(camK_path, use_sam):
     
     # tf matrix
     Tbase2cam = np.loadtxt(camK_path + "/base2cam.txt", delimiter=',')
@@ -178,6 +181,10 @@ def GetPointCloud(camK_path):
     
     # https://support.intelrealsense.com/hc/en-us/community/posts/4405875311123-About-make-sure-FOV-specification-of-D435i 
     # tf from RGB to left-IR camera
+    Tcamrgb2depth = np.array([[  1., 0., 0., -0.035],
+                        [0., 1., 0., 0.],
+                        [ 0., 0., 1., 0.],
+                        [ 0., 0., 0., 1.]])
 
     # realsense get depth
     pipeline = rs.pipeline()
@@ -216,8 +223,10 @@ def GetPointCloud(camK_path):
 
         # realsense get rgb mask
         if mask is None:
-            #mask = create_mask_from_align_sensor(color)
-            mask = create_mask_auto(color)
+            if use_sam == False:
+                mask = create_mask_from_align_sensor(color)
+            else:
+                mask = create_mask_auto(color)
 
         if len(mask.shape)==3:
             for c in range(3):
@@ -239,8 +248,10 @@ def GetPointCloud(camK_path):
         mask_pcd_new = filtered_point_cloud[selected_indices]
 
         mask_pcd_homogeneous = np.hstack((mask_pcd_new, np.ones((mask_pcd_new.shape[0], 1))))  # (200, 4)
-        print (f"camera frame pc = {mask_pcd_homogeneous[0]}")
-        tbase2pcd = mask_pcd_homogeneous @ Tbase2cam.T
+        print (f"depth frame pc = {mask_pcd_homogeneous[0]}")
+        mask_pcd_homogeneous_depth = mask_pcd_homogeneous @ Tcamrgb2depth.T
+        print (f"RGB frame pc = {mask_pcd_homogeneous_depth[0]}")
+        tbase2pcd = mask_pcd_homogeneous_depth @ Tbase2cam.T
         print (f"realbase frame pc = {tbase2pcd[0]}")
         tsim_base2pc = tbase2pcd @ Tsim2real.T
         print (f"simbase frame pc = {tsim_base2pc[0]}")

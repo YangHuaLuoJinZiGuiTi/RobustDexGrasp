@@ -31,7 +31,7 @@ public:
 
         move_vel_ = cfg["arm_real"]["move_vel"].As<double>();
         move_acc_ = cfg["arm_real"]["move_acc"].As<double>();
-        velocity_dt_s_ = cfg["real_velocity_dt_s"].As<double>();
+        velocity_dt_s_ = cfg["arm_real"]["real_velocity_dt_s"].As<double>();
         servoJ_ahead_time_ = cfg["arm_real"]["servoJ_ahead_time"].As<double>();
         servoJ_gain_ = cfg["arm_real"]["servoJ_gain"].As<double>();
 
