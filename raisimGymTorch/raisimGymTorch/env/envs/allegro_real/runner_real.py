@@ -35,7 +35,7 @@ from raisimGymTorch.env.hardware.FoundationPose.RGBDPointCloud import GetPointCl
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'hui/full_4000_r.pt'
+weight_path_student = 'hui/full_7000_r.pt'
 
 
 # configuration
@@ -54,7 +54,7 @@ parser.add_argument('-ln', '--log_name', type=str, default='single_obj')
 parser.add_argument('-mean', '--mean_pose', action="store_true")
 
 new_allegro = True
-SAMPLE_IN_REAL = True
+SAMPLE_IN_REAL = False
 GET_OBJ_POSE = False
 
 args = parser.parse_args()
@@ -110,41 +110,44 @@ obj_path_list = []
 obj_ori_list = folder_names
 
 obj_item = cfg['environment']['real_obj_item']
+if obj_item == 'random':
+    obj_item = choice(obj_ori_list)
 
-# foundation pose
-if GET_OBJ_POSE == True:
-    data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
-    b_thread = threading.Thread(target=data_producer.start_thread)
-    b_thread.daemon = True
-    b_thread.start()
-    obj_init_xyz_qwxyz = None
-    obj_pointcloud = None
-    try:
-        while True:
-            time.sleep(2)
-            print("waiting for the initial of foundation pose...")
-            obj_init_xyz_qwxyz = data_producer.get_data()
-            if obj_init_xyz_qwxyz is not None:
-                print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
+if SAMPLE_IN_REAL == True:
+    # foundation pose
+    if GET_OBJ_POSE == True:
+        data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
+        b_thread = threading.Thread(target=data_producer.start_thread)
+        b_thread.daemon = True
+        b_thread.start()
+        obj_init_xyz_qwxyz = None
+        obj_pointcloud = None
+        try:
+            while True:
                 time.sleep(2)
+                print("waiting for the initial of foundation pose...")
                 obj_init_xyz_qwxyz = data_producer.get_data()
-                print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
-                obj_pointcloud = data_producer.get_pcd()
-                print(f" pointcloud shape is \n {obj_pointcloud.shape}" )
-                break
-    except KeyboardInterrupt:
-        data_producer.end_thread()
-        print("end")
-        exit(0)
-else:
-    obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], cfg['environment']['hardware']['pointcloud_real']['use_sam_flag'])
-    obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
-    obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
-    print(f" ================== obj pose center = {obj_pos_mean}")
-    nparray = obj_pointcloud.reshape(200,3)
-    #print(f"x:  mean={np.mean(nparray[:, 0])},\t var={np.var(nparray[:, 0])},\t max={np.max(nparray[:, 0])},\t min={np.min(nparray[:, 0])}\t\t(m)")
-    #print(f"y:  mean={np.mean(nparray[:, 1])},\t var={np.var(nparray[:, 1])},\t max={np.max(nparray[:, 1])},\t min={np.min(nparray[:, 1])}\t\t(m)")
-    #print(f"z:  mean={np.mean(nparray[:, 2])},\t var={np.var(nparray[:, 2])},\t max={np.max(nparray[:, 2])},\t min={np.min(nparray[:, 2])}\t\t(m)")
+                if obj_init_xyz_qwxyz is not None:
+                    print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
+                    time.sleep(2)
+                    obj_init_xyz_qwxyz = data_producer.get_data()
+                    print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
+                    obj_pointcloud = data_producer.get_pcd()
+                    print(f" pointcloud shape is \n {obj_pointcloud.shape}" )
+                    break
+        except KeyboardInterrupt:
+            data_producer.end_thread()
+            print("end")
+            exit(0)
+    else:
+        obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], cfg['environment']['hardware']['pointcloud_real']['use_sam_flag'])
+        obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
+        obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
+        print(f" ================== obj pose center = {obj_pos_mean}")
+        nparray = obj_pointcloud.reshape(200,3)
+        #print(f"x:  mean={np.mean(nparray[:, 0])},\t var={np.var(nparray[:, 0])},\t max={np.max(nparray[:, 0])},\t min={np.min(nparray[:, 0])}\t\t(m)")
+        #print(f"y:  mean={np.mean(nparray[:, 1])},\t var={np.var(nparray[:, 1])},\t max={np.max(nparray[:, 1])},\t min={np.min(nparray[:, 1])}\t\t(m)")
+        #print(f"z:  mean={np.mean(nparray[:, 2])},\t var={np.var(nparray[:, 2])},\t max={np.max(nparray[:, 2])},\t min={np.min(nparray[:, 2])}\t\t(m)")
 
 # Environment definition
 env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
@@ -224,8 +227,8 @@ for update in range(args.num_iterations):
     visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
 
     view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = 0.0
-    view_point_world[:, 1] = -0.6
+    view_point_world[:, 0] = 0.8 - 0.55
+    view_point_world[:, 1] = 0.2 - 0.75152
     view_point_world[:, 2] = 1.5
 
     hand_center_sample_w = np.zeros((1, 3))
@@ -253,21 +256,21 @@ for update in range(args.num_iterations):
             if SAMPLE_IN_REAL == False:
                 sample_x = 0.15
                 sample_y = 0.2 - 0.75152
+                axis_angles = np.zeros((1, 3))
                 while True:
                     angle = np.random.uniform(0, 2 * np.pi)
-                    distance = np.random.uniform(0.45, 0.75)
+                    distance = np.random.uniform(0.55, 0.75)
                     sample_x = distance * np.cos(angle)
                     sample_y = distance * np.sin(angle)
-                    if sample_y < 0.3 - 0.75152:
-                        # print(sample_x, sample_y, distance)
+                    axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+                    if sample_y < -0.63 and sample_x > 0.1 and sample_x < 0.2:
+                        print(sample_x, sample_y, distance, axis_angles[0, 2])
                         break
                 obj_pose_reset[i, 0] = sample_x
                 obj_pose_reset[i, 1] = sample_y
                 obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
                 obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
-                axis_angles = np.zeros((1, 3))
-                axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
                 quats = rotations.axisangle2quat(axis_angles)
                 obj_pose_reset[i, 3:7] = quats
                 
@@ -338,6 +341,11 @@ for update in range(args.num_iterations):
                 # check self collision
                 get_meaningful_ik = env.check_collision(qpos_reset_r)
 
+    print(f" ================== samble obj reset pose = {obj_pose_reset}")
+
+    vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
+    env.set_sample_point_visual(vis_point)
+
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
                     np.zeros((num_envs, 22), 'float32'),
@@ -349,15 +357,15 @@ for update in range(args.num_iterations):
     obs_new_r, dis_info = env.observe_vision_new()
     aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
     env.set_joint_sensor_visual(show_point)
-    vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
-    env.set_sample_point_visual(vis_point)
 
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
     print("---------------start")
-    time.sleep(3)
 
-    for step in range(n_steps_r):
+    step = 0
+    while True:
+        if step > n_steps_r:
+            break
 
         frame_start = time.time()
 
@@ -379,7 +387,7 @@ for update in range(args.num_iterations):
         else:
             action_r = final_actions
             action_r[:, :6] = theta0
-            if step == grasp_steps:
+            if step >= grasp_steps:
                 print("lift")
                 env.switch_root_guidance(True)
 
@@ -387,6 +395,7 @@ for update in range(args.num_iterations):
 
         # cost 0.3~1ms in simulation
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
+        step = step + int(reward_r)
 
         #time.sleep(0.5)
         frame_start3 = time.time()

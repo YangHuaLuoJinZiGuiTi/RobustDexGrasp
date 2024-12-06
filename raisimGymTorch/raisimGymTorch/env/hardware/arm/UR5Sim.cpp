@@ -82,6 +82,7 @@ public:
         for (int i = 0; i < num_joint_; i++) {
             pgain[i] = Pgain[i];
             dgain[i] = Dgain[i];
+            std::cout << "UR5 Sim joint[" << i << "] P=" << pgain[i] << ", D=" << dgain[i] << std::endl;
         }
     }
 

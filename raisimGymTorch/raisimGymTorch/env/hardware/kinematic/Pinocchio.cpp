@@ -48,6 +48,8 @@ public:
             arm_ik_geom_data_ = std::make_unique<pinocchio::GeometryData>(*arm_ik_geom_model_);
             pinocchio::srdf::loadReferenceConfigurations(*arm_ik_model_, ik_arm_srdf_pth); 
         }
+
+        std::cout << "------------- pinocchio real init finish !!!!!" << std::endl;
     }
 
     void setFrameVelocityNames(std::vector<std::string> &names) override {

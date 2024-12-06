@@ -267,7 +267,7 @@ namespace raisim {
             Eigen::VectorXd sc, sv;
             sc = joint_state.cast<double>();
             sv.setZero(gvDim_);
-            mano_r_->setState(sc, sv);
+            mano_r_->setState(sc, sv, true);
 
             for (int i = 0; i < 4; i++) {
                 if(server_) server_->lockVisualizationServerMutex();
@@ -299,7 +299,7 @@ namespace raisim {
                 mesh_pos_w = joint_sensor_visual.segment(i*3,3).cast<double>();
 
                 // Given the starting and ending 3D points,
-                // find the center point, rotation, and length of the visualized cylinder.
+                // find the center poi0.0t, rotation, and length of the visualized cylinder.
                 vis_cylinder_pos_w = (joint_pos_w + mesh_pos_w) / 2.0;
                 double dx = joint_pos_w[0] - mesh_pos_w[0];
                 double dy = joint_pos_w[1] - mesh_pos_w[1];
@@ -348,7 +348,7 @@ namespace raisim {
                 actionMean_r_.setZero();
                 mano_r_->setBasePos(base_pos);
                 mano_r_->setBaseOrientation(base_mat);
-                mano_r_->setState(gc_set_r_, gv_set_r_);
+                mano_r_->setState(gc_set_r_, gv_set_r_, true);
 
                 box->clearExternalForcesAndTorques();
                 box->setPosition(0.2, -0.75152, 0.3855);
@@ -401,7 +401,7 @@ namespace raisim {
 
             gc_set_r_ = init_state_r.cast<double>(); //.cast<double>();
             gv_set_r_ = init_vel_r.cast<double>(); //.cast<double>();
-            mano_r_->setState(gc_set_r_, gv_set_r_);
+            //mano_r_->setState(gc_set_r_, gv_set_r_);
 
             /// set initial root position in global frame as origin in new coordinate frame
 //            init_root_r_  = init_state_r.head(3);
@@ -471,23 +471,27 @@ namespace raisim {
 
             /// Clip targets to limits
             pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
-
-            /// Set PD targets (velocity zero)
-            mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
-
+#if 0 // devide into small step or not
             double max_step_distance = 0.0;
             for (int i = 0; i < 6; i++) {
                 if (max_step_distance < abs(pTarget_clipped_r[i] - gc_r_[i])) {
                     max_step_distance = abs(pTarget_clipped_r[i] - gc_r_[i]);
                 }
             }
-            double delay_cnt = int(max_step_distance / 0.01) + 1;
-            if (delay_cnt > 4) {
-                delay_cnt = 4;
+            int delay_cnt = int(max_step_distance / 0.005) + 1;
+            if (delay_cnt > 8) {
+                delay_cnt = 8;
             }
             if (delay_cnt > 1) {
                 std::cout << "max_step_distance = " << max_step_distance << ", will delay times = " << delay_cnt << std::endl;
             }
+#else
+            double delay_cnt = 1.0;
+#endif
+
+#if 1 // delay more time or run more step
+            /// Set PD targets (velocity zero)
+            mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
 
             /// Apply N control steps
             int step_cnt = 0;
@@ -506,9 +510,43 @@ namespace raisim {
             }
             /// update observation and set new mean to the latest pose
             updateObservation(lift == false);
+#else
+            //std::cout << "target pose = " << pTarget_clipped_r.transpose() << std::endl;
+            for (int step = 1; step <= delay_cnt; step++) {
+                
+                double step_distance = 0.0;
+
+                Eigen::VectorXd pTarget_clipped_step = pTarget_clipped_r;
+                for (int i = 0; i < gcDim_; i++) {
+                    pTarget_clipped_step[i] = gc_r_[i] + (pTarget_clipped_r[i] - gc_r_[i]) / delay_cnt * step;
+                }
+
+                /// Set PD targets (velocity zero)
+                //std::cout << "step " << step << " target pose = " << pTarget_clipped_step.transpose() << std::endl;
+                mano_r_->setPdTarget(pTarget_clipped_step, vTarget_r_);
+
+                /// Apply N control steps
+                int step_cnt = 0;
+                auto starttime = std::chrono::system_clock::now();
+                while (1) {
+                    auto diff_time = std::chrono::system_clock::now() - starttime;
+                    if ((real_ == true) && (diff_time.count() / 1e9 > control_dt_ - 0.0005)) {
+                        break;
+                    } else if ((real_ == false) && (step_cnt > int(control_dt_ / simulation_dt_ + 1e-10))) {
+                        break;
+                    }
+                    step_cnt++;
+                    if(server_) server_->lockVisualizationServerMutex();
+                    world_->integrate();
+                    if(server_) server_->unlockVisualizationServerMutex();
+                }
+                /// update observation and set new mean to the latest pose
+                updateObservation(lift == false);
+            }
+#endif
             actionMean_r_ = gc_r_;
 
-            rewards_sum_[0] = 0;
+            rewards_sum_[0] = delay_cnt;
             rewards_sum_[1] = 0;
             return rewards_sum_;
 

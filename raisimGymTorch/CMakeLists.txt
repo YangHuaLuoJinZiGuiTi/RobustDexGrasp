@@ -5,11 +5,11 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/en
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env/bin)
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/env/bin)
 
-set(BUILD_UR5_REAL          OFF)
-set(BUILD_ALLEGRO_REAL      OFF)
+set(BUILD_UR5_REAL          ON)
+set(BUILD_ALLEGRO_REAL      ON)
 set(BUILD_LEAP_REAL         OFF)
-set(BUILD_PINOCCHIO         OFF)
-set(BUILD_IKFAST            OFF)
+set(BUILD_PINOCCHIO         ON)
+set(BUILD_IKFAST            ON)
 
 ######################
 ### help functions ###
@@ -75,6 +75,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
 )
+set (Dependencies ${Dependencies} ${catkin_LIBRARIES})
 set(InstanceFile ${InstanceFile} raisimGymTorch/env/hardware/hand/AllegroReal.cpp)
 add_definitions(-DBUILD_ALLEGRO_REAL)
 endif()

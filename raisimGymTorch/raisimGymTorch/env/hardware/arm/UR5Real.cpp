@@ -87,32 +87,17 @@ public:
             arm_joint_position_[i] = joint_positions[i];
         }
 
+        // Actual joint speed in rad/s
+        std::vector<double> actual_joint_speed = rtde_receive_->getActualQd();
+        for (int i = 0; i < 6; i++) {
+            arm_joint_velocity_[i] = actual_joint_speed[i];
+        }
+
         // Actual speed of the tool given in Cartesian coordinates
-        std::vector<double> actual_tcp_speed = rtde_receive_->getActualTCPSpeed();
-        for (int i = 0; i < 3; i++) {
-            end_effector_velocity_[i] = actual_tcp_speed[i];
-        }
-
-        #if 0
-        // calculate average velocity
-        if (diff_time_s > velocity_dt_s_) {
-            if (diff_time_s < 1.0) {
-                for (int i = 0; i < num_joint_; i++) {
-                    arm_joint_velocity_[i] = const_angle(arm_joint_position_[i] - last_arm_joint_position_[i]) / diff_time_s;
-                }
-                for (int i = 0; i < 3; i++) {
-                    end_effector_velocity_[i] = (end_effector_pose_[i] - last_end_effector_pose_[i]) / diff_time_s;
-                    end_effector_angle_velocity_[i] = const_angle(end_effector_pose_[i + 3] - last_end_effector_pose_[i + 3]) / diff_time_s;
-                }
-            } else {
-                //std::cout << "first init or sth. block" << std::endl;
-            }
-
-            last_time_ = now_time;
-            last_end_effector_pose_ = end_effector_pose_;
-            last_arm_joint_position_ = arm_joint_position_;
-        }
-        #endif
+        //std::vector<double> actual_tcp_speed = rtde_receive_->getActualTCPSpeed();
+        //for (int i = 0; i < 3; i++) {
+        //    end_effector_velocity_[i] = actual_tcp_speed[i];
+        //}
     }
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const final override {
         std::vector<double> tar_joint_pos;
