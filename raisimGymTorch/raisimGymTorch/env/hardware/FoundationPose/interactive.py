@@ -76,6 +76,9 @@ class FoundationData:
         self.mesh_path = mesh_path
         self.camK_path = camK_path
         print("---------------- mesh_path = " + mesh_path)
+        b_thread = threading.Thread(target=self.start_thread)
+        b_thread.daemon = True
+        b_thread.start()
         return
 
     def euler2rot(self, rx, ry, rz):
@@ -106,7 +109,7 @@ class FoundationData:
     
     def end_thread(self):
         self.running = False
-
+    
     def start_thread(self):
         SHOW_IMAGE =  True
         SHOW_LOG = False
@@ -174,6 +177,9 @@ class FoundationData:
         est = FoundationPose(model_pts=mesh.vertices, model_normals=mesh.vertex_normals, mesh=mesh, scorer=scorer, refiner=refiner,glctx=glctx,debug=0,debug_dir='/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/FoundationPose/debug')
         pipeline = rs.pipeline()
         config = rs.config()
+        with open(self.camK_path + "/deviceid.txt",'r') as f:
+            id=f.read().splitlines()[0]
+            config.enable_device(id)
         pipeline_wrapper = rs.pipeline_wrapper(pipeline)
         pipeline_profile = config.resolve(pipeline_wrapper)
         device = pipeline_profile.get_device()

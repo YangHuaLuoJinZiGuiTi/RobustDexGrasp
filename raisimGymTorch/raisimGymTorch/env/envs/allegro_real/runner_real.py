@@ -19,23 +19,19 @@ import raisimGymTorch.algo.ppo_dagger_recon.module as ppo_module
 import torch.nn as nn
 import numpy as np
 import torch
-from datetime import datetime
 import argparse
 from raisimGymTorch.helper import rotations
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, transformRobotParameter
-import joblib
-import random
-import wandb
 import torch
 
-import threading
 from raisimGymTorch.env.hardware.FoundationPose.interactive import FoundationData
 from raisimGymTorch.env.hardware.FoundationPose.RGBDPointCloud import GetPointCloud
+from raisimGymTorch.env.hardware.log_data import d435_record
 
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'hui/full_7000_r.pt'
+weight_path_student = 'hui/full_11500_r.pt'
 
 
 # configuration
@@ -117,9 +113,6 @@ if SAMPLE_IN_REAL == True:
     # foundation pose
     if GET_OBJ_POSE == True:
         data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
-        b_thread = threading.Thread(target=data_producer.start_thread)
-        b_thread.daemon = True
-        b_thread.start()
         obj_init_xyz_qwxyz = None
         obj_pointcloud = None
         try:
@@ -262,15 +255,14 @@ for update in range(args.num_iterations):
                     distance = np.random.uniform(0.55, 0.75)
                     sample_x = distance * np.cos(angle)
                     sample_y = distance * np.sin(angle)
-                    axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-                    if sample_y < -0.63 and sample_x > 0.1 and sample_x < 0.2:
-                        print(sample_x, sample_y, distance, axis_angles[0, 2])
+                    if sample_y < 0.3 - 0.75152:
                         break
                 obj_pose_reset[i, 0] = sample_x
                 obj_pose_reset[i, 1] = sample_y
                 obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
                 obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
+                axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
                 quats = rotations.axisangle2quat(axis_angles)
                 obj_pose_reset[i, 3:7] = quats
                 
@@ -334,6 +326,8 @@ for update in range(args.num_iterations):
                 continue
             else:
                 qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+                if qpos_reset_r[i, 4] < -65.0/180.0*np.pi:
+                    qpos_reset_r[i, 4] += 2*np.pi
 
             if math.isnan(qpos_reset_r[i, 0]):
                 continue
@@ -345,6 +339,9 @@ for update in range(args.num_iterations):
 
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
     env.set_sample_point_visual(vis_point)
+
+    if cfg['environment']['hardware']['log_real']['record_video'] == True:
+        recoder_ = d435_record.RecordVideo(cfg['environment']['hardware']['log_real']['mp4_record_path'], save_size=(1920, 1080), save_fps=8)
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -414,5 +411,9 @@ for update in range(args.num_iterations):
         end = time.time()
         print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
     print("end")
+    
+    if cfg['environment']['hardware']['log_real']['record_video'] == True:
+        recoder_.stop_record()
+
     exit(0)
 

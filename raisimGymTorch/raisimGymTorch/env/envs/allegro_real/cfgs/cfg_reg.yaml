@@ -15,7 +15,9 @@ environment:
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
 
     log_real:
-      save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/joint.csv"
+      save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/joint.csv"
+      record_video: True
+      mp4_record_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/mp4/log.mp4"
 
     pointcloud_real:
       camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
@@ -32,8 +34,8 @@ environment:
       freq_hz: 200.0
       move_vel: 1.0
       move_acc: 1.0
-      servoJ_ahead_time: 0.18 # range [0.03,0.2] smoothens the trajectory with this lookahead time
-      servoJ_gain: 400 # for following target position, range [100,2000]
+      servoJ_ahead_time: 0.05 # range [0.03,0.2] smoothens the trajectory with this lookahead time 0.18 for sysID
+      servoJ_gain: 1600 # for following target position, range [100,2000] 400 for sysID
       real_velocity_dt_s: 0.1
 
     hand_real:
