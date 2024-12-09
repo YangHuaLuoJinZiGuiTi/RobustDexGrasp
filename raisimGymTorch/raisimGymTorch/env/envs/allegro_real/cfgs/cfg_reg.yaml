@@ -6,9 +6,9 @@ environment:
     kinematic_type: "pinocchio"
     arm_type: "ur5"                
     hand_type: "allegro"
-    real_world_mode: True          # add suffix "_real" or "_sim" for arm_type and hand_type
+    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
     flying_hand_mode: False
-    save_state_mode: True
+    save_state_mode: False
     rsc_model: "ur5_allegro"
     sim_model: "ur5_allegro_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
     vis_group_id: "0"                   # collision_id in raisim
@@ -16,7 +16,7 @@ environment:
 
     log_real:
       save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/joint.csv"
-      record_video: True
+      record_video: False
       mp4_record_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/mp4/log.mp4"
 
     pointcloud_real:
@@ -42,6 +42,8 @@ environment:
       freq_hz: 200.0
 
   real_obj_item: 'random'
+
+  grasp_steps: 160
 
   render: True
   eval_every_n: 500

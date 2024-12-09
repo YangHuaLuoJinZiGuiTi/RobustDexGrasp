@@ -83,7 +83,7 @@ namespace raisim {
            hand_center.setZero();
            hand_center[0] = 0.08; // *2  0.107592      *1  0.0924603
            hand_center[1] = 0.01; //    -0.000996807       0.00117149
-           hand_center[2] = 0.085; //    0.08785           0.10541
+           hand_center[2] = 0.095; //    0.08785           0.10541
 
 
             /// get actuation dimensions

@@ -14,6 +14,10 @@ environment:
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
 
+#  partial_pt_init_pose: True
+  biased: False
+  grasp_steps: 160
+
   render: True
   eval_every_n: 500
   update_every_n: 20
@@ -30,7 +34,7 @@ environment:
 #  hand_model_r: "ur5_allegro.urdf"
   hand_model_r: "ur5_allegro_ori.urdf"
   finger_action_std: 0.015
-  rot_action_std: 0.01
+  rot_action_std: 0.005
   reward:
     affordance_reward:
       coeff: 0.5
@@ -48,10 +52,13 @@ environment:
 
     table_reward:
       coeff: -0.01
+#      coeff: -0.01
     table_contact_reward:
       coeff: -1.0
+#      coeff: -2.0
     table_impulse_reward:
       coeff: -0.5
+#      coeff: -2.0
 
     arm_height_reward:
 #      coeff: -0.03
@@ -67,9 +74,6 @@ environment:
       coeff: -0.1
     center_reward:
       coeff: -1.0
-    obj_displacement_reward:
-      coeff: -1.0
-
 
     wrist_vel_reward_:
       coeff: -1.0
@@ -79,13 +83,22 @@ environment:
     #      coeff: -0.0
 
     obj_vel_reward_:
-      coeff: -1.5
+#      coeff: -1.5
+      coeff: -15.0
     obj_qvel_reward_:
-      coeff: -0.01
+#      coeff: -0.01
+      coeff: -0.2
+    obj_displacement_reward:
+#      coeff: -1.0
+      coeff: -5.0
 
     arm_joint_vel_reward_:
       coeff: -1.0
 
+
+    arm_action_reward:
+      coeff: -1.0
+#      coeff: -0.2
 
 
     anatomy_reward:

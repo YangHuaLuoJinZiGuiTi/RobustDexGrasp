@@ -13,6 +13,10 @@ environment:
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
 
+
+  biased: False
+  grasp_steps: 160
+
   render: True
   eval_every_n: 500
   update_every_n: 20
@@ -89,6 +93,8 @@ environment:
       coeff: -1.0
 
 
+    arm_action_reward:
+      coeff: -1.0
 
     anatomy_reward:
       coeff: -0.0
