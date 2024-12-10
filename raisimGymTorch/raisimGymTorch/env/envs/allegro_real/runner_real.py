@@ -50,8 +50,6 @@ parser.add_argument('-ln', '--log_name', type=str, default='single_obj')
 parser.add_argument('-mean', '--mean_pose', action="store_true")
 
 new_allegro = True
-SAMPLE_IN_REAL = True
-GET_OBJ_POSE = False
 
 args = parser.parse_args()
 weight_path = args.weight
@@ -86,6 +84,8 @@ cfg['environment']['visualize'] = True
 cfg['environment']['num_envs'] = num_envs
 print('num envs', num_envs)
 
+sample_pc_mode = cfg['environment']['hardware']['pointcloud_real']['sample_pointcloud_mode']
+obj_item = cfg['environment']['hardware']['pointcloud_real']['obj_mesh']
 
 # cat_name = 'mixed_test'
 # cat_name = 'mixed_unseen_test'
@@ -105,42 +105,35 @@ folder_names = [item for item in items if os.path.isdir(os.path.join(directory_p
 obj_path_list = []
 obj_ori_list = folder_names
 
-obj_item = cfg['environment']['real_obj_item']
 if obj_item == 'random':
+    obj_ori_list.remove('real')
+    obj_ori_list.remove('dummy')
     obj_item = choice(obj_ori_list)
 
-if SAMPLE_IN_REAL == True:
-    # foundation pose
-    if GET_OBJ_POSE == True:
-        data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
-        obj_init_xyz_qwxyz = None
-        obj_pointcloud = None
-        try:
-            while True:
+if sample_pc_mode == 'foundationpose':
+    data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
+    obj_init_xyz_qwxyz = None
+    try:
+        while True:
+            time.sleep(2)
+            print("waiting for the initial of foundation pose...")
+            obj_init_xyz_qwxyz = data_producer.get_data()
+            if obj_init_xyz_qwxyz is not None:
+                print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
                 time.sleep(2)
-                print("waiting for the initial of foundation pose...")
                 obj_init_xyz_qwxyz = data_producer.get_data()
-                if obj_init_xyz_qwxyz is not None:
-                    print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
-                    time.sleep(2)
-                    obj_init_xyz_qwxyz = data_producer.get_data()
-                    print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
-                    obj_pointcloud = data_producer.get_pcd()
-                    print(f" pointcloud shape is \n {obj_pointcloud.shape}" )
-                    break
-        except KeyboardInterrupt:
-            data_producer.end_thread()
-            print("end")
-            exit(0)
-    else:
-        obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], cfg['environment']['hardware']['pointcloud_real']['use_sam_flag'])
-        obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
-        obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
-        print(f" ================== obj pose center = {obj_pos_mean}")
-        nparray = obj_pointcloud.reshape(200,3)
-        #print(f"x:  mean={np.mean(nparray[:, 0])},\t var={np.var(nparray[:, 0])},\t max={np.max(nparray[:, 0])},\t min={np.min(nparray[:, 0])}\t\t(m)")
-        #print(f"y:  mean={np.mean(nparray[:, 1])},\t var={np.var(nparray[:, 1])},\t max={np.max(nparray[:, 1])},\t min={np.min(nparray[:, 1])}\t\t(m)")
-        #print(f"z:  mean={np.mean(nparray[:, 2])},\t var={np.var(nparray[:, 2])},\t max={np.max(nparray[:, 2])},\t min={np.min(nparray[:, 2])}\t\t(m)")
+                print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
+                break
+    except KeyboardInterrupt:
+        data_producer.end_thread()
+        print("end")
+        exit(0)
+
+if sample_pc_mode == 'auto' or sample_pc_mode == 'manual':
+    obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], sample_pc_mode)
+    obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
+    obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
+    print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
 
 # Environment definition
 env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
@@ -148,7 +141,10 @@ env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environ
 
 print("initialization finished")
 
-obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
+if 'real' in obj_item:
+    obj_path_list.append(os.path.join(f"{obj_item}/{obj_item[5:]}.urdf"))
+else:
+    obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
 
@@ -191,11 +187,12 @@ actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architect
 actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
 prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
-lowest_points = np.zeros((num_envs, 1), dtype='float32')
-for i in range(num_envs):
-    txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
-    with open(txt_file_path, 'r') as txt_file:
-        lowest_points[i] = float(txt_file.read())
+if sample_pc_mode == 'mesh':
+    lowest_points = np.zeros((num_envs, 1), dtype='float32')
+    for i in range(num_envs):
+        txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
+        with open(txt_file_path, 'r') as txt_file:
+            lowest_points[i] = float(txt_file.read()) + 0.02
 
 for update in range(args.num_iterations):
     start = time.time()
@@ -250,29 +247,36 @@ for update in range(args.num_iterations):
         # get_meaningful_ik = False
         # while not get_meaningful_ik:
         # sample object states (not relavent for hardware deployment)
-        if SAMPLE_IN_REAL == False:
-            sample_x = 0.15
-            sample_y = 0.2 - 0.75152
-            while True:
-                angle = np.random.uniform(0, 2 * np.pi)
-                distance = np.random.uniform(0.45, 0.75)
-                sample_x = distance * np.cos(angle)
-                sample_y = distance * np.sin(angle)
-                if sample_y < 0.3 - 0.75152:
-                    # print(sample_x, sample_y, distance)
-                    break
-            obj_pose_reset[i, 0] = sample_x
-            obj_pose_reset[i, 1] = sample_y
-            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
-            obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+        if sample_pc_mode == 'manual' or sample_pc_mode == 'auto':
+            obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # mean of pointcloud
+            visible_points_w[i, :] = obj_pointcloud # sample randomly from RGBD in mask
+            angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
+        else:
+            if sample_pc_mode == 'mesh':
+                sample_x = 0.15
+                sample_y = 0.2 - 0.75152
+                while True:
+                    angle = np.random.uniform(0, 2 * np.pi)
+                    distance = np.random.uniform(0.45, 0.75)
+                    sample_x = distance * np.cos(angle)
+                    sample_y = distance * np.sin(angle)
+                    if sample_y < 0.3 - 0.75152:
+                        # print(sample_x, sample_y, distance)
+                        break
+                obj_pose_reset[i, 0] = sample_x
+                obj_pose_reset[i, 1] = sample_y
+                obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+                obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
-            axis_angles = np.zeros((1, 3))
-            axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-            quats = rotations.axisangle2quat(axis_angles)
-            obj_pose_reset[i, 3:7] = quats
+                axis_angles = np.zeros((1, 3))
+                axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+                obj_pose_reset[i, 3:7] = rotations.axisangle2quat(axis_angles)
+            elif sample_pc_mode == 'foundationpose': 
+                obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # estimate from foundationPose
+                angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
 
             # get the partial point cloud
-            obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
+            obj_mat_single = rotations.quat2mat(obj_pose_reset[i, 3:7]).reshape(3, 3)
 
             view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
             view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
@@ -289,10 +293,6 @@ for update in range(args.num_iterations):
                 locations = expanded_locations
             visible_points_obj[i, :] = locations
             visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
-        else:
-            obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # get from foundationPose for visualization in raisim UI
-            visible_points_w[i, :] = obj_pointcloud # sample randomly from RGBD in mask
-
 
         # get the x_dir of the grasping frame
         obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
@@ -364,6 +364,7 @@ for update in range(args.num_iterations):
                                                            z_dir_cmd=z_dir_in_world)
                 if rot is None:
                     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                    print("======== cannot get rot, use defalut pose = " + str(qpos_reset_r))
                     break
                 wrist_in_world = rot
                 qpos_reset_r[i, :3] = pos[0, :]
@@ -386,6 +387,7 @@ for update in range(args.num_iterations):
 
                 if ik.findClosestIK(gd, theta0) is None:
                     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                    print("======== cannot found ik, use defalut pose = " + str(qpos_reset_r))
                     break
                 else:
                     qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
@@ -394,16 +396,19 @@ for update in range(args.num_iterations):
 						
                 if math.isnan(qpos_reset_r[i, 0]):
                     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                    print("======== reset pose is nan, use defalut pose = " + str(qpos_reset_r))
                     break
                 else:
                     # check self collision
                     get_meaningful_ik = env.check_collision(qpos_reset_r)
                     if not get_meaningful_ik:
                         qpos_reset_r[i, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+                        print("======== self collision, use defalut pose = " + str(qpos_reset_r))
                         break
                     else:
                         if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
                             qpos_reset_r[i, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+                            print("======== bad reset pose, use defalut pose = " + str(qpos_reset_r))
                         break
 
     print(f" ================== samble obj reset pose = {obj_pose_reset}")

@@ -13,7 +13,7 @@ environment:
     sim_model: "ur5_allegro_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
-
+ 
     log_real:
       save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/joint.csv"
       record_video: False
@@ -21,7 +21,8 @@ environment:
 
     pointcloud_real:
       camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
-      use_sam_flag: False
+      sample_pointcloud_mode: 'manual' # 'auto' or 'manual' or 'foundationpose' or 'mesh'
+      obj_mesh: 'dummy' # 'random' or 'real/loopy_head_side' or '035_power_drill' or  'dummy'
 
     kinematic_real:
       fk_model: "ur5_allegro_fk"          # FK model in           rsc/${rsc_model}/${fk_model}.urdf
@@ -40,8 +41,6 @@ environment:
 
     hand_real:
       freq_hz: 200.0
-
-  real_obj_item: 'random'
 
   grasp_steps: 160
 

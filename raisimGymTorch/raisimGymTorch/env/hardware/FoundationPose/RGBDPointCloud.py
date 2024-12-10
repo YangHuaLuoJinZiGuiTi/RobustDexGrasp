@@ -184,9 +184,9 @@ def GetPointCloud(camK_path, use_sam):
     
     # https://support.intelrealsense.com/hc/en-us/community/posts/4405875311123-About-make-sure-FOV-specification-of-D435i 
     # tf from RGB to left-IR camera
-    Tcamrgb2depth = np.array([[  1., 0., 0., -0.035],
-                        [0., 1., 0., 0.],
-                        [ 0., 0., 1., 0.],
+    Tcamrgb2depth = np.array([[  1., 0., 0., -0.012],
+                        [0., 1., 0., 0.012],
+                        [ 0., 0., 1., 0.01],
                         [ 0., 0., 0., 1.]])
 
     # realsense get depth
@@ -229,7 +229,7 @@ def GetPointCloud(camK_path, use_sam):
 
         # realsense get rgb mask
         if mask is None:
-            if use_sam == False:
+            if use_sam == 'manual':
                 mask = create_mask_from_align_sensor(color)
             else:
                 mask = create_mask_auto(color)

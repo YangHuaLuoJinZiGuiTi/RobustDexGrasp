@@ -58,8 +58,8 @@ namespace raisim {
             mano_r_->getBodies(arm_parts, true, false);
 
             /// add table
-            box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "", raisim::COLLISION(1)));
-            box->setPosition(0.2, -0.75152, 0.3855);
+            box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771+0.02, 100, "", raisim::COLLISION(1)));
+            box->setPosition(0.2, -0.75152, 0.3855+0.01);
             box->setAppearance("0.0 0.0 0.0 0.0");
 
             /// set PD control mode
@@ -251,6 +251,31 @@ namespace raisim {
         void load_object(const Eigen::Ref<EigenVecInt>& obj_idx, const Eigen::Ref<EigenVec>& obj_weight, const Eigen::Ref<EigenVec>& obj_dim, const Eigen::Ref<EigenVecInt>& obj_type) final {}
         /// This function loads the object into the environment
         void load_articulated(const std::string& obj_model){
+            std::cout << "load obj model name is " << obj_model << std::endl;
+            if(obj_model.find("dummy") != std::string::npos) {
+                std::cout << "is a dummy object !!! do not show it!! " << std::endl;
+                dummy_obj_flag_ = true;
+                return;
+            }
+            arctic = static_cast<raisim::ArticulatedSystem*>(world_->addArticulatedSystem(resourceDir_+"/"+load_set+"/"+obj_model, "", {}, raisim::COLLISION(2), raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63)));
+            arctic->setName("object");
+            if(visualizable_){
+                std::cout<<"obj name: "<<obj_model<<std::endl;
+            }
+            gcDim_obj = arctic->getGeneralizedCoordinateDim();
+            gvDim_obj = arctic->getDOF();
+
+            Eigen::VectorXd gen_coord = Eigen::VectorXd::Zero(gcDim_obj);
+            arctic->setGeneralizedCoordinate(gen_coord);
+            arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
+
+            Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
+            objPgain.setZero();
+            objDgain.setZero();
+            arctic->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
+            arctic->setPdGains(objPgain, objDgain);
+            arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
+
         }
 
         void set_sample_point_visual(const Eigen::Ref<EigenVec>& joint_sensor_visual) final {
@@ -351,7 +376,7 @@ namespace raisim {
                 mano_r_->setState(gc_set_r_, gv_set_r_, true);
 
                 box->clearExternalForcesAndTorques();
-                box->setPosition(0.2, -0.75152, 0.3855);
+                box->setPosition(0.2, -0.75152, 0.3855 + 0.01);
                 box->setOrientation(1,0,0,0);
                 box->setVelocity(0,0,0,0,0,0);
 
@@ -393,7 +418,7 @@ namespace raisim {
             mano_r_->setGeneralizedForce(gen_force);
 
             /// reset table position (only required in case for inference)
-            box->setPosition(0.2, -0.75152, 0.3855);
+            box->setPosition(0.2, -0.75152, 0.3855 + 0.01);
             box->setOrientation(1,0,0,0);
             box->setVelocity(0,0,0,0,0,0);
 
@@ -416,15 +441,23 @@ namespace raisim {
             raisim::quatToRotMat(quat, init_rot_r_); // ..., in matrix
             raisim::transpose(init_rot_r_, init_or_r_); // ..., inverse
 
-            raisim::quatToRotMat(obj_pose.segment(3,4), init_obj_rot_);
-            raisim::transpose(init_obj_rot_, init_obj_or_);
+            if (dummy_obj_flag_ == false) {
+                int arcticCoordDim = arctic->getGeneralizedCoordinateDim();
+                int arcticVelDim = arctic->getDOF();
+                Eigen::VectorXd arcticCoord, arcticVel;
+                arcticCoord.setZero(arcticCoordDim);
+                arcticVel.setZero(arcticVelDim);
+                arcticCoord = obj_pose.cast<double>().tail(arcticCoordDim);
+
+                raisim::quatToRotMat(obj_pose.segment(3,4), init_obj_rot_);
+                arctic->setBasePos(init_obj_);
+                arctic->setBaseOrientation(init_obj_rot_);
+                arctic->setState(arcticCoord, arcticVel);
+            }
+
             mano_r_->setBasePos(base_pos);
             mano_r_->setBaseOrientation(base_mat);
             mano_r_->setState(gc_set_r_, gv_set_r_);
-
-            /// set initial object state
-
-            obj_pos_init_  = obj_pose.cast<double>(); // 8 dof
 
             /// Set action mean to initial pose (first 6DoF since start at 0)
 //            actionMean_r_.setZero();
@@ -642,6 +675,7 @@ namespace raisim {
         bool unseen = false;
         bool new_category = false;
         bool lift = false;
+        bool dummy_obj_flag_ = false;
         int lift_num = 0;
         raisim::ArticulatedSystem* mano_;
         Eigen::VectorXd gc_r_, gv_r_, pTarget_r_, vTarget_r_, gc_set_r_, gv_set_r_;
