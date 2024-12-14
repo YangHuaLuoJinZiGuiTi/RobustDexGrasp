@@ -458,7 +458,7 @@ public:
      * @param[out] orientation_W the angular velocity of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFrameAngularVelocity(const std::string &frameName, raisim::Vec<3> &angVel_W) {
-        arm_hand_platform_->getFrameAngularVelocity(frameName, angVel_W);
+        kinematic_->getFrameAngularVelocity(frameName, angVel_W);
     }
 
     /**
@@ -467,7 +467,7 @@ public:
      * @param[out] vel_W the linear velocity of the frame expressed in the world frame in raisim or armbase frame in realworld
      */
     void getFrameVelocity(const std::string &frameName, raisim::Vec<3> &vel_W) {
-        arm_hand_platform_->getFrameVelocity(frameName, vel_W);
+        kinematic_->getFrameVelocity(frameName, vel_W);
     }
 
     /**

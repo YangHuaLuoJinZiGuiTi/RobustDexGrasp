@@ -5,7 +5,7 @@ from raisimGymTorch.env.bin import allegro_student_biased as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
 from raisimGymTorch.env.bin.allegro_student_biased import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial
+from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial_safe
 from scipy.spatial.transform import Rotation as R
 from random import choice
 
@@ -296,7 +296,7 @@ for update in range(args.num_iterations):
 
                 # get position and orientation of the wrist
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
+                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                 if rot is None:
                     no_feasible_ik = True
                     continue
@@ -366,7 +366,7 @@ for update in range(args.num_iterations):
 
                 # get position and orientation of the wrist
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True, z_dir_cmd=z_dir_in_world)
+                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True, z_dir_cmd=z_dir_in_world)
                 if rot is None:
                     qpos_reset_r[i, :6] = [angle + np.pi, -1.57, 1.57, 0., 1.57, -1.57]
                     break

@@ -5,7 +5,7 @@ from raisimGymTorch.env.bin import allegro_teacher_biased as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
 from raisimGymTorch.env.bin.allegro_teacher_biased import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial
+from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial_safe
 from scipy.spatial.transform import Rotation as R
 from random import choice
 
@@ -55,7 +55,30 @@ exp_name = "arm_rand"
 # weight_saved = '2024-10-31-16-40-52/full_50000_r.pt'
 # weight_saved = '2024-10-31-16-43-20/full_50000_r.pt'
 # weight_saved = '2024-11-04-16-42-02/full_11500_r.pt'
-weight_saved = '2024-11-04-16-42-02/full_50000_r.pt'
+# weight_saved = '2024-11-04-16-42-02/full_50000_r.pt'
+# weight_saved = '2024-11-19-18-53-10/full_44000_r.pt'
+# weight_saved = '2024-11-19-18-55-45/full_15000_r.pt'
+# weight_saved = '2024-11-26-18-01-13/full_12000_r.pt'
+# weight_saved = '2024-11-26-18-04-50/full_10000_r.pt'
+# weight_saved = '2024-11-26-18-08-39/full_10000_r.pt'
+# weight_saved = '2024-11-27-14-04-03/full_14000_r.pt'
+# weight_saved = '2024-11-28-15-40-26/full_7500_r.pt'
+# weight_saved = '2024-11-28-15-42-46/full_12500_r.pt'
+# weight_saved = '2024-11-28-15-47-05/full_11500_r.pt'
+# weight_saved = '2024-11-28-18-22-16/full_9000_r.pt'
+# weight_saved = '2024-11-29-11-20-34/full_9000_r.pt'
+# weight_saved = '2024-11-29-11-23-28/full_9000_r.pt'
+# weight_saved = '2024-11-29-11-24-39/full_9000_r.pt'
+# weight_saved = '2024-11-29-12-32-22/full_20000_r.pt'
+# weight_saved = '2024-11-29-12-56-22/full_19500_r.pt'
+# weight_saved = '2024-12-01-08-29-14/full_22500_r.pt'
+# weight_saved = '2024-12-02-13-52-26/full_18000_r.pt'
+# weight_saved = '2024-12-02-15-42-28/full_16000_r.pt'
+# weight_saved = '2024-12-02-15-44-36/full_9500_r.pt'
+# weight_saved = '2024-12-04-10-15-15/full_14500_r.pt'
+# weight_saved = '2024-12-04-17-35-23/full_15500_r.pt'
+# weight_saved = '2024-12-06-10-18-17/full_12500_r.pt'
+weight_saved = '2024-12-06-17-04-47/full_31000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -111,6 +134,7 @@ print('num envs', num_envs)
 # cat_name = 'mixed_unseen_category_test'
 # cat_name = 'mixed_train'
 cat_name = 'ycb_urdf_all'
+# cat_name = 'real_obj'
 # cat_name = 'affordance_level'
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
@@ -309,7 +333,7 @@ for update in range(args.num_iterations):
 
                 # get position and orientation of the wrist
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
+                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                 if rot is None:
                     no_feasible_ik = True
                     continue
@@ -376,7 +400,7 @@ for update in range(args.num_iterations):
 
                 # get position and orientation of the wrist
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True, z_dir_cmd=z_dir_in_world)
+                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True, z_dir_cmd=z_dir_in_world)
                 if rot is None:
                     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
@@ -431,7 +455,126 @@ for update in range(args.num_iterations):
                             qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                         break
 
+    # else:
+    #     for i in range(num_envs):
+    #         get_meaningful_ik = False
+    #         while not get_meaningful_ik:
+    #             sample_x = 0.15
+    #             sample_y = 0.2 - 0.75152
+    #             while True:
+    #                 angle = np.random.uniform(0, 2 * np.pi)
+    #                 distance = np.random.uniform(0.45, 0.75)
+    #                 sample_x = distance * np.cos(angle)
+    #                 sample_y = distance * np.sin(angle)
+    #                 if sample_y < (0.3-0.75152):
+    #                     break
+    #             obj_pose_reset[i, 0] = sample_x
+    #             obj_pose_reset[i, 1] = sample_y
+    #             obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+    #             obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+    #
+    #             axis_angles = np.zeros((1, 3))
+    #             axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+    #             quats = rotations.axisangle2quat(axis_angles)
+    #             obj_pose_reset[i, 3:7] = quats
+    #
+    #             obj_aff_center_in_obj = env.affordance_center[i].copy()
+    #             obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
+    #
+    #             obj_aff_center_in_world = np.matmul(obj_mat_single, obj_aff_center_in_obj.T).T
+    #             obj_aff_center_in_world = obj_aff_center_in_world + obj_pose_reset[i, :3]
+    #
+    #             hand_dir_x = hand_center_sample_w - obj_aff_center_in_world
+    #             hand_dir_x = hand_dir_x / np.linalg.norm(hand_dir_x, axis=1, keepdims=True)
+    #             hand_dir_x_in_obj = np.matmul(obj_mat_single.T, hand_dir_x.T).T
+    #
+    #             rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], env.affordance_pcd[i],
+    #                                                                       hand_dir_x_in_obj, env.affordance_center[i], obj_mat_single,
+    #                                                                       top=False)
+    #             if rot is None:
+    #                 hand_dir_x_in_obj[0, :] = 0
+    #                 hand_dir_x_in_obj[0, 2] = 1
+    #                 rot, pos, target = get_initial_pose_allegro_arm_rand_test(env.aff_mesh[i], env.affordance_pcd[i],
+    #                                                                           hand_dir_x_in_obj,
+    #                                                                           env.affordance_center[i], obj_mat_single, top=True)
+    #
+    #             wrist_mat = rot
+    #             wrist_in_world = np.matmul(obj_mat_single, wrist_mat)
+    #             wrist_pose = rotations.mat2euler(wrist_in_world)
+    #             qpos_reset_r[i, :3] = obj_pose_reset[i, :3] + np.matmul(obj_mat_single, pos[0, :])
+    #
+    #             target_center[i, :] = target[:]
+    #
+    #             wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
+    #
+    #             pos_in_ur5 = np.zeros((3, 1))
+    #             pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0. + wrist_bias_in_world[0, 0]
+    #             pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0. + wrist_bias_in_world[0, 1]
+    #             pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
+    #             pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
+    #
+    #             wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
+    #
+    #             gd = np.eye(4)
+    #             gd[:3, :3] = wrist_mat_in_ur5
+    #             gd[0, 3] = pos_in_ur5_new[0, 0]
+    #             gd[1, 3] = pos_in_ur5_new[1, 0]
+    #             gd[2, 3] = pos_in_ur5_new[2, 0]
+    #
+    #             ik = InverseKinematicsUR5()
+    #             ik.setJointWeights(joint_weights)
+    #             ik.setJointLimits(-3.14, 3.14)
+    #             if ik.findClosestIK(gd, theta0) is None:
+    #                 continue
+    #             else:
+    #                 qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+    #
+    #             if math.isnan(qpos_reset_r[i, 0]):
+    #                 continue
+    #             else:
+    #                 env.reset_state(qpos_reset_r,
+    #                                 qpos_reset_l,
+    #                                 np.zeros((num_envs, 22), 'float32'),
+    #                                 np.zeros((num_envs, 22), 'float32'),
+    #                                 obj_pose_reset,
+    #                                 )
+    #                 temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
+    #                 temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
+    #                 _, _, _ = env.step(temp_action_r, temp_action_l)
+    #                 global_state = env.get_global_state()
+    #                 one_check = global_state[:, 124:128]
+    #                 contains_one = np.any(one_check == 1, axis=1)
+    #                 true_indices = np.where(contains_one)[0]
+    #                 if len(true_indices) > 0:
+    #                     continue
+    #                 else:
+    #                     get_meaningful_ik = True
 
+    # if qpos_reset_r[0, 4] < -1.57:
+    #     print("reset!!!!!!!!!!")
+    #     rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False, inverse=True)
+    #     wrist_in_world = rot
+    #     qpos_reset_r[i, :3] = pos[0, :]
+    #
+    #     # from grasping frame pos to wrist pos
+    #     wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
+    #     pos_in_ur5 = np.zeros((3, 1))
+    #     pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0. + wrist_bias_in_world[0, 0]
+    #     pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0. + wrist_bias_in_world[0, 1]
+    #     pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
+    #     pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
+    #
+    #     wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
+    #
+    #     gd = np.eye(4)
+    #     gd[:3, :3] = wrist_mat_in_ur5
+    #     gd[0, 3] = pos_in_ur5_new[0, 0]
+    #     gd[1, 3] = pos_in_ur5_new[1, 0]
+    #     gd[2, 3] = pos_in_ur5_new[2, 0]
+    #
+    #     qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+
+    # qpos_reset_r[:, :6] = [0.0, -1.57, 1.57, 0.57, -2, -1.57]
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -468,6 +611,8 @@ for update in range(args.num_iterations):
         action_l = np.zeros_like(action_r)
         # action_r[:, :6] = 0
 
+        # print(action_r[:, :6])
+
         if step < grasp_steps:
             final_actions = action_r
         else:
@@ -476,6 +621,9 @@ for update in range(args.num_iterations):
             if step == grasp_steps:
                 print("lift")
                 env.switch_root_guidance(True)
+
+        # # clip the first 6 dim of action to (-2, 2)
+        # action_r[:, :6] = np.clip(action_r[:, :6], -2., 2.)
 
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 

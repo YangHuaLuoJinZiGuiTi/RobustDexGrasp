@@ -4,7 +4,7 @@ from raisimGymTorch.env.bin import allegro_student_biased as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
 from raisimGymTorch.env.bin.allegro_student_biased import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial
+from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial_safe
 
 import os
 import math
@@ -29,7 +29,7 @@ from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, tra
 
 exp_name = "arm_rand_student"
 
-weight_saved = '/../../arm_rand/2024-12-04-10-15-15/full_14500_r.pt'
+weight_saved = '/../../arm_rand/2024-12-06-17-04-47/full_31000_r.pt'
 weight_path_student = '2024-10-28-14-49-02/full_1000_r.pt'
 
 
@@ -296,7 +296,7 @@ for update in range(args.num_iterations):
     ik = InverseKinematicsUR5()
     ik.setJointWeights(joint_weights)
     ik.setJointLimits(-3.14, 3.14)
-
+    
     for i in range(num_envs):
         # get_meaningful_ik = False
         # while not get_meaningful_ik:
@@ -351,7 +351,7 @@ for update in range(args.num_iterations):
 
                 # get position and orientation of the wrist
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
+                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                 if rot is None:
                     no_feasible_ik = True
                     continue
@@ -400,7 +400,7 @@ for update in range(args.num_iterations):
 
                 # get position and orientation of the wrist
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True,
+                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True,
                                                            z_dir_cmd=z_dir_in_world)
                 if rot is None:
                     qpos_reset_r[i, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]

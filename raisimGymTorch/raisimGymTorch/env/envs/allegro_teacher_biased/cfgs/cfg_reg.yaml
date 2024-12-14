@@ -17,6 +17,7 @@ environment:
 #  partial_pt_init_pose: True
   biased: False
   grasp_steps: 160
+  train_safe: True
 
   render: True
   eval_every_n: 500
@@ -98,7 +99,7 @@ environment:
 
     arm_action_reward:
       coeff: -1.0
-#      coeff: -0.2
+#      coeff: -0.0
 
 
     anatomy_reward:
