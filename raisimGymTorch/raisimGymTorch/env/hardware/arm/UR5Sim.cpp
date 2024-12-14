@@ -3,10 +3,15 @@
 // raisim library
 #include "raisim/World.hpp"
 #include "raisim/math.hpp"
+#include <time.h> 
 
 class UR5Sim : public HardwareArm {
 public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) final override {
+        if (!cfg["randomize_gc_arm"].IsNone()) {
+            randomize_gc_ = cfg["randomize_gc_arm"].As<double>();
+        }
+
         arm_joint_position_.setZero(num_joint_);
         arm_joint_velocity_.setZero(num_joint_);
         end_effector_pose_.setZero(6);
@@ -42,9 +47,16 @@ public:
             }
         }
 
+        srand(time(0));
     }
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
         platform_ = platform;
+        std::vector<raisim::Vec<2>> joint_limits = platform_->getJointLimits();
+        joint_limit_high_.setZero(num_joint_); joint_limit_low_.setZero(num_joint_);
+        for(int i=0; i < num_joint_; i++){
+            joint_limit_low_[i] = joint_limits[i][0];
+            joint_limit_high_[i] = joint_limits[i][1];
+        }
     }
 
     void updateArmState() final override {
@@ -54,6 +66,10 @@ public:
         platform_->getState(gc, gv);
         arm_joint_position_ = gc.head(num_joint_);
         arm_joint_velocity_ = gv.head(num_joint_);
+        if (randomize_gc_ > 1e-9) {
+            arm_joint_position_ += Eigen::VectorXd::Random(num_joint_) * randomize_gc_;
+            arm_joint_position_ = arm_joint_position_.cwiseMax(joint_limit_low_).cwiseMin(joint_limit_high_);
+        }
 
         raisim::Mat<3,3> eef_rot;
         platform_->getFrameOrientation("Flange2hand_fixed_joint", eef_rot);
@@ -126,6 +142,10 @@ public:
 
 private:
     raisim::ArticulatedSystem *platform_;
+
+    double randomize_gc_ = 0.0;
+    Eigen::VectorXd joint_limit_high_;
+    Eigen::VectorXd joint_limit_low_;
 
     const static int num_joint_ = 6;
 

@@ -13,6 +13,15 @@ environment:
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
 
+    # add the noise from [-value, +value] for randomization and 0.0(as default) will not randomize
+    randomize_gains_hand_p: 10.0
+    randomize_gains_hand_d: 5.0
+    randomize_gains_arm_p: 100.0
+    randomize_gains_arm_d: 50.0
+    randomize_gc_hand: 0.05
+    randomize_gc_arm: 0.005
+    randomize_frame_position: 0.01
+    randomize_frame_orientation: 0.02
 
   biased: False
   grasp_steps: 160

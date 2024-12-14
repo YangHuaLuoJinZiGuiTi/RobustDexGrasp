@@ -170,13 +170,6 @@ public:
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
     }
 
-    void updateHandFK(const Eigen::VectorXd &hand_q, const Eigen::VectorXd &eef_pos) const override {
-        Eigen::VectorXd set_q(hand_q.size() + eef_pos.size());
-        set_q.head(hand_q.size()) = hand_q;
-        set_q.tail(eef_pos.size()) = eef_pos;
-        pinocchio::framesForwardKinematics(*hand_fk_model_, *hand_fk_data_, set_q);
-    }
-
     void updateURDFFK(const Eigen::VectorXd &joint) override {
         pinocchio::framesForwardKinematics(*hand_fk_model_, *hand_fk_data_, joint);
         

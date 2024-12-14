@@ -55,9 +55,22 @@ public:
         real_world_mode_ = cfg["real_world_mode"].As<bool>();
         flying_hand_mode_ = cfg["flying_hand_mode"].As<bool>();
         save_state_ = cfg["save_state_mode"].As<bool>();
+        
+        if (!cfg["randomize_gains_hand_p"].IsNone()) {
+            randomize_gains_hand_p_ = cfg["randomize_gains_hand_p"].As<double>();
+        }
+        if (!cfg["randomize_gains_hand_d"].IsNone()) {
+            randomize_gains_hand_d_ = cfg["randomize_gains_hand_d"].As<double>();
+        }
+        if (!cfg["randomize_gains_arm_p"].IsNone()) {
+            randomize_gains_arm_p_ = cfg["randomize_gains_arm_p"].As<double>();
+        }
+        if (!cfg["randomize_gains_arm_d"].IsNone()) {
+            randomize_gains_arm_d_ = cfg["randomize_gains_arm_d"].As<double>();
+        }
 
+        srand(time(0));
         std::string rsc_pth_simplify = simplifyPath(rsc_pth);
-
         std::string type_suffix = real_world_mode_ ? "_real" : "_sim";
 
         setInstance(cfg["hand_type"].As<std::string>() + type_suffix, hand_map_, hand_);
@@ -387,6 +400,10 @@ public:
         Eigen::VectorXd pgain(platform_gc_dim_), dgain(platform_gc_dim_);
         arm_->getPdgains(pgain, dgain, arm_dim_);
         hand_->getPdgains(pgain, dgain, hand_dim_);
+        pgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_p_;
+        dgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_d_;
+        pgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_p_;
+        dgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_d_;
         arm_hand_platform_->setPdGains(pgain, dgain);
     }
 
@@ -573,6 +590,11 @@ private:
     int hand_gv_dim_ = 0;
     int arm_gv_dim_ = 0;
     int platform_gv_dim_ = 0;
+
+    double randomize_gains_hand_p_ = 0.0;
+    double randomize_gains_hand_d_ = 0.0;
+    double randomize_gains_arm_p_ = 0.0;
+    double randomize_gains_arm_d_ = 0.0;
 
     bool flying_hand_mode_ = false;
     bool real_world_mode_ = false;

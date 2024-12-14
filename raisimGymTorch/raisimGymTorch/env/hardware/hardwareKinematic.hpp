@@ -20,7 +20,6 @@ public:
     virtual void setFrameVelocityNames(std::vector<std::string> &names) = 0;
     virtual IK_ERRCODE getArmIKSolve(const Eigen::VectorXd eef, const Eigen::VectorXd current_q, Eigen::VectorXd &solved_q) const = 0;
     virtual void setSimPlatform(raisim::ArticulatedSystem *platform) = 0;
-    virtual void updateHandFK(const Eigen::VectorXd &hand_q, const Eigen::VectorXd &eef_pos) const = 0;
     virtual void updateURDFFK(const Eigen::VectorXd &joint) = 0;
     virtual void getFrameOrientation(const std::string &jointName, const std::string &linkName, raisim::Mat<3, 3> &orientation_W) = 0;
     virtual void getFramePosition(const std::string &jointName, const std::string &linkName, raisim::Vec<3> &point_W) = 0;

@@ -3,6 +3,7 @@
 // raisim library
 #include "raisim/World.hpp"
 #include "raisim/math.hpp"
+#include <time.h> 
 
 class AllegroSim : public HardwareHand {
 public:
@@ -13,6 +14,9 @@ public:
         hand_joint_velocity_.setZero(num_joint_);
         
         flying_hand_mode_ = cfg["flying_hand_mode"].As<bool>();
+        if (!cfg["randomize_gc_hand"].IsNone()) {
+            randomize_gc_ = cfg["randomize_gc_hand"].As<double>();
+        }
 
         std::ifstream pd_txt;
         pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/hand/AllegroIdentification.txt");
@@ -41,9 +45,17 @@ public:
             }
         }
 
+        srand(time(0));
     }
     void setSimPlatform(raisim::ArticulatedSystem *platform) final override {
         platform_ = platform;
+        std::vector<raisim::Vec<2>> joint_limits = platform_->getJointLimits();
+        joint_limit_high_.setZero(num_joint_); joint_limit_low_.setZero(num_joint_);
+        int all_joint_num = joint_limits.size();
+        for(int i = 0; i < num_joint_; i++){
+            joint_limit_low_[i] = joint_limits[all_joint_num - num_joint_ + i][0];
+            joint_limit_high_[i] = joint_limits[all_joint_num - num_joint_ + i][1];
+        }
     }
 
     void updateHandState(const Eigen::VectorXd &eef_pos) final override {
@@ -52,6 +64,10 @@ public:
         platform_->getState(gc, gv);
         hand_joint_position_ = gc.tail(num_joint_);
         hand_joint_velocity_ = gv.tail(num_joint_);
+        if (randomize_gc_ > 1e-9) {
+            hand_joint_position_ += Eigen::VectorXd::Random(num_joint_) * randomize_gc_;
+            hand_joint_position_ = hand_joint_position_.cwiseMax(joint_limit_low_).cwiseMin(joint_limit_high_);
+        }
 
     }
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) final override {
@@ -116,6 +132,9 @@ private:
     raisim::ArticulatedSystem *platform_;
 
     bool flying_hand_mode_ = false;
+    double randomize_gc_ = 0.0;
+    Eigen::VectorXd joint_limit_high_;
+    Eigen::VectorXd joint_limit_low_;
 
     const static int num_contacts_ = 13;
     const static int num_bodies_ = 17;
