@@ -468,6 +468,8 @@ namespace raisim {
 
             obj_weight = arctic->getTotalMass();
 
+            mano_r_->setMaterialFriction(world_, arctic);
+
             updateObservation();
 
            auto affordance_id = arctic->getBodyIdx("top");

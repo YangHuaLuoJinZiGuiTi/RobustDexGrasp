@@ -14,6 +14,7 @@ environment:
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
 
     # add the noise from [-value, +value] for randomization and 0.0(as default) will not randomize
+    randomize_friction: True
     randomize_gains_hand_p: 10.0
     randomize_gains_hand_d: 5.0
     randomize_gains_arm_p: 100.0

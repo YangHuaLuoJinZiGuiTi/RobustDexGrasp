@@ -415,6 +415,9 @@
       </material>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <origin rpy="0 0 0" xyz="-0.0 0 0.0575"/> <!-- ly modified: -0.0475 > 0.003487 -->
       <geometry>
         <box size="0.0408 0.1130 0.095"/>
@@ -439,6 +442,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0164"/>
       </geometry>
@@ -467,6 +473,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.054"/>
       </geometry>
@@ -495,6 +504,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0384"/>
       </geometry>
@@ -523,6 +535,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0267"/>
       </geometry>
@@ -553,6 +568,9 @@
       </material>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <sphere radius="0.012"/>  <!-- 测试剪刀的抓握，原本是0.012 ，改成0.015之后超过visual part-->
       </geometry>
@@ -577,6 +595,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0164"/>
       </geometry>
@@ -605,6 +626,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.054"/>
       </geometry>
@@ -633,6 +657,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0384"/>
       </geometry>
@@ -661,6 +688,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0267"/>
       </geometry>
@@ -691,6 +721,9 @@
       </material>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <sphere radius="0.012"/>  <!-- 测试剪刀的抓握，原本是0.012 -->
       </geometry>
@@ -715,6 +748,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0164"/>
       </geometry>
@@ -743,6 +779,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.054"/>
       </geometry>
@@ -771,6 +810,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0384"/>
       </geometry>
@@ -799,6 +841,9 @@
       <material name="black"/>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0267"/>
       </geometry>
@@ -829,6 +874,9 @@
       </material>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <sphere radius="0.012"/>  <!-- 测试剪刀的抓握，原本是0.012 -->
       </geometry>
@@ -858,6 +906,9 @@
       <!--<origin rpy="3.1415926518 0 0" xyz="0 0 0"/>--> <!-- ly modified -->
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0358 0.034 0.0455"/>
       </geometry>
@@ -889,6 +940,9 @@
       </material>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0177"/>
       </geometry>
@@ -918,6 +972,9 @@
                 </material>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0514"/>
       </geometry>
@@ -947,6 +1004,9 @@
                 </material>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <box size="0.0196 0.0275 0.0423"/>
       </geometry>
@@ -977,6 +1037,9 @@
       </material>
     </visual>
     <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
       <geometry>
         <sphere radius="0.012"/>   <!-- 测试剪刀的抓握，原本是0.012 -->
       </geometry>
