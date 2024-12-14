@@ -116,7 +116,7 @@ public:
                 } else {
                     c = "arm" + std::to_string(i);
                 }
-                csv_file_ << c << "_posTarget========," << c << "_posObsReal," << c << "_posObsSim," << c << "_velObsReal," << c << "_velObsSim,";
+                csv_file_ << c << "_posTarget========," << c << "_posCurReal,"  << c << "_posObsReal," << c << "_velObsReal,";
             }
             csv_file_ << "\n";
         }
@@ -132,8 +132,13 @@ public:
      * @param[in] velTarget may be zero
      * @return None
      */
-    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget) {
+    void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool force_sim = false) {
         //std::cout << "set:" << posTarget.transpose() << std::endl;
+        if (force_sim || !real_world_mode_) {
+            arm_hand_platform_->setPdTarget(posTarget, velTarget);
+            return;
+        }
+
         if (save_state_) {
             Eigen::VectorXd now_joint(platform_gc_dim_);
             now_joint.head(arm_dim_) = arm_->getJointPosition();
@@ -144,12 +149,8 @@ public:
                 save_current_[i] = now_joint[i];
             }
         }
-        if (real_world_mode_) {
-            arm_->setPdTarget(posTarget.head(arm_dim_), velTarget.head(arm_dim_));
-            hand_->setPdTarget(posTarget.tail(hand_dim_), velTarget.tail(hand_dim_));
-        } else {
-            arm_hand_platform_->setPdTarget(posTarget, velTarget);
-        }
+        arm_->setPdTarget(posTarget.head(arm_dim_), velTarget.head(arm_dim_));
+        hand_->setPdTarget(posTarget.tail(hand_dim_), velTarget.tail(hand_dim_));
     }
     /**
      * same as `setPdTarget` but solve IK automaticly in simulation arm base Frame
@@ -177,7 +178,20 @@ public:
      * need to update after step(), reset(), reset_state()
      * @return None
      */
-    void updateObservation(bool start = false) {
+    void updateObservation(bool start = false, bool force_sim = false) {
+        if (force_sim) {
+            Eigen::VectorXd gc(platform_gc_dim_), gv(platform_gv_dim_);
+            arm_hand_platform_->getState(gc, gv);
+            Eigen::VectorXd pinocchio_joint = gc;
+            for (int i = 0; i < 4; i++) {
+                pinocchio_joint[10 + i] = gc[18 + i];
+                pinocchio_joint[14 + i] = gc[10 + i];
+                pinocchio_joint[18 + i] = gc[14 + i];
+            }
+            kinematic_->updateURDFFK(pinocchio_joint);
+            return;
+        }
+
         arm_->updateArmState();
         Eigen::VectorXd eef_pos = arm_->getEefPose();
         hand_->updateHandState(eef_pos);
@@ -198,16 +212,15 @@ public:
         if (real_world_mode_) {
             // save state
             if (save_state_ && start) {
-                Eigen::VectorXd gc(platform_gc_dim_), gv(platform_gv_dim_);
-                arm_hand_platform_->getState(gc, gv);
                 Eigen::VectorXd now_joint_vel(platform_gc_dim_);
                 now_joint_vel.head(arm_dim_) = arm_->getJointVelocity();
                 now_joint_vel.tail(hand_dim_) = hand_->getJointVelocity();
 
                 for (int i = 0; i < platform_gc_dim_; i++) {
-                    csv_file_ << save_target_[i] << "," << now_joint[i] << "," << gc[i] << "," << now_joint_vel[i] << "," << gv[i] << ",";
+                    csv_file_ << save_target_[i] << "," << save_current_[i] << ","  << now_joint[i] << "," << now_joint_vel[i] << ",";
                 }
                 csv_file_ << "\n";
+                csv_file_.flush();
             }
 
             // Align the joints position in simulation and the real world
@@ -266,7 +279,11 @@ public:
      * @param[out] genvel joint velocity (rad/s)
      * @return None
      */
-    void getState(Eigen::VectorXd &genco, Eigen::VectorXd &genvel) {
+    void getState(Eigen::VectorXd &genco, Eigen::VectorXd &genvel, bool force_sim = false) {
+        if (force_sim) {
+            arm_hand_platform_->getState(genco, genvel);
+            return;
+        }
         genco.head(arm_dim_) = arm_->getJointPosition();
         genco.tail(hand_dim_) = hand_->getJointPosition();
         genvel.head(arm_dim_) = arm_->getJointVelocity();
@@ -315,6 +332,10 @@ public:
         if (real_world_mode_) {
             std::cout << "--------------set state = " << genco.transpose() << std::endl;
             int cnt = 15;
+            double max_gap[16] = {0.04, 0.05, 0.04, 0.04, 
+            0.04, 0.04, 0.04, 0.04,
+            0.04, 0.04, 0.04, 0.04,
+            0.08, 0.04, 0.08, 0.04};
             while (cnt > 0) {
                 cnt--;
                 hand_->setPdTarget(genco.tail(hand_dim_), genvel.tail(hand_dim_), false);
@@ -327,12 +348,17 @@ public:
 
                 bool end_flag = true;
                 for (int i = 0; i < platform_gc_dim_; i++) {
-                    if (i < 6 && std::abs(now_joint[i] - genco[i]) > 0.005) {
-                        printf("arm joint[%d] has a large gap: %f --- %f\n", i, now_joint[i], genco[i]);
-                        end_flag = false;
-                    } else if (i >= 6 && std::abs(now_joint[i] - genco[i]) > 0.1) {
-                        printf("hand joint[%d] has a large gap: %f --- %f\n", i - 6, now_joint[i], genco[i]);
-                        end_flag = false;
+                    double diff = std::abs(now_joint[i] - genco[i]);
+                    if (i < 6) {
+                        if (diff > 0.005) {
+                            printf("arm joint[%d] has a large gap: %f --- %f\n", i, now_joint[i], genco[i]);
+                            end_flag = false;
+                        }
+                    } else {
+                        if (diff > max_gap[i-6]) {
+                            printf("hand joint[%d] has a large gap: %f-%f=%f\n", i - 6, now_joint[i], genco[i], diff);
+                            end_flag = false;
+                        }
                     } 
                 }
                 if (end_flag) {
@@ -341,7 +367,7 @@ public:
                     // save state
                     if (save_state_) {
                         for (int i = 0; i < platform_gc_dim_; i++) {
-                            csv_file_ << genco[i] << "," << now_joint[i] << "," << genco[i] << "," << genvel[i] << "," << genvel[i] << ",";
+                            csv_file_ << genco[i] << "," << genco[i] << "," << now_joint[i] << "," << genvel[i] << ",";
                         }
                         csv_file_ << "\n";
                     }

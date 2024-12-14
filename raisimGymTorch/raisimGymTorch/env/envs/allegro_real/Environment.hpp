@@ -29,6 +29,9 @@ namespace raisim {
             if (visualizable_) {
                 std::cout<<"visualizable_: "<<visualizable_<<std::endl;
             }
+            eval_sysid = cfg["hardware"]["log_real"]["eval_sysid"].As<bool>();
+            old_sysid_param = cfg["hardware"]["log_real"]["old_sysid_param"].As<bool>();
+            std::cout << "+++++++++++++++++++++++++++ old sysid = " << old_sysid_param << std::endl;
             lift = false;
             lift_num = 0;
 
@@ -138,7 +141,7 @@ namespace raisim {
             contacts_arm_table.setZero(6); impulses_arm_table.setZero(6);
             contacts_arm_all.setZero(6);
 
-            pTarget_clipped_r.setZero(gcDim_);
+            pTarget_clipped_r.setZero(gcDim_); pTarget_prev_r.setZero(gcDim_);
 
             /// initialize 3D positions weights for fingertips higher than for other fingerparts
             finger_weights_contact.setOnes(num_contacts);
@@ -245,6 +248,37 @@ namespace raisim {
 
                 if(server_) server_->unlockVisualizationServerMutex();
             }
+
+            if (eval_sysid) {
+                test_sysid.open("/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/joint.csv");
+                if (!test_sysid) {
+                    std::cout << "open file error" << std::endl;
+                    exit(0);
+                } else {
+                    std::string line;
+                    if (getline(test_sysid, line)) {
+                        std::cout << "csv read :::: " << line << std::endl;
+                    }
+                }
+
+                test_sysid_out.open("/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/joint_eval.csv", std::ios::out);
+                if (!test_sysid_out.is_open()) {
+                    std::cout << "open file output fail: "<< std::endl;
+                    exit(0);
+                } else {
+                    for (int i = 0; i < 16+6; i++) {
+                        std::string c;
+                        if (i > 5) {
+                            c = "hand" + std::to_string(i-6);
+                        } else {
+                            c = "arm" + std::to_string(i);
+                        }
+                        test_sysid_out << c << ":tar," << c << ":tar-real," << c << ":real-simold," << c << ":real-simnew,,";
+                    }
+                    test_sysid_out << "\n";
+                }
+            }
+
         }
 
         void init() final { }
@@ -390,6 +424,7 @@ namespace raisim {
                 gv_set_r_.setZero(gvDim_);
                 pTarget_r_ = gc_set_r_;
                 pTarget_clipped_r = gc_set_r_;
+                pTarget_prev_r = gc_set_r_;
                 vTarget_r_.setZero(gvDim_);
                 actionMean_r_.setZero();
 //                actionMean_r_.tail(gcDim_-6) = gc_set_r_.tail(gcDim_-6);
@@ -474,6 +509,98 @@ namespace raisim {
 
         }
 
+        void reset_state2(const Eigen::Ref<EigenVec>& init_state_r,
+                         const Eigen::Ref<EigenVec>& init_state_l,
+                         const Eigen::Ref<EigenVec>& init_vel_r,
+                         const Eigen::Ref<EigenVec>& init_vel_l,
+                         const Eigen::Ref<EigenVec>& obj_pose) final {
+            lift = false;
+            lift_num = 0;
+            obs_history.clear();
+            /// reset gains (only required in case for inference)
+            mano_r_->setPdGains(0);
+
+            Eigen::VectorXd gen_force;
+            gen_force.setZero(gcDim_);
+            mano_r_->setGeneralizedForce(gen_force);
+
+            /// reset table position (only required in case for inference)
+            box->setPosition(0.2, -0.75152, 0.3855 + 0.01);
+            box->setOrientation(1,0,0,0);
+            box->setVelocity(0,0,0,0,0,0);
+
+            mano_r_->setGeneralizedForce(Eigen::VectorXd::Zero(gcDim_));
+
+            gc_set_r_ = init_state_r.cast<double>(); //.cast<double>();
+            gv_set_r_ = init_vel_r.cast<double>(); //.cast<double>();
+            //mano_r_->setState(gc_set_r_, gv_set_r_);
+
+            /// set initial root position in global frame as origin in new coordinate frame
+//            init_root_r_  = init_state_r.head(3);
+            init_obj_ = obj_pose.head(3).cast<double>();
+            if (visualizable_){
+                obj_pose_sphere->setPosition(init_obj_.e());
+            }
+
+            /// set initial root orientation in global frame as origin in new coordinate frame
+            raisim::Vec<4> quat;
+            raisim::eulerToQuat(init_state_r.segment(3,3),quat); // initial base ori, in quat
+            raisim::quatToRotMat(quat, init_rot_r_); // ..., in matrix
+            raisim::transpose(init_rot_r_, init_or_r_); // ..., inverse
+
+            if (dummy_obj_flag_ == false) {
+                int arcticCoordDim = arctic->getGeneralizedCoordinateDim();
+                int arcticVelDim = arctic->getDOF();
+                Eigen::VectorXd arcticCoord, arcticVel;
+                arcticCoord.setZero(arcticCoordDim);
+                arcticVel.setZero(arcticVelDim);
+                arcticCoord = obj_pose.cast<double>().tail(arcticCoordDim);
+
+                raisim::quatToRotMat(obj_pose.segment(3,4), init_obj_rot_);
+                arctic->setBasePos(init_obj_);
+                arctic->setBaseOrientation(init_obj_rot_);
+                arctic->setState(arcticCoord, arcticVel);
+            }
+
+            mano_r_->setBasePos(base_pos);
+            mano_r_->setBaseOrientation(base_mat);
+
+            if (eval_sysid) {
+                std::string line;
+                if (getline(test_sysid, line)) {
+                    std::stringstream ss(line);
+                    std::string str;
+                    int col = 0;
+                    while (getline(ss, str, ',')){
+                        if (col % 4 == 0) {
+                            std::stringstream double_str(str); 
+                            double_str >> gc_set_r_[col / 4];
+                        }
+                        col++;
+                    }
+                } else {
+                    std::cout << "errunknow " << std::endl;
+                    exit(0);
+                }
+            }
+
+            mano_r_->setState(gc_set_r_, gv_set_r_, true);
+
+            /// Set action mean to initial pose (first 6DoF since start at 0)
+//            actionMean_r_.setZero();
+//            actionMean_r_.tail(gcDim_-6) = gc_set_r_.tail(gcDim_-6);
+            actionMean_r_ = gc_set_r_;
+
+            gen_force.setZero(gcDim_);
+            mano_r_->setGeneralizedForce(gen_force);
+
+            updateObservation(false, true);
+            raisim::Mat<3,3> wrist_mat_r;
+            mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
+            raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
+
+        }
+
         void update_target(const Eigen::Ref<EigenVec>& target_center) final {
             afford_center = target_center.cast<double>();
         }
@@ -504,9 +631,7 @@ namespace raisim {
 
             /// Clip targets to limits
             pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
-
             mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
-
 
             /// Apply N control steps
             int step_cnt = 0;
@@ -530,18 +655,108 @@ namespace raisim {
             rewards_sum_[0] = 0;
             rewards_sum_[1] = 0;
             return rewards_sum_;
+        }
+
+        float* step2(const Eigen::Ref<EigenVec>& action_r, const Eigen::Ref<EigenVec>& action_l) final {
+            /// Compute position target for actuators
+            pTarget_r_ = action_r.cast<double>();
+            pTarget_r_ = pTarget_r_.cwiseProduct(actionStd_r_); //residual action * scaling
+            pTarget_r_ += actionMean_r_; //add wrist bias (first 3DOF) and last pose (23DoF)
+            if (lift){
+                lift_num += 1;
+                if(lift_num > 80) lift_num = 80;
+                pTarget_r_.head(6) = arm_gc_lift + (action_r.cast<double>().head(6) - arm_gc_lift) * lift_num / 80;
+            }
+
+            /// Clip targets to limits
+            pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
+
+            bool end_flag = false;
+            Eigen::VectorXd set_gc, set_gv, real_data;
+            if (eval_sysid) {
+                set_gc.setZero(gcDim_);set_gv.setZero(gcDim_);
+
+                real_data.setZero(gcDim_);
+                std::string line;
+                if (getline(test_sysid, line)) {
+                    std::stringstream ss(line);
+                    std::string str;
+                    int col = 0;
+                    while (getline(ss, str, ',')){
+                        if (col % 4 == 0) {
+                            std::stringstream double_str(str); 
+                            double_str >> pTarget_clipped_r[col / 4];
+                        } else if (col % 4 == 1) {
+                            std::stringstream double_str(str); 
+                            double_str >> set_gc[col / 4];
+                        } else if (col % 4 == 2) {
+                            std::stringstream double_str(str); 
+                            double_str >> real_data[col / 4];
+                        }
+                        col++;
+                    }
+                } else {
+                    end_flag = true;
+                    test_sysid_out.flush();
+                    exit(0);
+                }
+
+                mano_r_->setState(set_gc, set_gv, true);
+            }
+
+            // randomly sample delay_flag with C++:
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<> dis(0, 1);
+            bool delay_flag = dis(gen);
+
+            /// Apply N control steps
+            for (int i = 0; i < int(control_dt_ / simulation_dt_ + 1e-10); i++){
+                if((delay_flag == 0)&&(i == 0)){
+                    mano_r_->setPdTarget(pTarget_prev_r, vTarget_r_, true);
+                }
+                else{
+                    mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_, true);
+                }
+
+                if(server_) server_->lockVisualizationServerMutex();
+                world_->integrate();
+                if(server_) server_->unlockVisualizationServerMutex();
+            }
+
+            pTarget_prev_r = pTarget_clipped_r;
+            /// update observation and set new mean to the latest pose
+            updateObservation(lift == false, true);
+            actionMean_r_ = gc_r_;
+
+            if (eval_sysid) {
+                if (end_flag == false) {
+                    for (int i = 0; i < 16+6; i++) {
+                        if (old_sysid_param) {
+                            test_sysid_out << pTarget_clipped_r[i] << "," << pTarget_clipped_r[i] - set_gc[i] << "," << real_data[i] - gc_r_[i] << ",,,";
+                        } else {
+                            test_sysid_out << pTarget_clipped_r[i] << "," << pTarget_clipped_r[i] - set_gc[i] << ",," << real_data[i] - gc_r_[i] << ",,";
+                        }
+                    }
+                    test_sysid_out << "\n";
+                }
+            }
+
+            rewards_sum_[0] = 0;
+            rewards_sum_[1] = 0;
+            return rewards_sum_;
 
 //            mano_r_->setState(action_r.cast<double>(), gv_set_r_);
         }
 
         /// This function computes and updates the observation/state space
-        void updateObservation(bool start = false) {
-            mano_r_->updateObservation(start);
+        void updateObservation(bool start = false, bool force_sim = false) {
+            mano_r_->updateObservation(start, force_sim);
 
             raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
             raisim::transpose(wrist_mat_r, wrist_mat_r_trans);
-            mano_r_->getState(gc_r_, gv_r_);
+            mano_r_->getState(gc_r_, gv_r_, force_sim);
             right_hand_torque = (pTarget_clipped_r - gc_r_);
 
             raisim::Vec<3> wrist_pos_w;
@@ -676,6 +891,8 @@ namespace raisim {
         bool new_category = false;
         bool lift = false;
         bool dummy_obj_flag_ = false;
+        bool eval_sysid = false;
+        bool old_sysid_param = false;
         int lift_num = 0;
         raisim::ArticulatedSystem* mano_;
         Eigen::VectorXd gc_r_, gv_r_, pTarget_r_, vTarget_r_, gc_set_r_, gv_set_r_;
@@ -722,7 +939,7 @@ namespace raisim {
         raisim::Vec<3> wrist_vel, wrist_qvel;
         Eigen::Vector3d wrist_vel_in_wrist, wrist_qvel_in_wrist;
         Eigen::VectorXd right_hand_torque;
-        Eigen::VectorXd pTarget_clipped_r;
+        Eigen::VectorXd pTarget_clipped_r, pTarget_prev_r;
         Eigen::Vector3d hand_center, afford_center, wrist_target_o, obj_center_o;
 //        Eigen::Vector3d grasp_axis_o, across_axis_o, across_axis_wrist;
         std::deque<Eigen::VectorXd> obs_history;
@@ -767,6 +984,9 @@ namespace raisim {
         std::vector<std::string> contact_arm_bodies;
 
         Eigen::VectorXd mean_pose;
+
+        std::ifstream test_sysid;
+        std::ofstream test_sysid_out;
 
         raisim::PolyLine *lines[17];
         raisim::Visuals *table_top, *leg1,*leg2,*leg3,*leg4, *plane;

@@ -31,7 +31,7 @@ from raisimGymTorch.env.hardware.log_data import d435_record
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'hui/full_11500_r.pt'
+weight_path_student = 'hui/full_3000_r.pt'
 
 
 # configuration
@@ -260,7 +260,7 @@ for update in range(args.num_iterations):
                     distance = np.random.uniform(0.45, 0.75)
                     sample_x = distance * np.cos(angle)
                     sample_y = distance * np.sin(angle)
-                    if sample_y < 0.3 - 0.75152:
+                    if sample_y < 0.3 - 0.75152 and sample_x < 0.3 and sample_x > -0.3:
                         # print(sample_x, sample_y, distance)
                         break
                 obj_pose_reset[i, 0] = sample_x
@@ -411,81 +411,91 @@ for update in range(args.num_iterations):
                             print("======== bad reset pose, use defalut pose = " + str(qpos_reset_r))
                         break
 
+    if qpos_reset_r[0, 0] > np.pi:
+        qpos_reset_r[0, 0] -= 2*np.pi
     print(f" ================== samble obj reset pose = {obj_pose_reset}")
 
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
     env.set_sample_point_visual(vis_point)
 
-    if cfg['environment']['hardware']['log_real']['record_video'] == True:
-        recoder_ = d435_record.RecordVideo(cfg['environment']['hardware']['log_real']['mp4_record_path'], save_size=(1920, 1080), save_fps=8)
-
-    env.reset_state(qpos_reset_r,
-                    qpos_reset_l,
-                    np.zeros((num_envs, 22), 'float32'),
-                    np.zeros((num_envs, 22), 'float32'),
-                    obj_pose_reset,
-                    )
-
-    #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-    obs_new_r, dis_info = env.observe_vision_new()
-    aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-    env.set_joint_sensor_visual(show_point)
-
-    final_actions = np.zeros((num_envs, act_dim), dtype='float32')
-
-    print("---------------start")
-
-    for step in range(n_steps_r):
-
-        frame_start = time.time()
-
-        # cost 0.3~1.3ms 
-        obs_r = obs_new_r
-        obs_r = obs_r[:, :].astype('float32')
-        encode_obs = torch.from_numpy(obs_r[:, :tobeEncode_dim * t_steps]).to(device)
-        student_latent = prop_latent_encoder(encode_obs)
-        student_mlp_obs = torch.cat((torch.from_numpy(obs_r[:, -ob_dim_r:-ob_dim_r + tobeEncode_dim]),
-                                     student_latent.cpu(),
-                                     torch.from_numpy(obs_r[:, -ob_dim_r + tobeEncode_dim + prop_latent_dim:-aff_vec_dim]),
-                                     torch.from_numpy(aff_vec)), dim=1).to(device)
-
-        action_r = actor_student_r.architecture.architecture(student_mlp_obs.to(device))
-        action_r = action_r.cpu().detach().numpy()
-        action_l = np.zeros_like(action_r)
-        if step < grasp_steps:
-            final_actions = action_r
+    for test_cnt in ["real"]:
+    #for test_cnt in ["sim", "real"]:
+        if test_cnt == "sim":
+            print("--------------------------- test in sim first ---------------------- ")
+            env.reset_state2(qpos_reset_r,
+                            qpos_reset_l,
+                            np.zeros((num_envs, 22), 'float32'),
+                            np.zeros((num_envs, 22), 'float32'),
+                            obj_pose_reset,
+                            )
         else:
-            action_r = final_actions
-            action_r[:, :6] = theta0
-            if step == grasp_steps:
-                print("lift")
-                env.switch_root_guidance(True)
+            print("--------------------------- test in real second ---------------------- ")
+            env.reset_state(qpos_reset_r,
+                            qpos_reset_l,
+                            np.zeros((num_envs, 22), 'float32'),
+                            np.zeros((num_envs, 22), 'float32'),
+                            obj_pose_reset,
+                            )
 
-        frame_start2 = time.time()
+        obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+        #obs_new_r, dis_info = env.observe_vision_new()
+        #aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        #env.set_joint_sensor_visual(show_point)
 
-        # cost 0.3~1ms in simulation
-        reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
+        final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
-        #time.sleep(0.5)
-        frame_start3 = time.time()
+        for step in range(n_steps_r):
 
-        # cost 1-5ms
-        #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-        obs_new_r, dis_info = env.observe_vision_new()
-        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-        env.set_joint_sensor_visual(show_point)
+            frame_start = time.time()
 
-        frame_start4 = time.time()
-        wait_time = cfg['environment']['control_dt'] - (frame_start4 - frame_start)
-        if wait_time > 0.:
-            time.sleep(wait_time)
+            # cost 0.3~1.3ms 
+            obs_r = obs_new_r
+            obs_r = obs_r[:, :].astype('float32')
+            encode_obs = torch.from_numpy(obs_r[:, :tobeEncode_dim * t_steps]).to(device)
+            student_latent = prop_latent_encoder(encode_obs)
+            student_mlp_obs = torch.cat((torch.from_numpy(obs_r[:, -ob_dim_r:-ob_dim_r + tobeEncode_dim]),
+                                        student_latent.cpu(),
+                                        torch.from_numpy(obs_r[:, -ob_dim_r + tobeEncode_dim + prop_latent_dim:-aff_vec_dim]),
+                                        torch.from_numpy(aff_vec)), dim=1).to(device)
 
-        end = time.time()
-        print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
-    print("end")
-    
-    if cfg['environment']['hardware']['log_real']['record_video'] == True:
-        recoder_.stop_record()
+            action_r = actor_student_r.architecture.architecture(student_mlp_obs.to(device))
+            action_r = action_r.cpu().detach().numpy()
+            action_l = np.zeros_like(action_r)
+            if step < grasp_steps:
+                final_actions = action_r
+            else:
+                action_r = final_actions
+                action_r[:, :6] = theta0
+                if step == grasp_steps:
+                    print("lift")
+                    env.switch_root_guidance(True)
+
+            frame_start2 = time.time()
+
+            # cost 0.3~1ms in simulation
+            if test_cnt == "sim":
+                reward_r, _, dones = env.step2(action_r.astype('float32'), action_l.astype('float32'))
+            else:
+                reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
+
+            #time.sleep(0.5)
+            frame_start3 = time.time()
+            wait_time = cfg['environment']['control_dt'] - (frame_start3 - frame_start2)
+            if wait_time > 0.:
+                time.sleep(wait_time)
+            frame_start4 = time.time()
+
+            # cost 1-5ms
+            if test_cnt == "real":
+                obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+            else:
+                obs_new_r, dis_info = env.observe_vision_new()
+                aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+                env.set_joint_sensor_visual(show_point)
+
+            end = time.time()
+            print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
+        print("end")
 
     exit(0)
 

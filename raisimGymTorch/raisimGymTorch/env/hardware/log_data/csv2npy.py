@@ -17,17 +17,17 @@ for cnt in range(CSV_NUM):
     simVel_idx = []
 
     for i in range(22):
-        tarPos_idx.append(0 + i * 5)
-        realPos_idx.append(1 + i * 5)
-        simPos_idx.append(2 + i * 5)
-        realVel_idx.append(3 + i * 5)
-        simVel_idx.append(4 + i * 5)
+        tarPos_idx.append(0 + i * 4)
+        realPos_idx.append(2 + i * 4)
+        #simPos_idx.append(2 + i * 4)
+        realVel_idx.append(3 + i * 4)
+        #simVel_idx.append(4 + i * 4)
 
     tarPos = np.array(df[tarPos_idx].values)
     realPos = np.array(df[realPos_idx].values)
-    simPos = np.array(df[simPos_idx].values)
+    simPos = np.array(0.0)
     realVel = np.array(df[realVel_idx].values)
-    simVel = np.array(df[simVel_idx].values)
+    simVel = np.array(0.0)
 
 
     data = {
