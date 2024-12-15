@@ -69,7 +69,11 @@ public:
             randomize_gains_arm_d_ = cfg["randomize_gains_arm_d"].As<double>();
         }
         if (!cfg["randomize_friction"].IsNone()) {
-            randomize_friction_ = cfg["randomize_friction"].As<bool>();
+            std::stringstream ss(cfg["randomize_friction"].As<std::string>());
+            std::string token;
+            while (std::getline(ss, token, ',')) {
+                randomize_friction_.push_back(std::stod(token));
+            }
         }
 
         srand(time(0));
@@ -542,10 +546,9 @@ public:
         return arm_hand_platform_->getTotalMass();
     }
     void setMaterialFriction(std::unique_ptr<raisim::World> &world, raisim::ArticulatedSystem *arctic) {
-        if (randomize_friction_) {
+        if (randomize_friction_.size() > 0) {            
             arctic->getCollisionBody("top/0").setMaterial("object");
-            double friction_list[] = {0.4,0.5,0.6,0.7};
-            double random_friction = friction_list[std::rand() % 4];
+            double random_friction = randomize_friction_[std::rand() % randomize_friction_.size()];
             world->setMaterialPairProp("object", "object", random_friction+0.1, 0.0, 0.0);
             world->setMaterialPairProp("object", "finger", random_friction, 0.0, 0.0);
             world->setMaterialPairProp("finger", "finger", random_friction+0.1, 0.0, 0.0);
@@ -608,7 +611,7 @@ private:
     double randomize_gains_hand_d_ = 0.0;
     double randomize_gains_arm_p_ = 0.0;
     double randomize_gains_arm_d_ = 0.0;
-    bool randomize_friction_ = false;
+    std::vector<double> randomize_friction_;
 
     bool flying_hand_mode_ = false;
     bool real_world_mode_ = false;
