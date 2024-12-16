@@ -93,7 +93,7 @@ obj_item = cfg['environment']['hardware']['pointcloud_real']['obj_mesh']
 # cat_name = 'mixed_train'
 cat_name = 'ycb_urdf_all'
 # cat_name = 'affordance_level'
-cfg['environment']['load_set'] = cat_name
+cat_name = cfg['environment']['load_set']
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
 
@@ -106,7 +106,6 @@ obj_path_list = []
 obj_ori_list = folder_names
 
 if obj_item == 'random':
-    obj_ori_list.remove('real')
     obj_ori_list.remove('dummy')
     obj_item = choice(obj_ori_list)
 
@@ -418,7 +417,7 @@ for update in range(args.num_iterations):
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
     env.set_sample_point_visual(vis_point)
 
-    for test_cnt in ["real"]:
+    for test_cnt in ["sim"]:
     #for test_cnt in ["sim", "real"]:
         if test_cnt == "sim":
             print("--------------------------- test in sim first ---------------------- ")
