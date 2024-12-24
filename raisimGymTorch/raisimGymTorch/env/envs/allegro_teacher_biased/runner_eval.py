@@ -78,7 +78,20 @@ exp_name = "arm_rand"
 # weight_saved = '2024-12-04-10-15-15/full_14500_r.pt'
 # weight_saved = '2024-12-04-17-35-23/full_15500_r.pt'
 # weight_saved = '2024-12-06-10-18-17/full_12500_r.pt'
-weight_saved = '2024-12-06-17-04-47/full_31000_r.pt'
+# weight_saved = '2024-12-06-17-04-47/full_31000_r.pt'
+# weight_saved = '2024-12-11-15-33-22/full_14000_r.pt'
+# weight_saved = '2024-12-12-09-55-30/full_27000_r.pt'
+# weight_saved = '2024-12-13-10-04-10/full_24000_r.pt'
+# weight_saved = '2024-12-13-15-47-58/full_25000_r.pt'
+# weight_saved = '2024-12-15-09-58-40/full_8500_r.pt'
+# weight_saved = '2024-12-15-11-00-37/full_8500_r.pt'
+# weight_saved = '2024-12-17-10-54-17/full_24000_r.pt'
+# weight_saved = '2024-12-17-10-56-52/full_18000_r.pt'
+# weight_saved = '2024-12-17-13-02-44/full_19000_r.pt'
+# weight_saved = '2024-12-19-18-02-00/full_30000_r.pt'
+# weight_saved = '2024-12-20-13-06-20/full_17500_r.pt'
+# weight_saved = '2024-12-20-13-10-39/full_14000_r.pt'
+weight_saved = '2024-12-20-13-16-37/full_17500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -244,7 +257,7 @@ for update in range(args.num_iterations):
     qpos_reset_r[:, 11] = 0.8
     qpos_reset_r[:, 15] = 0.8
     qpos_reset_r[:, 19] = 0.
-    qpos_reset_r[:, 20] = -0.1
+    qpos_reset_r[:, 20] = 0.
 
     hand_center_sample_w = np.zeros((1, 3))
     hand_center_sample_w[0, 0] = 0.669872 - 0.55
@@ -611,7 +624,8 @@ for update in range(args.num_iterations):
         action_l = np.zeros_like(action_r)
         # action_r[:, :6] = 0
 
-        # print(action_r[:, :6])
+        print(action_r[:, :6])
+        print(action_r[:, 6:])
 
         if step < grasp_steps:
             final_actions = action_r
@@ -631,6 +645,9 @@ for update in range(args.num_iterations):
         show_point = dis_info[:, 17:68].astype('float32').copy()
         env.set_joint_sensor_visual(show_point)
 
+        # gs = env.get_global_state()
+        # print(gs[0, 107])
+
         if biased:
             obj_pos_bias_current = np.zeros((num_envs, 3), dtype='float32')
             for i in range(num_envs):
@@ -644,6 +661,9 @@ for update in range(args.num_iterations):
         if wait_time > 0.:
             time.sleep(wait_time)
 
+    # global_state = env.get_global_state()
+    # lifted = (global_state[:, 107] - obj_pose_reset[:, 2] > 0.1) * (np.linalg.norm(global_state[:, 112:115] - global_state[:, 105:108], axis=1) < 0.2)
+    # print(lifted)
     print("end")
 
 

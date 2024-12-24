@@ -65,8 +65,6 @@ parser.add_argument('-renew', '--renew', help='update labels every iteration', a
 parser.add_argument('-ln', '--log_name', type=str, default='single_obj')
 parser.add_argument('-mean', '--mean_pose', action="store_true")
 
-new_allegro = True
-
 args = parser.parse_args()
 weight_path = args.weight
 cfg_grasp = args.cfg
@@ -142,6 +140,20 @@ obj_item = choice(obj_ori_list)
 # obj_item = '052_extra_large_clamp'
 # obj_item = '061_foam_brick'
 
+if not cfg['environment']['randomization_eval']:
+    print("no randomization")
+    cfg['environment']['hardware']['randomize_friction'] = "0.8"
+    cfg['environment']['hardware']['randomize_gains_hand_p'] = 0.
+    cfg['environment']['hardware']['randomize_gains_hand_d'] = 0.
+    cfg['environment']['hardware']['randomize_gains_arm_p'] = 0.
+    cfg['environment']['hardware']['randomize_gains_arm_d'] = 0.
+    cfg['environment']['hardware']['randomize_gc_hand'] = 0.
+    cfg['environment']['hardware']['randomize_gc_arm'] = 0.
+    cfg['environment']['hardware']['randomize_frame_position'] = 0.
+    cfg['environment']['hardware']['randomize_frame_orientation'] = 0.
+else:
+    print("randomization")
+
 # Environment definition
 env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
@@ -212,7 +224,7 @@ for update in range(args.num_iterations):
     qpos_reset_r[:, 11] = 0.8
     qpos_reset_r[:, 15] = 0.8
     qpos_reset_r[:, 19] = 0.
-    qpos_reset_r[:, 20] = -0.1
+    qpos_reset_r[:, 20] = 0.
 
 
 
@@ -241,6 +253,10 @@ for update in range(args.num_iterations):
 
     theta0 = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
     joint_weights = [1, 1, 1, 1, 1, 1]
+
+    ik = InverseKinematicsUR5()
+    ik.setJointWeights(joint_weights)
+    ik.setJointLimits(-3.14, 3.14)
 
     for i in range(num_envs):
         # get_meaningful_ik = False
@@ -319,9 +335,6 @@ for update in range(args.num_iterations):
                 gd[1, 3] = pos_in_ur5_new[1, 0]
                 gd[2, 3] = pos_in_ur5_new[2, 0]
 
-                ik = InverseKinematicsUR5()
-                ik.setJointWeights(joint_weights)
-                ik.setJointLimits(-3.14, 3.14)
                 if ik.findClosestIK(gd, theta0) is None:
                     no_feasible_ik = True
                     continue
@@ -368,7 +381,7 @@ for update in range(args.num_iterations):
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True, z_dir_cmd=z_dir_in_world)
                 if rot is None:
-                    qpos_reset_r[i, :6] = [angle + np.pi, -1.57, 1.57, 0., 1.57, -1.57]
+                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 wrist_in_world = rot
                 qpos_reset_r[i, :3] = pos[0, :]
@@ -390,13 +403,13 @@ for update in range(args.num_iterations):
                 gd[2, 3] = pos_in_ur5_new[2, 0]
 
                 if ik.findClosestIK(gd, theta0) is None:
-                    qpos_reset_r[i, :6] = [angle + np.pi, -1.57, 1.57, 0., 1.57, -1.57]
+                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 else:
                     qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
 
                 if math.isnan(qpos_reset_r[i, 0]):
-                    qpos_reset_r[i, :6] = [angle + np.pi, -1.57, 1.57, 0., 1.57, -1.57]
+                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 else:
                     # check self collision
@@ -414,11 +427,11 @@ for update in range(args.num_iterations):
                     contains_one = np.any(one_check == 1, axis=1)
                     true_indices = np.where(contains_one)[0]
                     if len(true_indices) > 0:
-                        qpos_reset_r[i, :6] = [angle + np.pi, -1.57, 1.57, 0., 1.57, -1.57]
+                        qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                         break
                     else:
                         if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            qpos_reset_r[i, :6] = [angle + np.pi, -1.57, 1.57, 0., 1.57, -1.57]
+                            qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                         break
 
     env.reset_state(qpos_reset_r,

@@ -47,8 +47,8 @@ exp_name = "arm_rand_student"
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
 weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 
-# weight_path_student = '2024-12-11-09-43-04/full_3000_r.pt'
-weight_path_student = '2024-12-16-22-33-03/full_3000_r.pt'
+weight_path_student = '2024-12-11-09-43-04/full_3000_r.pt'
+# weight_path_student = '2024-12-16-22-33-03/full_8000_r.pt'
 
 
 # configuration
@@ -92,12 +92,10 @@ cfg = YAML().load(open(task_path + '/cfgs/' + args.cfg, 'r'))
 if args.seed != 1:
     cfg['seed'] = args.seed
 
-num_envs = args.num_repeats
-activations = nn.LeakyReLU
+# num_envs = args.num_repeats
+# activations = nn.LeakyReLU
 
-cfg['environment']['visualize'] = True
-cfg['environment']['num_envs'] = num_envs
-print('num envs', num_envs)
+cfg['environment']['visualize'] = False
 
 
 # cat_name = 'mixed_test'
@@ -106,7 +104,6 @@ print('num envs', num_envs)
 # cat_name = 'mixed_train'
 # cat_name = 'ycb_urdf_all'
 cat_name = 'large_scale'
-# cat_name = 'real_obj'
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
@@ -116,14 +113,14 @@ items = os.listdir(directory_path)
 # # Filter out only the folders (directories) from the list of items
 folder_names = [item for item in items if os.path.isdir(os.path.join(directory_path, item))]
 
-print(len(folder_names))
-
+obj_list = []
 obj_path_list = []
 obj_ori_list = folder_names
 
-obj_item = choice(obj_ori_list)
-# obj_item = 'backet_functional'
+if cat_name == 'large_scale':
+    obj_ori_list = obj_ori_list[:]
 
+# obj_item = choice(obj_ori_list)
 # obj_item = '002_master_chef_can'
 # obj_item = '003_cracker_box'
 # obj_item = '004_sugar_box'
@@ -146,6 +143,24 @@ obj_item = choice(obj_ori_list)
 # obj_item = '052_extra_large_clamp'
 # obj_item = '061_foam_brick'
 
+# Environment definition
+
+if cat_name != 'large_scale':
+    num_envs = len(obj_ori_list) * 3
+else:
+    num_envs = len(obj_ori_list)
+activations = nn.LeakyReLU
+cfg['environment']['num_envs'] = num_envs
+print('num envs', num_envs)
+
+if cat_name != 'large_scale':
+    for i in range(3):
+        for item in obj_ori_list:
+            obj_list.append(item)
+else:
+    for item in obj_ori_list:
+        obj_list.append(item)
+
 if not cfg['environment']['randomization_eval']:
     print("no randomization")
     cfg['environment']['hardware']['randomize_friction'] = "0.8"
@@ -160,13 +175,13 @@ if not cfg['environment']['randomization_eval']:
 else:
     print("randomization")
 
-# Environment definition
-env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
+env = VecEnv(obj_list, mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
 
 print("initialization finished")
 
-obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
+for obj_item in obj_list:
+    obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
 
@@ -184,7 +199,7 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 
 # Training
 reward_clip = -2.0
-grasp_steps = cfg['environment']['grasp_steps']
+grasp_steps = cfg['environment']['grasp_steps'] + 30
 lift_steps = 100
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
@@ -215,7 +230,9 @@ for i in range(num_envs):
     with open(txt_file_path, 'r') as txt_file:
         lowest_points[i] = float(txt_file.read())
 
-for update in range(args.num_iterations):
+success_rate = 0.0
+
+for update in range(5):
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -265,6 +282,7 @@ for update in range(args.num_iterations):
     ik.setJointLimits(-3.14, 3.14)
 
     for i in range(num_envs):
+        # print(i, obj_list[i])
         # get_meaningful_ik = False
         # while not get_meaningful_ik:
         # sample object states (not relavent for hardware deployment)
@@ -351,29 +369,11 @@ for update in range(args.num_iterations):
                     no_feasible_ik = True
                     continue
                 else:
-                    # check self collision
-                    env.reset_state(qpos_reset_r,
-                                    qpos_reset_l,
-                                    np.zeros((num_envs, 22), 'float32'),
-                                    np.zeros((num_envs, 22), 'float32'),
-                                    obj_pose_reset,
-                                    )
-                    temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
-                    temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
-                    _, _, _ = env.step(temp_action_r, temp_action_l)
-                    global_state = env.get_global_state()
-                    one_check = global_state[:, 124:128]
-                    contains_one = np.any(one_check == 1, axis=1)
-                    true_indices = np.where(contains_one)[0]
-                    if len(true_indices) > 0:
+                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
                         no_feasible_ik = True
                         continue
                     else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            no_feasible_ik = True
-                            continue
-                        else:
-                            break
+                        break
             else:
                 # get the x_dir of the grasping frame
                 hand_dir_x_w = np.zeros((1, 3))
@@ -418,27 +418,36 @@ for update in range(args.num_iterations):
                     qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 else:
-                    # check self collision
-                    env.reset_state(qpos_reset_r,
-                                    qpos_reset_l,
-                                    np.zeros((num_envs, 22), 'float32'),
-                                    np.zeros((num_envs, 22), 'float32'),
-                                    obj_pose_reset,
-                                    )
-                    temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
-                    temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
-                    _, _, _ = env.step(temp_action_r, temp_action_l)
-                    global_state = env.get_global_state()
-                    one_check = global_state[:, 124:128]
-                    contains_one = np.any(one_check == 1, axis=1)
-                    true_indices = np.where(contains_one)[0]
-                    if len(true_indices) > 0:
+                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
                         qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                        break
-                    else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                        break
+                    break
+
+    # check self collision
+    env.reset_state(qpos_reset_r,
+                    qpos_reset_l,
+                    np.zeros((num_envs, 22), 'float32'),
+                    np.zeros((num_envs, 22), 'float32'),
+                    obj_pose_reset,
+                    )
+    temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
+    temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
+    _, _, _ = env.step(temp_action_r, temp_action_l)
+    global_state = env.get_global_state()
+    one_check = global_state[:, 124:128]
+    contains_one = np.any(one_check == 1, axis=1)
+    true_indices = np.where(contains_one)[0]
+    for true_idx in true_indices:
+        current_obj_idx = true_idx // 3
+        current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
+        false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
+        if len(false_indices) > 0:
+            chosen_index = np.random.choice(false_indices)
+            qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
+            obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
+        else:
+            qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+            obj_pose_reset[true_idx, 0] = 0.15
+            obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -450,7 +459,7 @@ for update in range(args.num_iterations):
     obs_new_r, dis_info = env.observe_vision_new()
     # show_point = dis_info[:, 17:68].astype('float32').copy()
     aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-    env.set_joint_sensor_visual(show_point)
+    # env.set_joint_sensor_visual(show_point)
     # env.update_target(target_center)
 
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
@@ -463,6 +472,7 @@ for update in range(args.num_iterations):
         obj_pos_bias = np.zeros((num_envs, 3), dtype='float32')
 
     for step in range(n_steps_r):
+        # print("step", step)
         frame_start = time.time()
 
         obs_r = obs_new_r
@@ -489,7 +499,7 @@ for update in range(args.num_iterations):
             action_r = final_actions
             action_r[:, :6] = theta0
             if step == grasp_steps:
-                print("lift")
+                # print("lift")
                 env.switch_root_guidance(True)
 
         # # clip the first 6 dim of action to (-2, 2)
@@ -500,7 +510,7 @@ for update in range(args.num_iterations):
         obs_new_r, dis_info = env.observe_vision_new()
         aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
         # show_point = dis_info[:, 17:68].astype('float32').copy()
-        env.set_joint_sensor_visual(show_point)
+        # env.set_joint_sensor_visual(show_point)
 
         if biased:
             obj_pos_bias_current = np.zeros((num_envs, 3), dtype='float32')
@@ -511,10 +521,18 @@ for update in range(args.num_iterations):
                     obj_pos_bias_current[i] = obj_pos_bias[i]
             env.switch_obj_pos(obj_pos_bias_current)
 
-        frame_end = time.time()
-        wait_time = cfg['environment']['control_dt'] - (frame_end - frame_start)
-        if wait_time > 0.:
-            time.sleep(wait_time)
+        # frame_end = time.time()
+        # wait_time = cfg['environment']['control_dt'] - (frame_end - frame_start)
+        # if wait_time > 0.:
+        #     time.sleep(wait_time)
 
-    print("end")
+    global_state = env.get_global_state()
+    lifted = (global_state[:, 107] - obj_pose_reset[:, 2] > 0.1) * (
+                np.linalg.norm(global_state[:, 112:115] - global_state[:, 105:108], axis=1) < 0.2)
+    print("current success rate", np.sum(lifted) / num_envs)
+
+    success_rate = (update * success_rate + np.sum(lifted) / num_envs) / (update + 1)
+    print("average success rate", success_rate)
+
+
 

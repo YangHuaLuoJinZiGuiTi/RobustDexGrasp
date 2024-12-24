@@ -462,6 +462,7 @@ namespace raisim {
             mano_r_->setGeneralizedForce(gen_force);
 
             obj_weight = arctic->getTotalMass();
+            mano_r_->setMaterialFriction(world_, arctic);
 
             updateObservation();
 
@@ -868,6 +869,7 @@ namespace raisim {
                             wrist_euler_current;
 //                            target_center,
 //                            euler_diff;
+
 
 
            raisim::Vec<3> obj_pose;

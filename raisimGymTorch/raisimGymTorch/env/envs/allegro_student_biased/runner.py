@@ -29,7 +29,7 @@ from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, tra
 
 exp_name = "arm_rand_student"
 
-weight_saved = '/../../arm_rand/2024-12-06-17-04-47/full_31000_r.pt'
+weight_saved = '/../../arm_rand/2024-12-20-13-10-39/full_14000_r.pt'
 weight_path_student = '2024-10-28-14-49-02/full_1000_r.pt'
 
 
@@ -47,8 +47,6 @@ parser.add_argument('-re', '--load_trained_policy', action="store_true")
 parser.add_argument('-renew', '--renew', help='update labels every iteration', action="store_true")
 parser.add_argument('-ln', '--log_name', type=str, default=None)
 parser.add_argument('-mean', '--mean_pose', action="store_true")
-
-new_allegro = True
 
 args = parser.parse_args()
 weight_path = args.weight
@@ -228,6 +226,7 @@ center_reward_r = np.zeros((num_envs, 1))
 table_reward_r = np.zeros((num_envs, 1))
 arm_height_reward_r = np.zeros((num_envs, 1))
 arm_action_reward_r = np.zeros((num_envs, 1))
+hand_action_reward_r = np.zeros((num_envs, 1))
 
 
 qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -265,7 +264,7 @@ for update in range(args.num_iterations):
     qpos_reset_r[:, 11] = 0.8
     qpos_reset_r[:, 15] = 0.8
     qpos_reset_r[:, 19] = 0
-    qpos_reset_r[:, 20] = -0.1
+    qpos_reset_r[:, 20] = 0.
 
     visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
     visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
@@ -487,6 +486,7 @@ for update in range(args.num_iterations):
         rewards_r_sum[i]['table_reward'] = 0
         rewards_r_sum[i]['arm_height_reward'] = 0
         rewards_r_sum[i]['arm_action_reward'] = 0
+        rewards_r_sum[i]['hand_action_reward'] = 0
 
         for k in rewards_r_sum[i].keys():
             rewards_r_sum[i][k] = 0
@@ -528,10 +528,13 @@ for update in range(args.num_iterations):
 
         rewards_r = env.get_reward_info_r()
         affordance_reward_r = - np.sum((dis_info[:, :17]) * finger_weights, axis=1)
-        table_reward_r = - np.sum(np.log(np.maximum(np.abs(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87]), 0.01*np.ones_like(np.abs(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87])))) * finger_weights * (np.abs(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87]) < 0.03), axis=1)
-        arm_height_reward_r = - np.sum(np.log(20 * np.clip(obs_new_r[:, -ob_dim_r+89:-ob_dim_r+93], a_min=0.001 , a_max=0.05)), axis=1)
+        # table_reward_r = - np.sum(np.log(np.maximum(np.abs(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87]), 0.01*np.ones_like(np.abs(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87])))) * finger_weights * (np.abs(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87]) < 0.03), axis=1)
+        # arm_height_reward_r = - np.sum(np.log(20 * np.clip(obs_new_r[:, -ob_dim_r+89:-ob_dim_r+93], a_min=0.001 , a_max=0.05)), axis=1)
+        table_reward_r = -np.sum(np.log(50 * np.clip(obs_new_r[:, -ob_dim_r+70:-ob_dim_r+87], a_min=0.002, a_max=0.02)) * finger_weights, axis=1)
+        arm_height_reward_r = -np.sum(np.log(50 * np.clip(obs_new_r[:, -ob_dim_r+89:-ob_dim_r+93], a_min=0.002, a_max=0.02)), axis=1)
         # if the abs of the first 6 dim of action_r are larger than 6, then give a negative reward arm_action_reward_r
-        arm_action_reward_r = np.sum(np.abs(action_r[:, :6]) * (np.abs(action_r[:, :6]) > 2), axis=1)
+        arm_action_reward_r = np.sum((np.abs(action_r[:, :6]) - 4) * (np.abs(action_r[:, :6]) > 4), axis=1)
+        hand_action_reward_r = np.sum((np.abs(action_r[:, 6:]) - 6) * (np.abs(action_r[:, 6:]) > 6), axis=1)
 
         for i in range(num_envs):
             rewards_r[i]['affordance_reward'] = affordance_reward_r[i] * cfg['environment']['reward']['affordance_reward']['coeff']
@@ -539,13 +542,14 @@ for update in range(args.num_iterations):
             rewards_r[i]['table_reward'] = table_reward_r[i] * cfg['environment']['reward']['table_reward']['coeff']
             rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
             rewards_r[i]['arm_action_reward'] = arm_action_reward_r[i] * cfg['environment']['reward']['arm_action_reward']['coeff']
+            rewards_r[i]['hand_action_reward'] = hand_action_reward_r[i] * cfg['environment']['reward']['hand_action_reward']['coeff']
 
             # rewards_r[i]['reward_sum'] = (
             #             rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['center_reward'] +
             #             rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'])
             rewards_r[i]['reward_sum'] = (
                         rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['center_reward'] +
-                        rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'] + rewards_r[i]['arm_action_reward'])
+                        rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'] + rewards_r[i]['arm_action_reward'] + rewards_r[i]['hand_action_reward'])
 
             reward_r[i] = rewards_r[i]['reward_sum']
         reward_r.clip(min=reward_clip)
