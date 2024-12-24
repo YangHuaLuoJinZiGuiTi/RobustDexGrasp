@@ -11,6 +11,7 @@ public:
         if (!cfg["randomize_gc_arm"].IsNone()) {
             randomize_gc_ = cfg["randomize_gc_arm"].As<double>();
         }
+        std::string pd_file = cfg["arm_pd_file"].As<std::string>();
 
         arm_joint_position_.setZero(num_joint_);
         arm_joint_velocity_.setZero(num_joint_);
@@ -21,7 +22,7 @@ public:
         arm_init_base_pose_ << 0.55, 0.75152, 0.0, 0.0, 0.0, 0.0;
 
         std::ifstream pd_txt;
-        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/arm/UR5Identification.txt");
+        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/arm/"+pd_file);
         if (pd_txt) {
             std::string line;
             int line_cnt = 0;

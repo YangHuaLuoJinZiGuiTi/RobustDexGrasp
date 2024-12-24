@@ -12,7 +12,9 @@ environment:
     sim_model: "ur5_allegro_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
-
+    arm_pd_file: "UR5Identification.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
+    hand_pd_file: "AllegroIdentification.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+ 
     # add the noise from [-value, +value] for randomization and 0.0(as default) will not randomize
     randomize_friction: "0.5,0.6,0.7,0.8,0.9"
     # ratio for PD gain randomization

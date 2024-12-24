@@ -34,9 +34,10 @@ public:
         velocity_dt_s_ = cfg["arm_real"]["real_velocity_dt_s"].As<double>();
         servoJ_ahead_time_ = cfg["arm_real"]["servoJ_ahead_time"].As<double>();
         servoJ_gain_ = cfg["arm_real"]["servoJ_gain"].As<double>();
+        std::string pd_file = cfg["arm_pd_file"].As<std::string>();
 
         std::ifstream pd_txt;
-        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/arm/UR5Identification.txt");
+        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/arm/"+pd_file);
         if (pd_txt) {
             std::string line;
             int line_cnt = 0;

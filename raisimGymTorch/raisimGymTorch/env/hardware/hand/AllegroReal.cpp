@@ -17,6 +17,7 @@ public:
         
         flying_hand_mode_ = cfg["flying_hand_mode"].As<bool>();
         freq_hz_ = cfg["hand_real"]["freq_hz"].As<double>();
+        std::string pd_file = cfg["hand_pd_file"].As<std::string>();
        
         const char* name = "test_node";
         char* argv[] = { const_cast<char*>(name) }; 
@@ -37,7 +38,7 @@ public:
         subscribe_thread_ = std::thread(&AllegroReal::subscribeLoop, this);
 
         std::ifstream pd_txt;
-        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/hand/AllegroIdentification.txt");
+        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/hand/"+pd_file);
         if (pd_txt) {
             std::string line;
             int line_cnt = 0;

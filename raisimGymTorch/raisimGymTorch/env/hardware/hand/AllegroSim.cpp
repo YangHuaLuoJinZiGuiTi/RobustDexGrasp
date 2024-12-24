@@ -17,9 +17,10 @@ public:
         if (!cfg["randomize_gc_hand"].IsNone()) {
             randomize_gc_ = cfg["randomize_gc_hand"].As<double>();
         }
+        std::string pd_file = cfg["hand_pd_file"].As<std::string>();
 
         std::ifstream pd_txt;
-        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/hand/AllegroIdentification.txt");
+        pd_txt.open(rsc_pth+"/../raisimGymTorch/raisimGymTorch/env/hardware/hand/"+pd_file);
         if (pd_txt) {
             std::string line;
             int line_cnt = 0;
