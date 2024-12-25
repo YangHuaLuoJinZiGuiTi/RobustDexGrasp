@@ -50,14 +50,16 @@ def calculate_mask(in_img, generator = None, continue_flag = False):
         _ = sam.to(device="cuda")
         generator = SamAutomaticMaskGenerator(sam, output_mode="binary_mask")
 
-    masks = generator.generate(in_img)
-    # method to find the best result (IOU , area% , size)
+    CUT_LEN = 40
     H, W = in_img.shape[:2]
+    short_in_img = in_img[CUT_LEN:H-CUT_LEN, CUT_LEN:W-CUT_LEN]
+    masks = generator.generate(short_in_img)
+    # method to find the best result (IOU , area% , size)
     
     # Invert the picture with white background
     area_list = []
     for i, mask_data in enumerate(masks):
-        if mask_data["bbox"][2] > W - 40 or mask_data["bbox"][3] > H - 40:
+        if mask_data["bbox"][2] > W - CUT_LEN*2 - 20 or mask_data["bbox"][3] > H - CUT_LEN*2 - 20:
             masks[i]["segmentation"] = ~mask_data["segmentation"]
             masks[i]["segmentation"][0:10, :] = False
             masks[i]["segmentation"][-10:, :] = False
@@ -75,7 +77,10 @@ def calculate_mask(in_img, generator = None, continue_flag = False):
         if max_threshold < now_threshold:
             max_threshold = now_threshold
             max_index = i
-    mask = np.array(masks[max_index]["segmentation"] * 255, dtype=np.uint8)
+
+    mask = np.ones((H, W), dtype=np.uint8) * 0
+    mask_short = np.array(masks[max_index]["segmentation"] * 255, dtype=np.uint8)
+    mask[CUT_LEN:H-CUT_LEN, CUT_LEN:W-CUT_LEN] = mask_short
 
     cv2.imshow("RGB", in_img)
     cv2.imshow("MASK", mask)

@@ -52,7 +52,6 @@ parser.add_argument('-mean', '--mean_pose', action="store_true")
 new_allegro = True
 
 args = parser.parse_args()
-weight_path = args.weight
 cfg_grasp = args.cfg
 
 print(f"Configuration file: \"{args.cfg}\"")
@@ -105,22 +104,22 @@ folder_names = [item for item in items if os.path.isdir(os.path.join(directory_p
 obj_path_list = []
 obj_ori_list = folder_names
 
-if obj_item == 'random':
-    obj_ori_list.remove('dummy')
+if obj_item == 'random' or obj_item == 'dummy':
     obj_item = choice(obj_ori_list)
 
 if sample_pc_mode == 'foundationpose':
     data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
     obj_init_xyz_qwxyz = None
+    obj_pointcloud = None
     try:
         while True:
-            time.sleep(2)
-            print("waiting for the initial of foundation pose...")
+            time.sleep(1)
             obj_init_xyz_qwxyz = data_producer.get_data()
             if obj_init_xyz_qwxyz is not None:
                 print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
-                time.sleep(2)
+                time.sleep(0.5)
                 obj_init_xyz_qwxyz = data_producer.get_data()
+                obj_pointcloud = data_producer.get_pcd()
                 print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
                 break
     except KeyboardInterrupt:
@@ -208,7 +207,7 @@ for update in range(args.num_iterations):
     qpos_reset_r[:, 11] = 0.8
     qpos_reset_r[:, 15] = 0.8
     qpos_reset_r[:, 19] = 0.
-    qpos_reset_r[:, 20] = -0.1
+    qpos_reset_r[:, 20] = 0.
 
 
 
@@ -246,7 +245,7 @@ for update in range(args.num_iterations):
         # get_meaningful_ik = False
         # while not get_meaningful_ik:
         # sample object states (not relavent for hardware deployment)
-        if sample_pc_mode == 'manual' or sample_pc_mode == 'auto':
+        if sample_pc_mode == 'manual' or sample_pc_mode == 'auto' or sample_pc_mode == 'foundationpose':
             obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # mean of pointcloud
             visible_points_w[i, :] = obj_pointcloud # sample randomly from RGBD in mask
             angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
@@ -270,9 +269,6 @@ for update in range(args.num_iterations):
                 axis_angles = np.zeros((1, 3))
                 axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
                 obj_pose_reset[i, 3:7] = rotations.axisangle2quat(axis_angles)
-            elif sample_pc_mode == 'foundationpose': 
-                obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # estimate from foundationPose
-                angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
 
             # get the partial point cloud
             obj_mat_single = rotations.quat2mat(obj_pose_reset[i, 3:7]).reshape(3, 3)
@@ -417,8 +413,7 @@ for update in range(args.num_iterations):
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
     env.set_sample_point_visual(vis_point)
 
-    for test_cnt in ["sim"]:
-    #for test_cnt in ["sim", "real"]:
+    for test_cnt in ["real"]: # "sim", "real"
         if test_cnt == "sim":
             print("--------------------------- test in sim first ---------------------- ")
             env.reset_state2(qpos_reset_r,
@@ -436,14 +431,15 @@ for update in range(args.num_iterations):
                             obj_pose_reset,
                             )
 
-        obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-        #obs_new_r, dis_info = env.observe_vision_new()
-        #aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-        #env.set_joint_sensor_visual(show_point)
+        #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+        obs_new_r, dis_info = env.observe_vision_new()
+        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        env.set_joint_sensor_visual(show_point)
 
         final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
-        for step in range(n_steps_r):
+        step = 0
+        while step < n_steps_r:
 
             frame_start = time.time()
 
@@ -485,15 +481,14 @@ for update in range(args.num_iterations):
             frame_start4 = time.time()
 
             # cost 1-5ms
-            if test_cnt == "real":
-                obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-            else:
-                obs_new_r, dis_info = env.observe_vision_new()
-                aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-                env.set_joint_sensor_visual(show_point)
+            #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+            obs_new_r, dis_info = env.observe_vision_new()
+            aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+            env.set_joint_sensor_visual(show_point)
 
             end = time.time()
             print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
+            step = step + int(reward_r)
         print("end")
 
     exit(0)
