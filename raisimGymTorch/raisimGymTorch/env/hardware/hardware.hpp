@@ -361,13 +361,18 @@ public:
      */
     void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel, bool vis_in_sim = false) {
         Eigen::VectorXd now_joint(platform_gc_dim_);
-        if (real_world_mode_ && vis_in_sim == false) {
+        if (vis_in_sim) {
+            arm_hand_platform_->setState(genco, genvel);
+            return;
+        }
+
+        if (real_world_mode_) {
             std::cout << "--------------set state = " << genco.transpose() << std::endl;
             int cnt = 15;
             double max_gap[16] = {0.02, 0.02, 0.02, 0.02, 
             0.02, 0.02, 0.02, 0.02,
             0.02, 0.02, 0.02, 0.02,
-            0.06, 0.02, 0.08, 0.02};
+            0.06, 0.02, 0.06, 0.02};
             while (cnt > 0) {
                 cnt--;
                 hand_->setPdTarget(genco.tail(hand_dim_), genvel.tail(hand_dim_), false);
@@ -383,12 +388,12 @@ public:
                 for (int i = 0; i < platform_gc_dim_; i++) {
                     double diff = std::abs(now_joint[i] - genco[i]);
                     if (i < 6) {
-                        if (diff > 0.005) {
+                        if (diff > 0.004) {
                             printf("arm joint[%d] has a large gap: %f --- %f\n", i, now_joint[i], genco[i]);
                             end_flag = false;
                         }
                     } else {
-                        if (diff > 0.08) {
+                        if (diff > max_gap[i-6]) {
                             printf("hand joint[%d] has a large gap: %f-%f=%f\n", i - 6, now_joint[i], genco[i], diff);
                             end_flag = false;
                         }
@@ -403,7 +408,7 @@ public:
             }
         } else {
             now_joint = genco;
-            now_joint += Eigen::VectorXd::Random(platform_gc_dim_) * 0.008;
+            now_joint += Eigen::VectorXd::Random(platform_gc_dim_) * 0.004;
             std::cout << "reset joint = " << genco.transpose() << std::endl;
             std::cout << "new reset joint = " << now_joint.transpose() << std::endl;
             arm_hand_platform_->setState(now_joint, genvel);

@@ -411,7 +411,7 @@ for update in range(args.num_iterations):
     print(f" ================== samble obj reset pose = {obj_pose_reset}")
 
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
-    env.set_sample_point_visual(vis_point)
+    env.set_sample_point_visual(vis_point, obj_pose_reset)
 
     for test_cnt in ["real"]: # "sim", "real"
         if test_cnt == "sim":

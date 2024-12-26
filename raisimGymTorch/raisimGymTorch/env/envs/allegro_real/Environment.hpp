@@ -342,7 +342,7 @@ namespace raisim {
 
         }
 
-        void set_sample_point_visual(const Eigen::Ref<EigenVec>& joint_sensor_visual) final {
+        void set_sample_point_visual(const Eigen::Ref<EigenVec>& joint_sensor_visual, const Eigen::Ref<EigenVec>& obj_pose) final {
             for(int i = 0; i < 200; i++) {
                 raisim::Vec<3> sample_point_pos;
                 sample_point_pos = joint_sensor_visual.segment(i*3,3).cast<double>();
@@ -350,6 +350,12 @@ namespace raisim {
                     sample_point[i]->setPosition(sample_point_pos.e());
                 }
             }
+
+            init_obj_ = obj_pose.head(3).cast<double>();
+            if (visualizable_){
+                obj_pose_sphere->setPosition(init_obj_.e());
+            }
+
         }
 
         bool check_collision(const Eigen::Ref<EigenVec>& joint_state) final {
@@ -661,37 +667,19 @@ namespace raisim {
             pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
 
             /// Apply N control steps
-#if 0 // devide into small step or not
+#if 1 // devide into small step or not
             double max_step_distance_arm = 0.0;
             for (int i = 0; i < 6; i++) {
                 if (max_step_distance_arm < abs(pTarget_clipped_r[i] - gc_r_[i])) {
                     max_step_distance_arm = abs(pTarget_clipped_r[i] - gc_r_[i]);
                 }
             }
-            double delay_cnt = int(max_step_distance_arm / 0.005) + 1.0;
+            double delay_cnt = int(max_step_distance_arm / 0.015) + 1.0;
             if (delay_cnt > 4) {
                 delay_cnt = 4;
             }
             if (delay_cnt > 1) {
                 std::cout << "max_step_distance_arm = " << max_step_distance_arm << ", will delay times = " << delay_cnt << std::endl;
-            }
-
-            double max_step_distance_hand = 0.0;
-            for (int i = 6; i < 22; i++) {
-                if (max_step_distance_hand < abs(pTarget_clipped_r[i] - gc_r_[i])) {
-                    max_step_distance_hand = abs(pTarget_clipped_r[i] - gc_r_[i]);
-                }
-            }
-
-            int delay_cnt_hand = int(max_step_distance_hand / 0.1) + 1;
-            if (delay_cnt_hand > 3) {
-                delay_cnt_hand = 3;
-            }
-            if (delay_cnt_hand > 1) {
-                std::cout << "max_step_distance_hand = " << max_step_distance_hand << ", will delay times = " << delay_cnt_hand << std::endl;
-            }
-            if (delay_cnt_hand > delay_cnt) {
-                //delay_cnt = delay_cnt_hand;
             }
 
 #else
