@@ -198,7 +198,7 @@ namespace raisim {
 
             /// set actuation parameters
             actionStd_r_.setConstant(finger_action_std);
-            actionStd_r_.head(6).setConstant(0.005);
+            actionStd_r_.head(6).setConstant(rot_action_std);
 //            actionStd_r_.segment(3,3).setConstant(0.005);
 
             /// Initialize reward
@@ -891,7 +891,7 @@ namespace raisim {
                             arm_height_w,
                             hand_center_w,
                             euler_diff,
-                            wrist_euler_current;
+                            wrist_euler_current.e();
             obs_history.push_back(obDouble_r_);
 
             if (test_log) {

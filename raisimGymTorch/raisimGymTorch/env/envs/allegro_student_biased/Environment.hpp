@@ -869,7 +869,7 @@ namespace raisim {
 //                            target_center_dif_world,
                             hand_center_w,
                             euler_diff,
-                            wrist_euler_current;
+                            wrist_euler_current.e();
 //                            target_center,
 //                            euler_diff;
             obs_history.push_back(obDouble_r_);

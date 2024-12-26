@@ -216,13 +216,7 @@ for update in range(args.num_iterations):
 
     target_center = np.zeros_like(env.affordance_center)
 
-    qpos_reset_r[:, 6:] = 0.3
-    qpos_reset_r[:, -4] = 1.57
-    qpos_reset_r[:, 7] = 0.8
-    qpos_reset_r[:, 11] = 0.8
-    qpos_reset_r[:, 15] = 0.8
-    qpos_reset_r[:, 19] = 0
-    qpos_reset_r[:, 20] = 0.
+    qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
 
     hand_center_sample_w = np.zeros((1, 3))
     hand_center_sample_w[0, 0] = 0.669872 - 0.55
@@ -306,8 +300,12 @@ for update in range(args.num_iterations):
             while True:
                 if not no_feasible_ik:
                     # get the x_dir of the grasping frame
-                    hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
-                    hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
+                    if cfg['environment']['top']:
+                        hand_dir_x_w = np.zeros((1, 3))
+                        hand_dir_x_w[0, 2] = 1
+                    else:
+                        hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
+                        hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
                     # get position and orientation of the wrist
                     pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w

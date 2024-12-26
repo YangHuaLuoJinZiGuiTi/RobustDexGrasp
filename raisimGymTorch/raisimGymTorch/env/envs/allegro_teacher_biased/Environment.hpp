@@ -866,11 +866,9 @@ namespace raisim {
 //                            target_center_dif_world,
                             hand_center_w,
                             euler_diff,
-                            wrist_euler_current;
+                            wrist_euler_current.e();
 //                            target_center,
 //                            euler_diff;
-
-
 
            raisim::Vec<3> obj_pose;
            raisim::RotmatToEuler(Obj_orientation_temp, obj_pose);

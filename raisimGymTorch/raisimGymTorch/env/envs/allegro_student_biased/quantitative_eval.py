@@ -47,8 +47,9 @@ exp_name = "arm_rand_student"
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
 weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 
-weight_path_student = '2024-12-11-09-43-04/full_3000_r.pt'
+# weight_path_student = '2024-12-11-09-43-04/full_3000_r.pt'
 # weight_path_student = '2024-12-16-22-33-03/full_8000_r.pt'
+weight_path_student = '2024-12-23-12-41-34/full_7500_r.pt'
 
 
 # configuration
@@ -102,8 +103,8 @@ cfg['environment']['visualize'] = False
 # cat_name = 'mixed_unseen_test'
 # cat_name = 'mixed_unseen_category_test'
 # cat_name = 'mixed_train'
-# cat_name = 'ycb_urdf_all'
-cat_name = 'large_scale'
+cat_name = 'ycb_urdf_all'
+# cat_name = 'large_scale'
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
@@ -241,14 +242,7 @@ for update in range(5):
 
     target_center = np.zeros_like(env.affordance_center)
 
-    qpos_reset_r[:, 6:] = 0.3
-    qpos_reset_r[:, -4] = 1.57
-    qpos_reset_r[:, 7] = 0.8
-    qpos_reset_r[:, 11] = 0.8
-    qpos_reset_r[:, 15] = 0.8
-    qpos_reset_r[:, 19] = 0.
-    qpos_reset_r[:, 20] = 0.
-
+    qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
 
 
     visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
@@ -331,8 +325,13 @@ for update in range(5):
         no_feasible_ik = False
         while True:
             if not no_feasible_ik:
-                hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
-                hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
+                # get the x_dir of the grasping frame
+                if cfg['environment']['top']:
+                    hand_dir_x_w = np.zeros((1, 3))
+                    hand_dir_x_w[0, 2] = 1
+                else:
+                    hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
+                    hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
                 # get position and orientation of the wrist
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
