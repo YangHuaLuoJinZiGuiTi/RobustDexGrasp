@@ -446,7 +446,7 @@ namespace raisim {
                 mano_r_->setState(gc_set_r_, gv_set_r_, true);
 
                 box->clearExternalForcesAndTorques();
-                box->setPosition(0.2, -0.75152, 0.3855 + 0.01);
+                box->setPosition(0.2, -0.75152, 0.3855);
                 box->setOrientation(1,0,0,0);
                 box->setVelocity(0,0,0,0,0,0);
 
@@ -489,7 +489,7 @@ namespace raisim {
             mano_r_->setGeneralizedForce(gen_force);
 
             /// reset table position (only required in case for inference)
-            box->setPosition(0.2, -0.75152, 0.3855 + 0.01);
+            box->setPosition(0.2, -0.75152, 0.3855);
             box->setOrientation(1,0,0,0);
             box->setVelocity(0,0,0,0,0,0);
 
@@ -560,7 +560,7 @@ namespace raisim {
             mano_r_->setGeneralizedForce(gen_force);
 
             /// reset table position (only required in case for inference)
-            box->setPosition(0.2, -0.75152, 0.3855 + 0.01);
+            box->setPosition(0.2, -0.75152, 0.3855);
             box->setOrientation(1,0,0,0);
             box->setVelocity(0,0,0,0,0,0);
 
@@ -674,19 +674,21 @@ namespace raisim {
                     max_step_distance_arm = abs(pTarget_clipped_r[i] - gc_r_[i]);
                 }
             }
-            double delay_cnt = int(max_step_distance_arm / 0.015) + 1.0;
-            if (delay_cnt > 4) {
-                delay_cnt = 4;
+            double delay_cnt = 1.0;
+            if (max_step_distance_arm > 0.025) {
+                delay_cnt = round(max_step_distance_arm / 0.02) + 1.0;
+                if (delay_cnt > 4.0) {
+                    delay_cnt = 4.0;
+                }
+                if (delay_cnt > 1.0) {
+                    std::cout << "max_step_distance_arm = " << max_step_distance_arm << ", will delay times = " << delay_cnt << std::endl;
+                }
             }
-            if (delay_cnt > 1) {
-                std::cout << "max_step_distance_arm = " << max_step_distance_arm << ", will delay times = " << delay_cnt << std::endl;
-            }
-
 #else
             double delay_cnt = 1.0;
 #endif
 
-#if 1 // delay more time or run more step
+#if 0 // delay more time or run more step
             /// Set PD targets (velocity zero)
             mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
 
@@ -709,17 +711,18 @@ namespace raisim {
             updateObservation(lift == false);
 #else
             //std::cout << "target pose = " << pTarget_clipped_r.transpose() << std::endl;
+            Eigen::VectorXd tmp_gc_r_ = gc_r_;
             for (int step = 1; step <= int(delay_cnt); step++) {
                 
                 double step_distance = 0.0;
 
                 Eigen::VectorXd pTarget_clipped_step = pTarget_clipped_r;
-                for (int i = 0; i < gcDim_; i++) {
+                for (int i = 0; i < 6; i++) {
                     pTarget_clipped_step[i] = gc_r_[i] + (pTarget_clipped_r[i] - gc_r_[i]) / delay_cnt * step;
                 }
 
                 /// Set PD targets (velocity zero)
-                printf("%d: set: %f/(%f,%f) \t %f/(%f,%f) \n",step, pTarget_clipped_step[0], gc_r_[0], pTarget_clipped_r[0], pTarget_clipped_step[5], gc_r_[5], pTarget_clipped_r[5]);
+                //printf("%d: set: %f/(%f,%f) \t %f/(%f,%f) \n",step, pTarget_clipped_step[0], gc_r_[0], pTarget_clipped_r[0], pTarget_clipped_step[5], gc_r_[5], pTarget_clipped_r[5]);
                 mano_r_->setPdTarget(pTarget_clipped_step, vTarget_r_);
 
                 /// Apply N control steps
@@ -727,7 +730,7 @@ namespace raisim {
                 auto starttime = std::chrono::system_clock::now();
                 while (1) {
                     auto diff_time = std::chrono::system_clock::now() - starttime;
-                    if ((real_ == true) && (diff_time.count() / 1e9 > control_dt_ - 0.00005)) {
+                    if ((real_ == true) && (diff_time.count() / 1e9 > control_dt_)) {
                         break;
                     } else if ((real_ == false) && (step_cnt > int(control_dt_ / simulation_dt_ + 1e-10))) {
                         break;
@@ -737,9 +740,10 @@ namespace raisim {
                      world_->integrate();
                     if(server_) server_->unlockVisualizationServerMutex();
                }
-                /// update observation and set new mean to the latest pose
-                updateObservation(lift == false);
+                updateObservation(false);
             }
+            mano_r_->set_log_data(pTarget_clipped_r, tmp_gc_r_);
+            updateObservation(lift == false);
 #endif
             actionMean_r_ = gc_r_;
  
@@ -891,7 +895,7 @@ namespace raisim {
                             arm_height_w,
                             hand_center_w,
                             euler_diff,
-                            wrist_euler_current.e();
+                            wrist_euler_current;
             obs_history.push_back(obDouble_r_);
 
             if (test_log) {
