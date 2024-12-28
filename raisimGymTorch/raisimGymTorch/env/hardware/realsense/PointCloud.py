@@ -51,9 +51,37 @@ def depth2xyzmap(depth, K, uvs=None):
     xyz_map[invalid_mask] = 0
     return xyz_map
 
+# 定义一个函数来计算周围符合条件的像素均值
+def calculate_mean_around(img, i, j):
+    # 定义周围像素的相对位置
+    neighbors = [(-1, -1), (-1, 0), (-1, 1),
+                 (0, -1),         (0, 1),
+                 (1, -1), (1, 0), (1, 1)]
+
+    valid_values = []
+
+    # 遍历周围像素
+    for di, dj in neighbors:
+        ni, nj = i + di, j + dj
+        
+        # 检查边界条件
+        if 0 <= ni < img.shape[0] and 0 <= nj < img.shape[1]:
+            # 仅添加符合条件的值
+            if img[ni, nj] < 0.4 or img[ni, nj] > 0.8:
+                valid_values.append(img[ni, nj])
+
+    # 计算均值，若有效值列表不为空
+    if valid_values:
+        return np.mean(valid_values)
+    else:
+        print(f"---error value {i}, {j}")
+        return img[i, j]  # 如果没有有效值，返回原值
+
 class Realsense:
     def __init__(self):
         print("test")
+        
+        self.USE_KD_TREE = False
 
         # realsense-viewer 软件里的postprocess顺序是：
         """
@@ -160,10 +188,14 @@ class Realsense:
                     break
         
         flat_path = "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/realsense/flat.ply"
+        flat_npy_path = "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/realsense/flat.npy"
         have_flat = False
         if (os.path.exists(flat_path)): 
             have_flat = True
             flat_pc = o3d.io.read_point_cloud(flat_path)
+        if (os.path.exists(flat_npy_path)): 
+            have_flat = True
+            flat_npy = np.load(flat_npy_path)
 
         log_time2 = time.time()
         print(f"-------------init time = {log_time2 - log_time1}")
@@ -230,6 +262,7 @@ class Realsense:
                                             max_cnt = region_count
                                             max_mean = region_mean
                             output[i][j] = max_mean
+                            # # for debug
                             # if (max_mean > 0.1): 
                             #     plt.cla()
                             #     plt.plot(mask_max_min, 'rd')
@@ -237,40 +270,59 @@ class Realsense:
                             #     plt.plot(mask_data_value, 'g*')
                             #     plt.show()
                             #     continue
+                                    
+                    if self.USE_KD_TREE is False:
+                        if abs(output[i][j] - flat_npy[i][j]) < 0.02:
+                            output[i][j] = 0.0
+
+            log_time4 = time.time()
+            print(f"-------------filter depth time = {log_time4 - log_time3}")
 
             # get point cloud
             pointcloud_xyz = depth2xyzmap(output, cam_K)
             points1 = pointcloud_xyz.reshape(-1, 3).astype(np.float32)
 
-            log_time4 = time.time()
-            print(f"-------------filter depth time = {log_time4 - log_time3}")
+            log_time5 = time.time()
+            print(f"-------------get point cloud time = {log_time5 - log_time4}")
+            
             if have_flat:
-                points2 = np.asarray(flat_pc.points)
-                # 使用 cKDTree 进行空间索引： 
-                tree2 = KDTree(points2)
+                if self.USE_KD_TREE:
+                    points2 = np.asarray(flat_pc.points)
+                    # 使用 cKDTree 进行空间索引： 
+                    tree2 = KDTree(points2)
 
-                # 查找每个点在另一个点云中的最近邻并比较距离： 为了找出不同的点，我们需要查找在另一个点云中没有近邻的点。
-                # 找到 points1 中每个点在 points2 中的最近邻
-                distances1, _ = tree2.query(points1)
-                # 过滤出在阈值范围内没有对应点的点： 这些点即为在另一个点云中没有匹配点的点。
-                # 在 points1 中没有对应点的点
-                unique_points1 = points1[(distances1 >= 0.008) & (distances1 <= 0.4)]
+                    # 查找每个点在另一个点云中的最近邻并比较距离： 为了找出不同的点，我们需要查找在另一个点云中没有近邻的点。
+                    # 找到 points1 中每个点在 points2 中的最近邻
+                    distances1, _ = tree2.query(points1)
+                    # 过滤出在阈值范围内没有对应点的点： 这些点即为在另一个点云中没有匹配点的点。
+                    # 在 points1 中没有对应点的点
+                    unique_points1 = points1[(distances1 >= 0.008) & (distances1 <= 0.4)]
 
-                # 组合两个点云之间的差异点云，包含在两个点云中没有匹配的点。
-                difference_cloud = unique_points1
-                difference_cloud = remove_outliers(difference_cloud)
+                    # 组合两个点云之间的差异点云，包含在两个点云中没有匹配的点。
+                    difference_cloud = unique_points1
+                    difference_cloud = remove_outliers(difference_cloud)
+                else:
+                    difference_cloud = points1
 
-                log_time5 = time.time()
-                print(f"-------------diff pointcloud depth time = {log_time5 - log_time4}")
+                log_time6 = time.time()
+                print(f"-------------diff pointcloud depth time = {log_time6 - log_time5}")
                 
                 cloud = o3d.geometry.PointCloud()
                 cloud.points = o3d.utility.Vector3dVector(difference_cloud)
                 o3d.visualization.draw_geometries([cloud])
             else:
+                output_fill = output.copy()
+                for i in range(480):
+                    for j in range(640):
+                        value = output[i][j]
+                        if value < 0.4 or value > 0.8:
+                            output_fill[i, j] = calculate_mean_around(value, i, j)
+
                 cloud = o3d.geometry.PointCloud()
                 cloud.points = o3d.utility.Vector3dVector(points1)
                 o3d.visualization.draw_geometries([cloud])
                 o3d.io.write_point_cloud(flat_path, cloud, write_ascii=True)
+                np.save(flat_npy_path, output)
             
             break
 
