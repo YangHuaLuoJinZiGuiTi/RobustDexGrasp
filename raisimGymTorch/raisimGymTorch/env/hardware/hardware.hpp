@@ -120,6 +120,8 @@ public:
         }
         //printf("*****finish init***** gc: hand(%d) + arm(%d) = platform(%d)\n", hand_dim_, arm_dim_, platform_gc_dim_);
 
+        save_target_.setZero(platform_gc_dim_);
+        save_current_.setZero(platform_gc_dim_);
         if (save_state_) {
             std::string save_state_path = cfg["log_real"]["save_state_path"].As<std::string>();
             csv_file_.open(save_state_path.c_str(), std::ios::out);
@@ -127,8 +129,6 @@ public:
                 std::cout << "open file fail: " << save_state_path << std::endl;
                 exit(0);
             }
-            save_target_.setZero(platform_gc_dim_);
-            save_current_.setZero(platform_gc_dim_);
             for (int i = 0; i < 16+6; i++) {
                 std::string c;
                 if (i > 5) {

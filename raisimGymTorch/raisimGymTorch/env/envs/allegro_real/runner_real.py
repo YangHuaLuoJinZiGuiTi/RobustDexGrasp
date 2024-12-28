@@ -24,6 +24,7 @@ from raisimGymTorch.helper import rotations
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, transformRobotParameter
 import torch
 
+from raisimGymTorch.env.hardware.realsense.PointCloud import Realsense
 from raisimGymTorch.env.hardware.FoundationPose.interactive import FoundationData
 from raisimGymTorch.env.hardware.FoundationPose.RGBDPointCloud import GetPointCloud
 from raisimGymTorch.env.hardware.log_data import d435_record
@@ -127,12 +128,16 @@ if sample_pc_mode == 'foundationpose':
         print("end")
         exit(0)
 
-if sample_pc_mode == 'auto' or sample_pc_mode == 'manual':
+if sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
     obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], sample_pc_mode)
     obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
     obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
     print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
-
+elif sample_pc_mode == 'auto':
+    rs = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
+    obj_pos_mean, obj_pointcloud = rs.GetPointCloud()
+    obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][2], 0.707, 0, 0.707, 0])
+    
 # Environment definition
 env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
@@ -190,7 +195,7 @@ if sample_pc_mode == 'mesh':
     for i in range(num_envs):
         txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
         with open(txt_file_path, 'r') as txt_file:
-            lowest_points[i] = float(txt_file.read()) + 0.02
+            lowest_points[i] = float(txt_file.read())
 
 for update in range(args.num_iterations):
     start = time.time()
@@ -239,7 +244,7 @@ for update in range(args.num_iterations):
         # get_meaningful_ik = False
         # while not get_meaningful_ik:
         # sample object states (not relavent for hardware deployment)
-        if sample_pc_mode == 'manual' or sample_pc_mode == 'auto' or sample_pc_mode == 'foundationpose':
+        if sample_pc_mode == 'manual' or sample_pc_mode == 'auto' or sample_pc_mode == 'foundationpose' or sample_pc_mode == 'sam':
             obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # mean of pointcloud
             visible_points_w[i, :] = obj_pointcloud # sample randomly from RGBD in mask
             angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])

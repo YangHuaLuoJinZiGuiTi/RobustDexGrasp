@@ -27,7 +27,7 @@ environment:
 
     pointcloud_real:
       camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
-      sample_pointcloud_mode: 'auto' # 'auto' or 'manual' or 'foundationpose' or 'mesh'
+      sample_pointcloud_mode: 'auto' # 'auto' or 'sam' or 'manual' or 'foundationpose' or 'mesh'
       obj_mesh: 'dummy' # 'random' or 'loopy_head_side' or '035_power_drill' or  'dummy'
 
     kinematic_real:
