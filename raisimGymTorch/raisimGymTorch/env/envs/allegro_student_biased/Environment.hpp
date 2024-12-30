@@ -58,7 +58,7 @@ namespace raisim {
             mano_r_->getBodies(arm_parts, true, false);
 
             /// add table
-            box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "", raisim::COLLISION(1)));
+            box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "table", raisim::COLLISION(1)));
             box->setPosition(0.2, -0.75152, 0.3855);
             box->setAppearance("0.0 0.0 0.0 0.0");
 

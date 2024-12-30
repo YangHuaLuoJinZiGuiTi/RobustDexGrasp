@@ -83,7 +83,10 @@ obj_path_list = []
 obj_list = []
 
 # directory_path = home_path + "/rsc/mixed_train/"
-cat_name = 'ycb_urdf_all'
+cat_name = 'ycb_urdf_sim'
+# cat_name = 'ycb_urdf_all'
+# cat_name = 'ycb_urdf_light'
+# cat_name = 'ycb_urdf_sim_light'
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)

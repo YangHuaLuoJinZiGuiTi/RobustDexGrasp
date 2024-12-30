@@ -91,7 +91,10 @@ exp_name = "arm_rand"
 # weight_saved = '2024-12-19-18-02-00/full_30000_r.pt'
 # weight_saved = '2024-12-20-13-06-20/full_17500_r.pt'
 # weight_saved = '2024-12-20-13-10-39/full_14000_r.pt'
-weight_saved = '2024-12-20-13-16-37/full_17500_r.pt'
+# weight_saved = '2024-12-20-13-16-37/full_17500_r.pt'
+# weight_saved = '2024-12-25-18-27-31/full_8500_r.pt'
+# weight_saved = '2024-12-25-18-51-39/full_8500_r.pt'
+weight_saved = '2024-12-25-18-57-50/full_8000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -146,7 +149,10 @@ print('num envs', num_envs)
 # cat_name = 'mixed_unseen_test'
 # cat_name = 'mixed_unseen_category_test'
 # cat_name = 'mixed_train'
-cat_name = 'ycb_urdf_all'
+cat_name = 'ycb_urdf_sim'
+# cat_name = 'ycb_urdf_all'
+# cat_name = 'ycb_urdf_light'
+# cat_name = 'ycb_urdf_sim_light'
 # cat_name = 'real_obj'
 # cat_name = 'affordance_level'
 cfg['environment']['load_set'] = cat_name

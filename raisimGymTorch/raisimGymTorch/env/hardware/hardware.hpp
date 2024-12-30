@@ -68,6 +68,9 @@ public:
         if (!cfg["randomize_gains_arm_d"].IsNone()) {
             randomize_gains_arm_d_ = cfg["randomize_gains_arm_d"].As<double>();
         }
+        if (!cfg["table_friction"].IsNone()) {
+            table_friction_ = cfg["table_friction"].As<double>();
+        }
         if (!cfg["randomize_friction"].IsNone()) {
             std::stringstream ss(cfg["randomize_friction"].As<std::string>());
             std::string token;
@@ -108,6 +111,7 @@ public:
 
         // set PD control mode
         arm_hand_platform_->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
+        arm_hand_platform_->setComputeInverseDynamics(true);
 
         // check the gc and gv dim of the arm and hand and platform are the same
         hand_dim_ = hand_->getDim();
@@ -269,6 +273,8 @@ public:
             Eigen::VectorXd now_joint_v(platform_gv_dim_);
             arm_hand_platform_->setState(now_joint, now_joint_v);
         }
+
+        // std::cout<<"F: "<<arm_hand_platform_->getGeneralizedForce().e().tail(hand_dim_).transpose()<<std::endl;
     }
 
     /**
@@ -439,10 +445,10 @@ public:
         Eigen::VectorXd pgain(platform_gc_dim_), dgain(platform_gc_dim_);
         arm_->getPdgains(pgain, dgain, arm_dim_);
         hand_->getPdgains(pgain, dgain, hand_dim_);
-        pgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_p_;
-        dgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_d_;
-        pgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_p_;
-        dgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_d_;
+        pgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_p_ * pgain.head(arm_dim_);
+        dgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_d_ * dgain.head(arm_dim_);
+        pgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_p_ * pgain.tail(hand_dim_);
+        dgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_d_ * dgain.tail(hand_dim_);
         arm_hand_platform_->setPdGains(pgain, dgain);
     }
 
@@ -578,12 +584,15 @@ public:
         return arm_hand_platform_->getTotalMass();
     }
     void setMaterialFriction(std::unique_ptr<raisim::World> &world, raisim::ArticulatedSystem *arctic) {
-        if (randomize_friction_.size() > 0) {            
-            arctic->getCollisionBody("top/0").setMaterial("object");
+        arctic->getCollisionBody("top/0").setMaterial("object");
+        if (randomize_friction_.size() > 0) {
             double random_friction = randomize_friction_[std::rand() % randomize_friction_.size()];
             world->setMaterialPairProp("object", "object", random_friction+0.1, 0.0, 0.0);
             world->setMaterialPairProp("object", "finger", random_friction, 0.0, 0.0);
             world->setMaterialPairProp("finger", "finger", random_friction+0.1, 0.0, 0.0);
+        }
+        if (table_friction_ > 0.0) {
+            world->setMaterialPairProp("table", "object", table_friction_, 0.0, 0.0);
         }
     }
 
@@ -643,6 +652,7 @@ private:
     double randomize_gains_hand_d_ = 0.0;
     double randomize_gains_arm_p_ = 0.0;
     double randomize_gains_arm_d_ = 0.0;
+    double table_friction_ = 0.8;
     std::vector<double> randomize_friction_;
 
     bool flying_hand_mode_ = false;

@@ -418,9 +418,9 @@
       <material name="">
           <contact name="finger"/>
       </material>
-      <origin rpy="0 0 0" xyz="-0.0 0 0.0575"/> <!-- ly modified: -0.0475 > 0.003487 -->
+      <origin rpy="0 0 0" xyz="0.0091 0 0.105"/> <!-- ly modified: -0.0475 > 0.003487 -->
       <geometry>
-        <box size="0.0408 0.1130 0.095"/>
+        <mesh filename="allegro_meshes/palm_sim.obj"/>
       </geometry>
     </collision>
     <inertial>
@@ -441,15 +441,6 @@
       </geometry>
       <material name="black"/>
     </visual>
-    <collision>
-      <material name="">
-          <contact name="finger"/>
-      </material>
-      <geometry>
-        <box size="0.0196 0.0275 0.0164"/>
-      </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.0082"/>
-    </collision>
     <inertial>
       <mass value="0.0119"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -458,7 +449,7 @@
   </link>
   <joint name="joint_0.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.47" upper="0.47" velocity="7"/>
+    <limit effort="0.7" lower="-0.47" upper="0.47" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_0.0"/>
     <origin rpy="-0.08726646255 0 0" xyz="0.0091 0.0435 0.103458"/> <!-- ly modified: -0.001542 > 0.049445 -->
@@ -477,9 +468,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.054"/>
+        <box size="0.0196 0.0275 0.04"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 0.018"/>
     </collision>
     <inertial>
       <mass value="0.065"/>
@@ -488,7 +479,7 @@
     </inertial>
   </link>
   <joint name="joint_1.0" type="revolute">
-    <limit effort="15" lower="-0.196" upper="1.61" velocity="7"/>
+    <limit effort="0.7" lower="-0.196" upper="1.61" velocity="7"/>
     <axis xyz="0 1 0"/>
     <parent link="link_0.0"/>
     <child link="link_1.0"/>
@@ -508,9 +499,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0384"/>
+        <box size="0.0196 0.0275 0.0344"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.0192"/>
+      <origin rpy="0 0 0" xyz="0 0 0.0122"/>
     </collision>
     <inertial>
       <mass value="0.0355"/>
@@ -520,7 +511,7 @@
   </link>
   <joint name="joint_2.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.174" upper="1.709" velocity="7"/>
+    <limit effort="0.7" lower="-0.174" upper="1.709" velocity="7"/>
     <parent link="link_1.0"/>
     <child link="link_2.0"/>
     <origin xyz="0 0 0.054"/>
@@ -539,9 +530,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0267"/>
+        <box size="0.0196 0.0275 0.0117"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.01335"/>
+      <origin rpy="0 0 0" xyz="0 0 0.00985"/>
     </collision>
     <inertial>
       <mass value="0.0096"/>
@@ -551,7 +542,7 @@
   </link>
   <joint name="joint_3.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.227" upper="1.618" velocity="7"/>
+    <limit effort="0.7" lower="-0.227" upper="1.618" velocity="7"/>
     <parent link="link_2.0"/>
     <child link="link_3.0"/>
     <origin xyz="0 0 0.0384"/>
@@ -572,7 +563,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <sphere radius="0.012"/>  <!-- 测试剪刀的抓握，原本是0.012 ，改成0.015之后超过visual part-->
+        <mesh filename="allegro_meshes/tip.obj"/>
       </geometry>
     </collision>
     <inertial>
@@ -594,15 +585,6 @@
       </geometry>
       <material name="black"/>
     </visual>
-    <collision>
-      <material name="">
-          <contact name="finger"/>
-      </material>
-      <geometry>
-        <box size="0.0196 0.0275 0.0164"/>
-      </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.0082"/>
-    </collision>
     <inertial>
       <mass value="0.0119"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -611,7 +593,7 @@
   </link>
   <joint name="joint_4.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.47" upper="0.47" velocity="7"/>
+    <limit effort="0.7" lower="-0.47" upper="0.47" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_4.0"/>
     <origin rpy="0.0 0 0" xyz="0.0091 0 0.1057"/>  <!-- ly modified: 0.0007 > 0.051687 -->
@@ -630,9 +612,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.054"/>
+        <box size="0.0196 0.0275 0.04"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 0.018"/>
     </collision>
     <inertial>
       <mass value="0.065"/>
@@ -641,7 +623,7 @@
     </inertial>
   </link>
   <joint name="joint_5.0" type="revolute">
-    <limit effort="15" lower="-0.196" upper="1.61" velocity="7"/>
+    <limit effort="0.7" lower="-0.196" upper="1.61" velocity="7"/>
     <axis xyz="0 1 0"/>
     <parent link="link_4.0"/>
     <child link="link_5.0"/>
@@ -661,9 +643,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0384"/>
+        <box size="0.0196 0.0275 0.0344"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.0192"/>
+      <origin rpy="0 0 0" xyz="0 0 0.0122"/>
     </collision>
     <inertial>
       <mass value="0.0355"/>
@@ -673,7 +655,7 @@
   </link>
   <joint name="joint_6.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.174" upper="1.709" velocity="7"/>
+    <limit effort="0.7" lower="-0.174" upper="1.709" velocity="7"/>
     <parent link="link_5.0"/>
     <child link="link_6.0"/>
     <origin xyz="0 0 0.054"/>
@@ -692,9 +674,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0267"/>
+        <box size="0.0196 0.0275 0.0117"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.01335"/>
+      <origin rpy="0 0 0" xyz="0 0 0.00985"/>
     </collision>
     <inertial>
       <mass value="0.0096"/>
@@ -704,7 +686,7 @@
   </link>
   <joint name="joint_7.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.227" upper="1.618" velocity="7"/>
+    <limit effort="0.7" lower="-0.227" upper="1.618" velocity="7"/>
     <parent link="link_6.0"/>
     <child link="link_7.0"/>
     <origin xyz="0 0 0.0384"/>
@@ -725,7 +707,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <sphere radius="0.012"/>  <!-- 测试剪刀的抓握，原本是0.012 -->
+        <mesh filename="allegro_meshes/tip.obj"/>
       </geometry>
     </collision>
     <inertial>
@@ -747,15 +729,6 @@
       </geometry>
       <material name="black"/>
     </visual>
-    <collision>
-      <material name="">
-          <contact name="finger"/>
-      </material>
-      <geometry>
-        <box size="0.0196 0.0275 0.0164"/>
-      </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.0082"/>
-    </collision>
     <inertial>
       <mass value="0.0119"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -764,7 +737,7 @@
   </link>
   <joint name="joint_8.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.47" upper="0.47" velocity="7"/>
+    <limit effort="0.7" lower="-0.47" upper="0.47" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_8.0"/>
     <origin rpy="0.08726646255 0 0" xyz="0.0091 -0.0435 0.103458"/> <!-- ly modified: -0.001542 > 0.049445 -->
@@ -783,9 +756,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.054"/>
+        <box size="0.0196 0.0275 0.04"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 0.018"/>
     </collision>
     <inertial>
       <mass value="0.065"/>
@@ -794,7 +767,7 @@
     </inertial>
   </link>
   <joint name="joint_9.0" type="revolute">
-    <limit effort="15" lower="-0.196" upper="1.61" velocity="7"/>
+    <limit effort="0.7" lower="-0.196" upper="1.61" velocity="7"/>
     <axis xyz="0 1 0"/>
     <parent link="link_8.0"/>
     <child link="link_9.0"/>
@@ -814,9 +787,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0384"/>
+        <box size="0.0196 0.0275 0.0344"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.0192"/>
+      <origin rpy="0 0 0" xyz="0 0 0.0122"/>
     </collision>
     <inertial>
       <mass value="0.0355"/>
@@ -826,7 +799,7 @@
   </link>
   <joint name="joint_10.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.174" upper="1.709" velocity="7"/>
+    <limit effort="0.7" lower="-0.174" upper="1.709" velocity="7"/>
     <parent link="link_9.0"/>
     <child link="link_10.0"/>
     <origin xyz="0 0 0.054"/>
@@ -845,9 +818,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0267"/>
+        <box size="0.0196 0.0275 0.0117"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.01335"/>
+      <origin rpy="0 0 0" xyz="0 0 0.00985"/>
     </collision>
     <inertial>
       <mass value="0.0096"/>
@@ -857,7 +830,7 @@
   </link>
   <joint name="joint_11.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.227" upper="1.618" velocity="7"/>
+    <limit effort="0.7" lower="-0.227" upper="1.618" velocity="7"/>
     <parent link="link_10.0"/>
     <child link="link_11.0"/>
     <origin xyz="0 0 0.0384"/>
@@ -878,7 +851,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <sphere radius="0.012"/>  <!-- 测试剪刀的抓握，原本是0.012 -->
+        <mesh filename="allegro_meshes/tip.obj"/>
       </geometry>
     </collision>
     <inertial>
@@ -905,15 +878,6 @@
       </material>
       <!--<origin rpy="3.1415926518 0 0" xyz="0 0 0"/>--> <!-- ly modified -->
     </visual>
-    <collision>
-      <material name="">
-          <contact name="finger"/>
-      </material>
-      <geometry>
-        <box size="0.0358 0.034 0.0455"/>
-      </geometry>
-      <origin rpy="0 0 0" xyz="-0.0179 0.009 0.0145"/>
-    </collision>
     <inertial>
       <mass value="0.0176"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -922,7 +886,7 @@
   </link>
   <joint name="joint_12.0" type="revolute">
     <axis xyz="-1 0 0"/>
-    <limit effort="15" lower="0.263" upper="1.396" velocity="7"/>
+    <limit effort="0.7" lower="0.263" upper="1.396" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_12.0"/>
     <origin rpy="0 -1.65806278845 -1.5707963259" xyz="-0.0091 0.019333 0.059013"/> <!-- ly modified: -0.045987 > 0.005 -->
@@ -944,9 +908,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0177"/>
+        <box size="0.0196 0.0275 0.0107"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.00885"/>
+      <origin rpy="0 0 0" xyz="0 0 0.00905"/>
     </collision>
     <inertial>
       <mass value="0.0119"/>
@@ -956,7 +920,7 @@
   </link>
   <joint name="joint_13.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.105" upper="1.163" velocity="7"/>
+    <limit effort="0.7" lower="-0.105" upper="1.163" velocity="7"/>
     <parent link="link_12.0"/>
     <child link="link_13.0"/>
     <origin xyz="-0.027 0.005 0.0399"/>
@@ -976,7 +940,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0514"/>
+        <box size="0.0196 0.0275 0.035"/>
       </geometry>
       <origin rpy="0 0 0" xyz="0 0 0.0257"/>
     </collision>
@@ -988,7 +952,7 @@
   </link>
   <joint name="joint_14.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.189" upper="1.644" velocity="7"/>
+    <limit effort="0.7" lower="-0.189" upper="1.644" velocity="7"/>
     <parent link="link_13.0"/>
     <child link="link_14.0"/>
     <origin xyz="0 0 0.0177"/>
@@ -1008,9 +972,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0423"/>
+        <box size="0.0196 0.0275 0.0253"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.02115"/>
+      <origin rpy="0 0 0" xyz="0 0 0.01815"/>
     </collision>
     <inertial>
       <mass value="0.0388"/>
@@ -1020,7 +984,7 @@
   </link>
   <joint name="joint_15.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.162" upper="1.719" velocity="7"/>
+    <limit effort="0.7" lower="-0.162" upper="1.719" velocity="7"/>
     <parent link="link_14.0"/>
     <child link="link_15.0"/>
     <origin xyz="0 0 0.0514"/>
@@ -1041,7 +1005,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <sphere radius="0.012"/>   <!-- 测试剪刀的抓握，原本是0.012 -->
+        <mesh filename="allegro_meshes/tip.obj"/>
       </geometry>
       <origin rpy="0 0 0" xyz="0 0 0"/>
     </collision>
@@ -1055,7 +1019,7 @@
     <parent link="link_15.0"/>
     <child link="link_15.0_tip"/>
     <origin rpy="0 0 0" xyz="0 0 0.0423"/>
-  </joint>  
+  </joint>
   <!-- ly add: Allegro Hand -->
 
   <!-- ly add: platform -->
@@ -1116,4 +1080,3 @@
     <origin rpy="0.0 0.0 -1.57" xyz="0.0 0.0 0.0"/>
   </joint>
 </robot>
-

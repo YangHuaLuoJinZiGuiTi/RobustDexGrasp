@@ -32,7 +32,7 @@ from raisimGymTorch.env.hardware.log_data import d435_record
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'hui/full_3000_r.pt'
+weight_path_student = 'hui/full_2000_r.pt'
 
 
 # configuration

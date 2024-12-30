@@ -44,10 +44,10 @@ namespace raisim {
             world_->addGround();
             world_->setERP(0.0);
 
-            world_->setMaterialPairProp("object", "object", 0.5, 0.0, 0.0, 0.5, 0.1);
-            world_->setMaterialPairProp("object", "finger", 0.5, 0.0, 0.0, 0.5, 0.1);
-            world_->setMaterialPairProp("finger", "finger", 0.5, 0.0, 0.0, 0.5, 0.1);
-            world_->setDefaultMaterial(0.5, 0, 0, 0.5, 0.1);
+            world_->setMaterialPairProp("object", "object", 0.6, 0.0, 0.0, 0.6, 0.1);
+            world_->setMaterialPairProp("object", "finger", 0.6, 0.0, 0.0, 0.6, 0.1);
+            world_->setMaterialPairProp("finger", "finger", 0.6, 0.0, 0.0, 0.6, 0.1);
+            world_->setDefaultMaterial(0.6, 0, 0, 0.6, 0.1);
 
             /// add mano
             std::string hand_model_r =  cfg["hand_model_r"].As<std::string>();
@@ -65,7 +65,7 @@ namespace raisim {
             mano_r_->getBodies(arm_parts, true, false);
 
             /// add table
-            box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "", raisim::COLLISION(1)));
+            box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "table", raisim::COLLISION(1)));
             box->setPosition(0.2, -0.75152, 0.3855);
             box->setAppearance("0.0 0.0 0.0 0.0");
 
@@ -868,10 +868,6 @@ namespace raisim {
                 joint_pos_in_world[i * 3 + 1] = joint_pos_w[1];
                 joint_pos_in_world[i * 3 + 2] = joint_pos_w[2];
                 joint_height_w[i] = joint_pos_w[2] - 0.771;
-                if (joint_height_w[i] < -0.0 && joint_height_w[i] > -0.06){
-                    std::cout<<"obs negative joint_height_w: "<<joint_height_w[i]<<std::endl;
-                    joint_height_w[i] = 0.0;
-                }
             }
 
             for(int i = 0; i < 6 ; i++){
