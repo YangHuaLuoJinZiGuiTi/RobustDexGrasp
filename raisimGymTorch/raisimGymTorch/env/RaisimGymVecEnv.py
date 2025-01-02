@@ -166,9 +166,6 @@ class RaisimGymVecEnv:
 
         self.wrapper.reset_state(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
 
-    def reset_state2(self, init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose):
-        self.wrapper.reset_state2(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
-
     def set_goals_r(self, obj_pos_r, ee_pos_r, pose_r, qpos_r):
         self.wrapper.set_goals_r(obj_pos_r, ee_pos_r, pose_r, qpos_r)
 

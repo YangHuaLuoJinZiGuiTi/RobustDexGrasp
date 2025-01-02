@@ -123,8 +123,11 @@ class RaisimGymVecEnvTest:
     def stop_video_recording(self):
         self.wrapper.stopRecordingVideo()
 
-    def step(self, action_r, action_l):
-        self.wrapper.step(action_r, action_l, self._reward_r, self._reward_l, self._done)
+    def step(self, action_r, action_l, sim_flag = True):
+        if sim_flag is True:
+            self.wrapper.step(action_r, action_l, self._reward_r, self._reward_l, self._done)
+        else:
+            self.wrapper.step2(action_r, action_l, self._reward_r, self._reward_l, self._done)
         # rewards_l = self.get_reward_info_l()
         # rewards_r = self.get_reward_info_r()
         # print(rewards_l)
@@ -633,12 +636,11 @@ class RaisimGymVecEnvTest:
     def load_multi_articulated(self, obj_models):
         self.wrapper.load_multi_articulated(obj_models)
 
-    def reset_state(self, init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose):
-
-        self.wrapper.reset_state(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
-
-    def reset_state2(self, init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose):
-        self.wrapper.reset_state2(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
+    def reset_state(self, init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose, sim_flag = True):
+        if sim_flag is True:
+            self.wrapper.reset_state(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
+        else:
+            self.wrapper.reset_state2(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
 
     def set_goals_r(self, obj_pos_r, ee_pos_r, pose_r, qpos_r):
         self.wrapper.set_goals_r(obj_pos_r, ee_pos_r, pose_r, qpos_r)
