@@ -487,8 +487,8 @@ while True:
                 action_r[:, :6] = theta0
                 if step == grasp_steps:
                     print("lift")
-                    env.switch_root_guidance(True)
-
+                    env.final_reset_state(action_r, False, sim_flag)
+                    break
             frame_start2 = time.time()
 
             # cost 0.3~1ms in simulation
@@ -511,3 +511,6 @@ while True:
             #print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
             step = step + int(reward_r)
         print("end")
+
+        env.final_reset_state(action_r, True, sim_flag)
+        print("finsh all")

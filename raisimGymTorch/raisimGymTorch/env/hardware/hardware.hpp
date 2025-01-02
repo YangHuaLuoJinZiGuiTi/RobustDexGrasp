@@ -371,7 +371,7 @@ public:
      * @param[in] genvel joint velocity (rad/s)
      * @return None
      */
-    void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel, bool vis_in_sim = false) {
+    void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel, bool vis_in_sim = false, bool no_wait = false) {
         Eigen::VectorXd now_joint(platform_gc_dim_);
         if (vis_in_sim) {
             arm_hand_platform_->setState(genco, genvel);
@@ -380,15 +380,16 @@ public:
 
         if (real_world_mode_) {
             std::cout << "--------------set state = " << genco.transpose() << std::endl;
-            int cnt = 15;
-            double max_gap[16] = {0.02, 0.02, 0.02, 0.02, 
-            0.02, 0.02, 0.02, 0.02,
-            0.02, 0.02, 0.02, 0.02,
-            0.06, 0.02, 0.08, 0.02};
+            int cnt = 2;
+            double max_gap[16] = {0.04, 0.05, 0.04, 0.04, 
+            0.04, 0.05, 0.04, 0.04,
+            0.04, 0.05, 0.04, 0.04,
+            0.08, 0.04, 0.08, 0.04};
             while (cnt > 0) {
                 cnt--;
                 hand_->setPdTarget(genco.tail(hand_dim_), genvel.tail(hand_dim_), false);
                 arm_->setPdTarget(genco.head(arm_dim_), genvel.head(arm_dim_), false);
+                if (no_wait) return;
                 usleep(1000000);
                 arm_->updateArmState();
                 Eigen::VectorXd eef_pos = arm_->getEefPose();

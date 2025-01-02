@@ -579,6 +579,23 @@ namespace raisim {
         reset_state_all(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose, false);
         }
 
+        void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag) final {
+            Eigen::VectorXd final_arm(6), final_hand(16);
+            final_arm << -1.57, -1.57, 1.57, 0., 1.57, -1.57;
+            final_hand << 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2;
+            if (release_hand) {
+                pTarget_clipped_r.tail(16) = final_hand;
+            } else {
+                pTarget_r_ = init_state_r.cast<double>();
+                pTarget_r_ = pTarget_r_.cwiseProduct(actionStd_r_);
+                pTarget_r_ += actionMean_r_;
+                pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
+            }
+            pTarget_clipped_r.head(6) = final_arm;
+            std::cout << "set lift target = " << pTarget_clipped_r.transpose() << std::endl;
+            mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag, true);
+        }
+
         void update_target(const Eigen::Ref<EigenVec>& target_center) final {
             afford_center = target_center.cast<double>();
         }
