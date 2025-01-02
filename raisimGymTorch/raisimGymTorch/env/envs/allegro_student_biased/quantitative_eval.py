@@ -49,7 +49,12 @@ weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 
 # weight_path_student = '2024-12-11-09-43-04/full_3000_r.pt'
 # weight_path_student = '2024-12-16-22-33-03/full_8000_r.pt'
-weight_path_student = '2024-12-23-12-41-34/full_7500_r.pt'
+# weight_path_student = '2024-12-23-12-41-34/full_7500_r.pt'
+# weight_path_student = '2024-12-29-10-01-25/full_6500_r.pt'
+weight_path_student = '2024-12-29-10-02-39/full_4500_r.pt'
+# weight_path_student = '2024-12-30-14-33-27/full_4500_r.pt'
+# weight_path_student = '2024-12-30-14-47-53/full_4500_r.pt'
+# weight_path_student = '2024-12-30-14-50-50/full_4500_r.pt'
 
 
 # configuration
@@ -103,8 +108,11 @@ cfg['environment']['visualize'] = False
 # cat_name = 'mixed_unseen_test'
 # cat_name = 'mixed_unseen_category_test'
 # cat_name = 'mixed_train'
-cat_name = 'ycb_urdf_all'
-# cat_name = 'large_scale'
+# cat_name = 'ycb_urdf_sim'
+# cat_name = 'ycb_urdf_all'
+# cat_name = 'ycb_urdf_light'
+# cat_name = 'ycb_urdf_sim_light'
+cat_name = 'large_scale_light'
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
@@ -118,8 +126,8 @@ obj_list = []
 obj_path_list = []
 obj_ori_list = folder_names
 
-if cat_name == 'large_scale':
-    obj_ori_list = obj_ori_list[:]
+if cat_name == 'large_scale_light':
+    obj_ori_list = obj_ori_list[:50]
 
 # obj_item = choice(obj_ori_list)
 # obj_item = '002_master_chef_can'
@@ -146,7 +154,7 @@ if cat_name == 'large_scale':
 
 # Environment definition
 
-if cat_name != 'large_scale':
+if cat_name != 'large_scale_light':
     num_envs = len(obj_ori_list) * 3
 else:
     num_envs = len(obj_ori_list)
@@ -154,7 +162,7 @@ activations = nn.LeakyReLU
 cfg['environment']['num_envs'] = num_envs
 print('num envs', num_envs)
 
-if cat_name != 'large_scale':
+if cat_name != 'large_scale_light':
     for i in range(3):
         for item in obj_ori_list:
             obj_list.append(item)
@@ -220,6 +228,8 @@ test_dir = True
 saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir + "/" + task_name,
                            save_items=[], test_dir=test_dir)
 
+print(f"load weight from {saver.data_dir.split('eval')[0] + weight_path_student}")
+
 checkpoint_student = torch.load(saver.data_dir.split('eval')[0] + weight_path_student, map_location=torch.device('cpu'))
 actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architecture_state_dict'])
 actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
@@ -249,9 +259,9 @@ for update in range(5):
     visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
 
     view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = 0.8 - 0.55
-    view_point_world[:, 1] = 0.2 - 0.75152
-    view_point_world[:, 2] = 1.5
+    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
+    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
+    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
 
     hand_center_sample_w = np.zeros((1, 3))
     hand_center_sample_w[0, 0] = 0.669872 - 0.55
@@ -323,10 +333,12 @@ for update in range(5):
         obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
 
         no_feasible_ik = False
+        top_grasp = cfg['environment']['top']
+        inverse_grasp = False
         while True:
             if not no_feasible_ik:
                 # get the x_dir of the grasping frame
-                if cfg['environment']['top']:
+                if top_grasp:
                     hand_dir_x_w = np.zeros((1, 3))
                     hand_dir_x_w[0, 2] = 1
                 else:
@@ -337,7 +349,13 @@ for update in range(5):
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                 if rot is None:
-                    no_feasible_ik = True
+                    if top_grasp:
+                        if inverse_grasp:
+                            no_feasible_ik = True
+                        else:
+                            inverse_grasp = True
+                    else:
+                        top_grasp = True
                     continue
                 wrist_in_world = rot
                 qpos_reset_r[i, :3] = pos[0, :]
@@ -359,17 +377,35 @@ for update in range(5):
                 gd[2, 3] = pos_in_ur5_new[2, 0]
 
                 if ik.findClosestIK(gd, theta0) is None:
-                    no_feasible_ik = True
+                    if top_grasp:
+                        if inverse_grasp:
+                            no_feasible_ik = True
+                        else:
+                            inverse_grasp = True
+                    else:
+                        top_grasp = True
                     continue
                 else:
                     qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
 
                 if math.isnan(qpos_reset_r[i, 0]):
-                    no_feasible_ik = True
+                    if top_grasp:
+                        if inverse_grasp:
+                            no_feasible_ik = True
+                        else:
+                            inverse_grasp = True
+                    else:
+                        top_grasp = True
                     continue
                 else:
                     if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        no_feasible_ik = True
+                        if top_grasp:
+                            if inverse_grasp:
+                                no_feasible_ik = True
+                            else:
+                                inverse_grasp = True
+                        else:
+                            top_grasp = True
                         continue
                     else:
                         break
@@ -526,8 +562,9 @@ for update in range(5):
         #     time.sleep(wait_time)
 
     global_state = env.get_global_state()
-    lifted = (global_state[:, 107] - obj_pose_reset[:, 2] > 0.1) * (
-                np.linalg.norm(global_state[:, 112:115] - global_state[:, 105:108], axis=1) < 0.2)
+    # lifted = (global_state[:, 107] - obj_pose_reset[:, 2] > 0.1) * (
+    #             np.linalg.norm(global_state[:, 112:115] - global_state[:, 105:108], axis=1) < 0.2)
+    lifted = global_state[:, 107] - obj_pose_reset[:, 2] > 0.1
     print("current success rate", np.sum(lifted) / num_envs)
 
     success_rate = (update * success_rate + np.sum(lifted) / num_envs) / (update + 1)

@@ -10,14 +10,16 @@ environment:
     flying_hand_mode: False
     save_state_mode: False
     rsc_model: "ur5_allegro"
-    sim_model: "ur5_allegro_low_effort"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+    sim_model: "ur5_allegro_low_effort_mass"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+#    sim_model: "ur5_allegro_low_effort"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
 #    sim_model: "ur5_allegro_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
 #    arm_pd_file: "UR5Identification.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
     arm_pd_file: "UR5Identification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
 #    hand_pd_file: "AllegroIdentification.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
-    hand_pd_file: "AllegroIdentification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+#    hand_pd_file: "AllegroIdentification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+    hand_pd_file: "AllegroIdentification_id5hz_small_p.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
     init_finger_pose: [0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2]
 #    randomize_friction: "0.5,0.6,0.7,0.8,0.9"
     table_friction: 0.2
@@ -27,12 +29,14 @@ environment:
   grasp_steps: 70
   train_safe: True
   top: False
+#  camera_position: [0.25, -0.55152, 1.5]
+  camera_position: [0.04, -0.59, 1.4]
 
   render: True
   eval_every_n: 500
   update_every_n: 20
   num_threads: 32
-  simulation_dt: 0.01
+  simulation_dt: 0.005
   control_dt: 0.2
   max_time: 4.0
   root_guided: True
@@ -43,7 +47,7 @@ environment:
 #  hand_model_r: "allegro.urdf"
 #  hand_model_r: "ur5_allegro.urdf"
   hand_model_r: "ur5_allegro_ori.urdf"
-  finger_action_std: 0.015
+  finger_action_std: 0.05
   rot_action_std: 0.005
   reward:
     affordance_reward:
@@ -110,11 +114,11 @@ environment:
 
     arm_action_reward:
 #      coeff: -0.4
-      coeff: -0.0005
+      coeff: -0.5
 
     hand_action_reward:
 #      coeff: -0.4
-      coeff: -0.0005
+      coeff: -0.05
 
     anatomy_reward:
       coeff: -0.0

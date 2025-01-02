@@ -250,9 +250,9 @@ for update in range(args.num_iterations):
     visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
 
     view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = 0.8 - 0.55
-    view_point_world[:, 1] = 0.2 - 0.75152
-    view_point_world[:, 2] = 1.5
+    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
+    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
+    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
 
     for i in range(num_envs):
         if cfg['environment']['train_safe']:
@@ -300,10 +300,12 @@ for update in range(args.num_iterations):
             obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200, 3), axis=0)
 
             no_feasible_ik = False
+            top_grasp = cfg['environment']['top']
+            inverse_grasp = False
             while True:
                 if not no_feasible_ik:
                     # get the x_dir of the grasping frame
-                    if cfg['environment']['top']:
+                    if top_grasp:
                         hand_dir_x_w = np.zeros((1, 3))
                         hand_dir_x_w[0, 2] = 1
                     else:
@@ -314,7 +316,13 @@ for update in range(args.num_iterations):
                     pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
                     rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                     if rot is None:
-                        no_feasible_ik = True
+                        if top_grasp:
+                            if inverse_grasp:
+                                no_feasible_ik = True
+                            else:
+                                inverse_grasp = True
+                        else:
+                            top_grasp = True
                         continue
                     wrist_in_world = rot
                     qpos_reset_r[i, :3] = pos[0, :]
@@ -336,17 +344,35 @@ for update in range(args.num_iterations):
                     gd[2, 3] = pos_in_ur5_new[2, 0]
 
                     if ik.findClosestIK(gd, theta0) is None:
-                        no_feasible_ik = True
+                        if top_grasp:
+                            if inverse_grasp:
+                                no_feasible_ik = True
+                            else:
+                                inverse_grasp = True
+                        else:
+                            top_grasp = True
                         continue
                     else:
                         qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
 
                     if math.isnan(qpos_reset_r[i, 0]):
-                        no_feasible_ik = True
+                        if top_grasp:
+                            if inverse_grasp:
+                                no_feasible_ik = True
+                            else:
+                                inverse_grasp = True
+                        else:
+                            top_grasp = True
                         continue
                     else:
                         if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            no_feasible_ik = True
+                            if top_grasp:
+                                if inverse_grasp:
+                                    no_feasible_ik = True
+                                else:
+                                    inverse_grasp = True
+                            else:
+                                top_grasp = True
                             continue
                         else:
                             break
@@ -585,17 +611,15 @@ for update in range(args.num_iterations):
         arm_height_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 89:93], a_min=0.002, a_max=0.02)), axis=1)
         # if the abs of the first 6 dim of action_r are larger than 6, then give a negative reward arm_action_reward_r
         arm_action_reward_r = np.sum((np.abs(action_r[:, :6])-4) * (np.abs(action_r[:, :6]) > 4), axis=1)
-        hand_action_reward_r = np.sum((np.abs(action_r[:, 6:])-6) * (np.abs(action_r[:, 6:]) > 6), axis=1)
+        hand_action_reward_r = np.sum((np.abs(action_r[:, 6:])-2) * (np.abs(action_r[:, 6:]) > 2), axis=1)
 
         for i in range(num_envs):
             rewards_r[i]['affordance_reward'] = affordance_reward_r[i] * cfg['environment']['reward']['affordance_reward']['coeff']
             rewards_r[i]['center_reward'] = center_loss[i] * cfg['environment']['reward']['center_reward']['coeff']
             rewards_r[i]['table_reward'] = table_reward_r[i] * cfg['environment']['reward']['table_reward']['coeff']
             rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
-            curr_action_weight = max(update * cfg['environment']['reward']['arm_action_reward']['coeff'], -0.5)
-            curr_finger_action_weight = max(update * cfg['environment']['reward']['hand_action_reward']['coeff'], -0.5)
-            rewards_r[i]['arm_action_reward'] = arm_action_reward_r[i] * curr_action_weight
-            rewards_r[i]['hand_action_reward'] = hand_action_reward_r[i] * curr_finger_action_weight
+            rewards_r[i]['arm_action_reward'] = arm_action_reward_r[i] * min(update/1000, 1.0) * cfg['environment']['reward']['arm_action_reward']['coeff']
+            rewards_r[i]['hand_action_reward'] = hand_action_reward_r[i] * min(update/3000, 1.0) * cfg['environment']['reward']['hand_action_reward']['coeff']
 
             # rewards_r[i]['reward_sum'] = (
             #             rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['center_reward'] +

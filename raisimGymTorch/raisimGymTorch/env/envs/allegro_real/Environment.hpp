@@ -667,7 +667,7 @@ namespace raisim {
             pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
 
             /// Apply N control steps
-#if 1 // devide into small step or not
+#if 0 // devide into small step or not
             double max_step_distance_arm = 0.0;
             for (int i = 0; i < 6; i++) {
                 if (max_step_distance_arm < abs(pTarget_clipped_r[i] - gc_r_[i])) {
@@ -688,7 +688,17 @@ namespace raisim {
             double delay_cnt = 1.0;
 #endif
 
-#if 0 // delay more time or run more step
+#if 0
+            for (int i = 0; i < 6; i++) {
+                if (pTarget_clipped_r[i] - gc_r_[i]> 0.02) {
+                    pTarget_clipped_r[i] = 0.02 + gc_r_[i];
+                } else if (pTarget_clipped_r[i] - gc_r_[i] < -0.02) {
+                    pTarget_clipped_r[i] = -0.02 + gc_r_[i];
+                }
+            }
+#endif
+
+#if 1 // delay more time or run more step
             /// Set PD targets (velocity zero)
             mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
 

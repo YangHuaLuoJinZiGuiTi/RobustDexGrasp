@@ -94,7 +94,10 @@ exp_name = "arm_rand"
 # weight_saved = '2024-12-20-13-16-37/full_17500_r.pt'
 # weight_saved = '2024-12-25-18-27-31/full_8500_r.pt'
 # weight_saved = '2024-12-25-18-51-39/full_8500_r.pt'
-weight_saved = '2024-12-25-18-57-50/full_8000_r.pt'
+# weight_saved = '2024-12-25-18-57-50/full_8000_r.pt'
+# weight_saved = '2024-12-27-18-08-06/full_12500_r.pt'
+# weight_saved = '2024-12-27-18-09-12/full_12500_r.pt'
+weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -149,10 +152,10 @@ print('num envs', num_envs)
 # cat_name = 'mixed_unseen_test'
 # cat_name = 'mixed_unseen_category_test'
 # cat_name = 'mixed_train'
-cat_name = 'ycb_urdf_sim'
+# cat_name = 'ycb_urdf_sim'
 # cat_name = 'ycb_urdf_all'
 # cat_name = 'ycb_urdf_light'
-# cat_name = 'ycb_urdf_sim_light'
+cat_name = 'ycb_urdf_sim_light'
 # cat_name = 'real_obj'
 # cat_name = 'affordance_level'
 cfg['environment']['load_set'] = cat_name
@@ -290,9 +293,9 @@ for update in range(args.num_iterations):
     visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
 
     view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = 0.8 - 0.55
-    view_point_world[:, 1] = 0.2 - 0.75152
-    view_point_world[:, 2] = 1.5
+    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
+    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
+    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
 
     for i in range(num_envs):
         # sample object states
@@ -339,10 +342,12 @@ for update in range(args.num_iterations):
         obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200, 3), axis=0)
 
         no_feasible_ik = False
+        top_grasp = cfg['environment']['top']
+        inverse_grasp = False
         while True:
             if not no_feasible_ik:
                 # get the x_dir of the grasping frame
-                if cfg['environment']['top']:
+                if top_grasp:
                     hand_dir_x_w = np.zeros((1, 3))
                     hand_dir_x_w[0, 2] = 1
                 else:
@@ -353,7 +358,13 @@ for update in range(args.num_iterations):
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                 if rot is None:
-                    no_feasible_ik = True
+                    if top_grasp:
+                        if inverse_grasp:
+                            no_feasible_ik = True
+                        else:
+                            inverse_grasp = True
+                    else:
+                        top_grasp = True
                     continue
                 wrist_in_world = rot
                 qpos_reset_r[i, :3] = pos[0, :]
@@ -375,13 +386,25 @@ for update in range(args.num_iterations):
                 gd[2, 3] = pos_in_ur5_new[2, 0]
 
                 if ik.findClosestIK(gd, theta0) is None:
-                    no_feasible_ik = True
+                    if top_grasp:
+                        if inverse_grasp:
+                            no_feasible_ik = True
+                        else:
+                            inverse_grasp = True
+                    else:
+                        top_grasp = True
                     continue
                 else:
                     qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
 
                 if math.isnan(qpos_reset_r[i, 0]):
-                    no_feasible_ik = True
+                    if top_grasp:
+                        if inverse_grasp:
+                            no_feasible_ik = True
+                        else:
+                            inverse_grasp = True
+                    else:
+                        top_grasp = True
                     continue
                 else:
                     # check self collision
@@ -399,11 +422,23 @@ for update in range(args.num_iterations):
                     contains_one = np.any(one_check == 1, axis=1)
                     true_indices = np.where(contains_one)[0]
                     if len(true_indices) > 0:
-                        no_feasible_ik = True
+                        if top_grasp:
+                            if inverse_grasp:
+                                no_feasible_ik = True
+                            else:
+                                inverse_grasp = True
+                        else:
+                            top_grasp = True
                         continue
                     else:
                         if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            no_feasible_ik = True
+                            if top_grasp:
+                                if inverse_grasp:
+                                    no_feasible_ik = True
+                                else:
+                                    inverse_grasp = True
+                            else:
+                                top_grasp = True
                             continue
                         else:
                             break

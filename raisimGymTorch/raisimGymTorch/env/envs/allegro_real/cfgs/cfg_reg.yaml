@@ -42,7 +42,7 @@ environment:
       move_vel: 1.0
       move_acc: 1.0
       servoJ_ahead_time: 0.18 # range [0.03,0.2] smoothens the trajectory with this lookahead time 0.18 for sysID
-      servoJ_gain: 600 # for following target position, range [100,2000] 400 for sysID
+      servoJ_gain: 1000 # for following target position, range [100,2000] 400 for sysID
       real_velocity_dt_s: 0.1
 
     hand_real:
@@ -50,19 +50,20 @@ environment:
 
   grasp_steps: 70
   top: False
+  camera_position: [0.04, -0.59, 1.4]
 
   render: True
   eval_every_n: 500
   update_every_n: 20
   num_threads: 32
-  simulation_dt: 0.01
+  simulation_dt: 0.005
   control_dt: 0.2
   max_time: 4.0
   root_guided: True
   visualize: False
   unseen: True
   new_category: False
-  load_set: "ycb_urdf_all" # ycb_urdf_all or real_obj
+  load_set: "real_obj" # ycb_urdf_all or real_obj
 #  hand_model_r: "allegro.urdf"
 #  hand_model_r: "ur5_allegro.urdf"
   hand_model_r: "ur5_allegro_ori.urdf"
