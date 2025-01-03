@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import time
 from scipy.spatial import KDTree
+import threading
 
 import matplotlib.pyplot as plt
 
@@ -18,8 +19,8 @@ class Realsense:
             self.filter_time = 200
             self.downsample = 1
         else:
-            self.filter_time = 60
-            self.downsample = 2
+            self.filter_time = 25
+            self.downsample = 4
 
         self.width = 640
         self.hight = 480
@@ -31,6 +32,8 @@ class Realsense:
         self.depth_K = None
         
         self.all_pc = None
+        
+        self.init_hardware()
 
     # KD tree to calculate K-Nearest Neighbors for each point
     def remove_outliers(self, point_cloud, k=5, threshold=1.5):
@@ -98,11 +101,19 @@ class Realsense:
             return img[i, j]  # 如果没有有效值，返回原值
 
     def sample_pc(self):
-        pose_pc_idx = np.random.choice(self.all_pc.shape[0], int(self.sample_pc_num*5), replace=False)
+        if self.all_pc.shape[0] > self.sample_pc_num*2:
+            replace_flag=False
+        else:
+            replace_flag=True
+        pose_pc_idx = np.random.choice(self.all_pc.shape[0], int(self.sample_pc_num*2), replace=replace_flag)
         pose_pc = self.all_pc[pose_pc_idx]
         pose = np.mean(pose_pc, axis=0).reshape(1,3)
         filtered_point_cloud = self.remove_outliers(pose_pc, k=15, threshold=3.0)
-        output_pc_idx = np.random.choice(filtered_point_cloud.shape[0], self.sample_pc_num, replace=False)
+        if self.all_pc.shape[0] > self.sample_pc_num:
+            replace_flag=False
+        else:
+            replace_flag=True
+        output_pc_idx = np.random.choice(filtered_point_cloud.shape[0], self.sample_pc_num, replace=replace_flag)
         return filtered_point_cloud[output_pc_idx], pose
     
     def filter_pc(self, nparray): # shape is (50, self.hight, self.width)
@@ -177,7 +188,7 @@ class Realsense:
         # tf from RGB to left-IR camera
         Tcamrgb2depth = np.array([[  1., 0., 0., 0.],
                             [0., 1., 0., 0.],
-                            [ 0., 0., 1., 0.009],
+                            [ 0., 0., 1., 0.012],
                             [ 0., 0., 0., 1.]])
 
         T_depth = np.hstack((cam_frame, np.ones((cam_frame.shape[0], 1))))  # (N, 4)
@@ -187,10 +198,8 @@ class Realsense:
         T_simworld = T_simbase @ Tsimbase.T
         
         return T_simworld
-                            
-    def GetPointCloud(self):
-        log_time1 = time.time()
-
+    
+    def init_hardware(self):
         if (os.path.exists(self.flat_npy_path)): 
             self.flat_npy = np.load(self.flat_npy_path)
         else:
@@ -203,24 +212,24 @@ class Realsense:
                 exit(0)
 
         # realsense get depth
-        pipeline = rs.pipeline()
+        self.pipeline = rs.pipeline()
         config = rs.config()
         with open(self.camK_path + "/deviceid.txt",'r') as f:
             id=f.read().splitlines()[0]
             config.enable_device(id)
         config.enable_stream(rs.stream.depth, self.width, self.hight, rs.format.z16, self.rate)
         config.enable_stream(rs.stream.color, self.width, self.hight, rs.format.rgb8, self.rate)
-        profile = pipeline.start(config)
+        profile = self.pipeline.start(config)
         depth_sensor = profile.get_device().first_depth_sensor()
-        depth_scale = depth_sensor.get_depth_scale()
+        self.depth_scale = depth_sensor.get_depth_scale()
         align_to = rs.stream.color
-        align = rs.align(align_to)
+        self.align = rs.align(align_to)
         wait_cnt = 0
         while True:
-            frames = pipeline.wait_for_frames()
+            frames = self.pipeline.wait_for_frames()
             wait_cnt += 1
-            if wait_cnt > 5:
-                aligned_frames = align.process(frames)
+            if wait_cnt > 50:
+                aligned_frames = self.align.process(frames)
                 depth_frame = frames.get_depth_frame()
                 color_intrin = aligned_frames.get_profile().as_video_stream_profile().get_intrinsics()
                 depth_intrin = depth_frame.get_profile().as_video_stream_profile().get_intrinsics()
@@ -228,13 +237,13 @@ class Realsense:
                 self.depth_K = np.array([[depth_intrin.fx, 0., depth_intrin.ppx], [0., depth_intrin.fy, depth_intrin.ppy], [0, 0, 1.]])
                 break
 
-        log_time2 = time.time()
-        print(f"-------------init time = {log_time2 - log_time1}")
+    def GetPointCloud(self):
+        log_time1 = time.time()
         wait_cnt = 0
         pointcloud_xyz_list = []
         while True:
-            frames = pipeline.wait_for_frames()
-            aligned_frames = align.process(frames)
+            frames = self.pipeline.wait_for_frames()
+            aligned_frames = self.align.process(frames)
             depth_frame = aligned_frames.get_depth_frame()
             if not depth_frame:
                 continue
@@ -243,37 +252,38 @@ class Realsense:
 
             depth_image = np.asanyarray(depth_frame.get_data())
             downsampled_depth_image = depth_image[::self.downsample, ::self.downsample]
-            depth_image_scaled = (downsampled_depth_image * depth_scale).astype(np.float32)
+            depth_image_scaled = (downsampled_depth_image * self.depth_scale).astype(np.float32)
             pointcloud_xyz_list.append(depth_image_scaled)
             if wait_cnt < self.filter_time:
                 continue
             
-            log_time3 = time.time()
-            print(f"-------------get depth time = {log_time3 - log_time2}")
+            log_time2 = time.time()
+            print(f"-------------get depth time = {log_time2 - log_time1}")
             
             output = self.filter_pc(np.array(pointcloud_xyz_list))
 
-            log_time4 = time.time()
-            print(f"-------------filter depth time = {log_time4 - log_time3}")
+            log_time3 = time.time()
+            print(f"-------------filter depth time = {log_time3 - log_time2}")
 
             # get point cloud
             pointcloud_xyz = self.depth2xyzmap(output)
             self.all_pc = pointcloud_xyz.reshape(-1, 3).astype(np.float32)
 
-            log_time5 = time.time()
-            print(f"-------------get point cloud time = {log_time5 - log_time4}")
+            log_time4 = time.time()
+            print(f"-------------get point cloud time = {log_time4 - log_time3}")
             
             if self.calculate_flag is False:
-                cloud = o3d.geometry.PointCloud()
-                cloud.points = o3d.utility.Vector3dVector(self.all_pc)
-                o3d.visualization.draw_geometries([cloud])
+                # cloud = o3d.geometry.PointCloud()
+                # cloud.points = o3d.utility.Vector3dVector(self.all_pc)
+                # o3d.visualization.draw_geometries([cloud])
+                pass
             else:
                 output_fill = output.copy()
                 for i in range(int(self.hight)):
                     for j in range(int(self.width)):
                         value = output[i][j]
                         if value < 0.4 or value > 0.8:
-                            output_fill[i, j] = self.calculate_mean_around(value, i, j)
+                            output_fill[i, j] = self.calculate_mean_around(output, i, j)
 
                 cloud = o3d.geometry.PointCloud()
                 cloud.points = o3d.utility.Vector3dVector(self.all_pc)
@@ -281,19 +291,19 @@ class Realsense:
                 np.save(self.flat_npy_path, output_fill)            
             break
 
-        pipeline.stop()
-
         mask_pcd_new, mean_pose = self.sample_pc()
         tsim2realpc = self.raisim_frame_tf(mask_pcd_new)
         tsim2realpose = self.raisim_frame_tf(mean_pose)
 
+        log_time5 = time.time()
+        print(f"-------------get calculate tf time = {log_time5 - log_time4}")
         print(f"-------------point cloud center: camera_frame={mean_pose}, raisim_world_frame={tsim2realpose}")
         return tsim2realpose[:, :3], tsim2realpc[:, :3]
         
 def main() -> None:
     print("test ...")
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--calculate_flag", help="check the table", type=bool, default=True)
+    parser.add_argument("-c", "--calculate_flag", help="check the table", type=bool, default=False)
     args = parser.parse_args()
     test = Realsense("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", 200, args.calculate_flag)
     pose, pc = test.GetPointCloud()

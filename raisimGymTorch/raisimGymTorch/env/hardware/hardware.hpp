@@ -380,7 +380,7 @@ public:
 
         if (real_world_mode_) {
             std::cout << "--------------set state = " << genco.transpose() << std::endl;
-            int cnt = 2;
+            int cnt = 10;
             double max_gap[16] = {0.04, 0.05, 0.04, 0.04, 
             0.04, 0.05, 0.04, 0.04,
             0.04, 0.05, 0.04, 0.04,
@@ -390,7 +390,7 @@ public:
                 hand_->setPdTarget(genco.tail(hand_dim_), genvel.tail(hand_dim_), false);
                 arm_->setPdTarget(genco.head(arm_dim_), genvel.head(arm_dim_), false);
                 if (no_wait) return;
-                usleep(1000000);
+                usleep(100000);
                 arm_->updateArmState();
                 Eigen::VectorXd eef_pos = arm_->getEefPose();
                 hand_->updateHandState(eef_pos);
@@ -422,7 +422,6 @@ public:
         } else {
             now_joint = genco;
             now_joint += Eigen::VectorXd::Random(platform_gc_dim_) * 0.004;
-            std::cout << "reset joint = " << genco.transpose() << std::endl;
             std::cout << "new reset joint = " << now_joint.transpose() << std::endl;
             arm_hand_platform_->setState(now_joint, genvel);
         }

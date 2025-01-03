@@ -159,12 +159,64 @@ actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architect
 actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
 prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
+qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
+qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')
+obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')
+target_center = np.zeros_like(env.affordance_center)
+qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
+
+visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
+visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
+
+view_point_world = np.zeros((200, 3))
+view_point_world[:, 0] = cfg['environment']['camera_position'][0]
+view_point_world[:, 1] = cfg['environment']['camera_position'][1]
+view_point_world[:, 2] = cfg['environment']['camera_position'][2]
+
+hand_center_sample_w = np.zeros((1, 3))
+hand_center_sample_w[0, 0] = 0.669872 - 0.55
+hand_center_sample_w[0, 1] = 0.141735 - 0.75152
+hand_center_sample_w[0, 2] = 1.5  # 1.11052
+
+wrist_bias = np.zeros((1, 3))
+wrist_bias[0, 0] = -0.0091
+wrist_bias[0, 2] = -0.095
+
+ur5_to_world = np.eye(3)
+ur5_to_world[0, 0] = 0
+ur5_to_world[0, 1] = -1
+ur5_to_world[1, 0] = 1
+ur5_to_world[1, 1] = 0
+
+theta0 = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
+joint_weights = [1, 1, 1, 1, 1, 1]
+
+ik = InverseKinematicsUR5()
+ik.setJointWeights(joint_weights)
+ik.setJointLimits(-3.14, 3.14)
+
+if sample_pc_mode == 'foundationpose':
+    data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
+elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
+    pass
+elif sample_pc_mode == 'auto':
+    rs = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
+elif sample_pc_mode == 'mesh':
+    lowest_points = np.zeros((num_envs, 1), dtype='float32')
+    for i in range(num_envs):
+        txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
+        with open(txt_file_path, 'r') as txt_file:
+            lowest_points[i] = float(txt_file.read())
+else:
+    print(f"unknow sample pc mode input {sample_pc_mode}")
+    exit(0)
+
 while True:
+    start = time.time()
 
     obj_init_xyz_qwxyz = None
     obj_pointcloud = None
     if sample_pc_mode == 'foundationpose':
-        data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
         try:
             while True:
                 time.sleep(1)
@@ -186,56 +238,10 @@ while True:
         obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
         print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
     elif sample_pc_mode == 'auto':
-        rs = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
         obj_pos_mean, obj_pointcloud = rs.GetPointCloud()
         obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][2], 0.707, 0, 0.707, 0])
     elif sample_pc_mode == 'mesh':
-        lowest_points = np.zeros((num_envs, 1), dtype='float32')
-        for i in range(num_envs):
-            txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
-            with open(txt_file_path, 'r') as txt_file:
-                lowest_points[i] = float(txt_file.read())
-    else:
-        print(f"unknow sample pc mode input {sample_pc_mode}")
-        exit(0)
-        
-    start = time.time()
-
-    qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
-    qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')
-    obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')
-    target_center = np.zeros_like(env.affordance_center)
-    qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
-
-    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
-    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
-
-    view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
-    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
-    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
-
-    hand_center_sample_w = np.zeros((1, 3))
-    hand_center_sample_w[0, 0] = 0.669872 - 0.55
-    hand_center_sample_w[0, 1] = 0.141735 - 0.75152
-    hand_center_sample_w[0, 2] = 1.5  # 1.11052
-
-    wrist_bias = np.zeros((1, 3))
-    wrist_bias[0, 0] = -0.0091
-    wrist_bias[0, 2] = -0.095
-
-    ur5_to_world = np.eye(3)
-    ur5_to_world[0, 0] = 0
-    ur5_to_world[0, 1] = -1
-    ur5_to_world[1, 0] = 1
-    ur5_to_world[1, 1] = 0
-
-    theta0 = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
-    joint_weights = [1, 1, 1, 1, 1, 1]
-
-    ik = InverseKinematicsUR5()
-    ik.setJointWeights(joint_weights)
-    ik.setJointLimits(-3.14, 3.14)
+        pass
 
     for i in range(num_envs):
         # get_meaningful_ik = False
@@ -442,10 +448,10 @@ while True:
         qpos_reset_r[0, 0] -= 2*np.pi
     print(f" ================== samble obj reset pose = {obj_pose_reset}")
 
-    vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
-    env.set_sample_point_visual(vis_point, obj_pose_reset)
+    #vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
+    #env.set_sample_point_visual(vis_point, obj_pose_reset)
 
-    for sim_flag in [True, False]: # True, False
+    for sim_flag in [False]: # True, False
         print(f"--------------------------- test in {sim_flag} flag ---------------------- ")
         env.reset_state(qpos_reset_r,
                         qpos_reset_l,
@@ -455,10 +461,10 @@ while True:
                         sim_flag
                         )
 
-        #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-        obs_new_r, dis_info = env.observe_vision_new()
-        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-        env.set_joint_sensor_visual(show_point)
+        obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+        #obs_new_r, dis_info = env.observe_vision_new()
+        #aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        #env.set_joint_sensor_visual(show_point)
 
         final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
@@ -502,13 +508,13 @@ while True:
             frame_start4 = time.time()
 
             # cost 1-5ms
-            #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-            obs_new_r, dis_info = env.observe_vision_new()
-            aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-            env.set_joint_sensor_visual(show_point)
+            obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+            #obs_new_r, dis_info = env.observe_vision_new()
+            #aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+            #env.set_joint_sensor_visual(show_point)
 
             end = time.time()
-            #print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
+            # print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
             step = step + int(reward_r)
         print("end")
 
