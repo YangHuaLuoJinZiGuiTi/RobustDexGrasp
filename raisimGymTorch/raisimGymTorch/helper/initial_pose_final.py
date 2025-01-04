@@ -1698,7 +1698,7 @@ def get_initial_pose_allegro_arm_rand_test(obj_mesh, obj_pcd_ori, x_dir, aff_cen
 
 
 
-def get_initial_pose_allegro_arm_partial_safe(partial_obj_pcd, x_dir, obj_mat, top=False, z_dir_cmd=None, hand="allegro"):
+def get_initial_pose_allegro_arm_partial_safe(partial_obj_pcd, x_dir, obj_mat, top=False, z_dir_cmd=None, hand="allegro", inverse_grasp=False):
     obj_pcd = partial_obj_pcd.reshape(1,200,3)
     dir = x_dir.copy()
 
@@ -1716,6 +1716,20 @@ def get_initial_pose_allegro_arm_partial_safe(partial_obj_pcd, x_dir, obj_mat, t
         elif hand == "faive":
             if z_dir_in_world[0,1] > 0:
                 z_dir = -z_dir
+        # if hand == "allegro":
+        #     if inverse_grasp:
+        #         if z_dir_in_world[0,1] > 0:
+        #             z_dir = -z_dir
+        #     else:
+        #         if z_dir_in_world[0,1] < 0:
+        #             z_dir = -z_dir
+        # elif hand == "faive":
+        #     if inverse_grasp:
+        #         if z_dir_in_world[0,1] < 0:
+        #             z_dir = -z_dir
+        #     else:
+        #         if z_dir_in_world[0,1] > 0:
+        #             z_dir = -z_dir
 
     y_dir = np.cross(dir, z_dir)
     rot_mat= -np.stack((dir, y_dir, z_dir), axis=-1)

@@ -111,6 +111,9 @@ class Dagger:
         self.actions_log_prob = None
         self.actor_obs = None
 
+    def update_ppo_ratio(self, ppo_ratio):
+        self.ppo_ratio = ppo_ratio
+
     def act(self, total_obs, student_driven_ratio, student_aff, aff_vec_dim):
         hlen = self.tobeEncode_dim * self.T
         teacher_obs = total_obs[:, hlen:]

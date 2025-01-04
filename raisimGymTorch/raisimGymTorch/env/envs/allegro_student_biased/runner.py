@@ -30,7 +30,8 @@ from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, tra
 exp_name = "arm_rand_student"
 
 # weight_saved = '/../../arm_rand/2024-12-27-18-08-06/full_12500_r.pt'
-weight_saved = '/../../arm_rand/2024-12-27-18-11-12/full_15000_r.pt'
+# weight_saved = '/../../arm_rand/2024-12-27-18-11-12/full_15000_r.pt'
+weight_saved = '/../../arm_rand/2025-01-01-10-01-41/full_16500_r.pt'
 weight_path_student = '2024-10-28-14-49-02/full_1000_r.pt'
 
 
@@ -247,6 +248,21 @@ for i in range(num_envs):
         lowest_points[i] = float(txt_file.read())
 
 for update in range(args.num_iterations):
+    # if update % 300 == 0 and ppo_ratio < 1.0 and update > 10:
+    #     ppo_ratio += 0.2
+    #     student_driven_ratio += 0.2
+    #     dagger.update_ppo_ratio(ppo_ratio)
+    #     print('ppo ratio: ', ppo_ratio)
+    #     print('student driven ratio: ', student_driven_ratio)
+
+    if cfg['environment']['curriculum']:
+        ppo_ratio = min(update*0.0005, 1.0)
+        student_driven_ratio = min(update*0.0005, 1.0)
+        dagger.update_ppo_ratio(ppo_ratio)
+    if update % 1000 == 0:
+        print('ppo ratio: ', ppo_ratio)
+        print('student driven ratio: ', student_driven_ratio)
+
     start = time.time()
 
     ### Evaluate trained model visually (note always the first environment gets visualized)
@@ -346,7 +362,7 @@ for update in range(args.num_iterations):
 
         no_feasible_ik = False
         top_grasp = cfg['environment']['top']
-        inverse_grasp = False
+        # inverse_grasp = False
         while True:
             if not no_feasible_ik:
                 # get the x_dir of the grasping frame
@@ -362,10 +378,11 @@ for update in range(args.num_iterations):
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                 if rot is None:
                     if top_grasp:
-                        if inverse_grasp:
-                            no_feasible_ik = True
-                        else:
-                            inverse_grasp = True
+                        # if inverse_grasp:
+                        #     no_feasible_ik = True
+                        # else:
+                        #     inverse_grasp = True
+                        no_feasible_ik = True
                     else:
                         top_grasp = True
                     continue
@@ -390,10 +407,11 @@ for update in range(args.num_iterations):
 
                 if ik.findClosestIK(gd, theta0) is None:
                     if top_grasp:
-                        if inverse_grasp:
-                            no_feasible_ik = True
-                        else:
-                            inverse_grasp = True
+                        # if inverse_grasp:
+                        #     no_feasible_ik = True
+                        # else:
+                        #     inverse_grasp = True
+                        no_feasible_ik = True
                     else:
                         top_grasp = True
                     continue
@@ -402,20 +420,22 @@ for update in range(args.num_iterations):
 
                 if math.isnan(qpos_reset_r[i, 0]):
                     if top_grasp:
-                        if inverse_grasp:
-                            no_feasible_ik = True
-                        else:
-                            inverse_grasp = True
+                        # if inverse_grasp:
+                        #     no_feasible_ik = True
+                        # else:
+                        #     inverse_grasp = True
+                        no_feasible_ik = True
                     else:
                         top_grasp = True
                     continue
                 else:
                     if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
                         if top_grasp:
-                            if inverse_grasp:
-                                no_feasible_ik = True
-                            else:
-                                inverse_grasp = True
+                            # if inverse_grasp:
+                            #     no_feasible_ik = True
+                            # else:
+                            #     inverse_grasp = True
+                            no_feasible_ik = True
                         else:
                             top_grasp = True
                         continue
@@ -567,7 +587,7 @@ for update in range(args.num_iterations):
         arm_height_reward_r = -np.sum(np.log(50 * np.clip(obs_new_r[:, -ob_dim_r+89:-ob_dim_r+93], a_min=0.002, a_max=0.02)), axis=1)
         # if the abs of the first 6 dim of action_r are larger than 6, then give a negative reward arm_action_reward_r
         arm_action_reward_r = np.sum((np.abs(action_r[:, :6])-4) * (np.abs(action_r[:, :6]) > 4), axis=1)
-        hand_action_reward_r = np.sum((np.abs(action_r[:, 6:])-2) * (np.abs(action_r[:, 6:]) > 2), axis=1)
+        hand_action_reward_r = np.sum((np.abs(action_r[:, 6:])-4) * (np.abs(action_r[:, 6:]) > 4), axis=1)
 
         for i in range(num_envs):
             rewards_r[i]['affordance_reward'] = affordance_reward_r[i] * cfg['environment']['reward']['affordance_reward']['coeff']

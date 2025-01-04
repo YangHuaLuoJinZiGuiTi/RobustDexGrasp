@@ -304,7 +304,7 @@ for update in range(args.num_iterations):
 
         no_feasible_ik = False
         top_grasp = cfg['environment']['top']
-        inverse_grasp = False
+        # inverse_grasp = False
         while True:
             if not no_feasible_ik:
                 # get the x_dir of the grasping frame
@@ -320,10 +320,11 @@ for update in range(args.num_iterations):
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                 if rot is None:
                     if top_grasp:
-                        if inverse_grasp:
-                            no_feasible_ik = True
-                        else:
-                            inverse_grasp = True
+                        # if inverse_grasp:
+                        #     no_feasible_ik = True
+                        # else:
+                        #     inverse_grasp = True
+                        no_feasible_ik = True
                     else:
                         top_grasp = True
                     continue
@@ -348,10 +349,11 @@ for update in range(args.num_iterations):
 
                 if ik.findClosestIK(gd, theta0) is None:
                     if top_grasp:
-                        if inverse_grasp:
-                            no_feasible_ik = True
-                        else:
-                            inverse_grasp = True
+                        # if inverse_grasp:
+                        #     no_feasible_ik = True
+                        # else:
+                        #     inverse_grasp = True
+                        no_feasible_ik = True
                     else:
                         top_grasp = True
                     continue
@@ -360,10 +362,11 @@ for update in range(args.num_iterations):
 
                 if math.isnan(qpos_reset_r[i, 0]):
                     if top_grasp:
-                        if inverse_grasp:
-                            no_feasible_ik = True
-                        else:
-                            inverse_grasp = True
+                        # if inverse_grasp:
+                        #     no_feasible_ik = True
+                        # else:
+                        #     inverse_grasp = True
+                        no_feasible_ik = True
                     else:
                         top_grasp = True
                     continue
@@ -384,20 +387,22 @@ for update in range(args.num_iterations):
                     true_indices = np.where(contains_one)[0]
                     if len(true_indices) > 0:
                         if top_grasp:
-                            if inverse_grasp:
-                                no_feasible_ik = True
-                            else:
-                                inverse_grasp = True
+                            # if inverse_grasp:
+                            #     no_feasible_ik = True
+                            # else:
+                            #     inverse_grasp = True
+                            no_feasible_ik = True
                         else:
                             top_grasp = True
                         continue
                     else:
                         if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
                             if top_grasp:
-                                if inverse_grasp:
-                                    no_feasible_ik = True
-                                else:
-                                    inverse_grasp = True
+                                # if inverse_grasp:
+                                #     no_feasible_ik = True
+                                # else:
+                                #     inverse_grasp = True
+                                no_feasible_ik = True
                             else:
                                 top_grasp = True
                             continue

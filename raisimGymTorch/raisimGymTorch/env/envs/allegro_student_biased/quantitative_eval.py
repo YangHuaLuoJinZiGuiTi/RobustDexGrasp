@@ -51,10 +51,16 @@ weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 # weight_path_student = '2024-12-16-22-33-03/full_8000_r.pt'
 # weight_path_student = '2024-12-23-12-41-34/full_7500_r.pt'
 # weight_path_student = '2024-12-29-10-01-25/full_6500_r.pt'
-weight_path_student = '2024-12-29-10-02-39/full_4500_r.pt'
+# weight_path_student = '2024-12-29-10-02-39/full_4000_r.pt'
 # weight_path_student = '2024-12-30-14-33-27/full_4500_r.pt'
 # weight_path_student = '2024-12-30-14-47-53/full_4500_r.pt'
 # weight_path_student = '2024-12-30-14-50-50/full_4500_r.pt'
+# weight_path_student = '2024-12-31-10-43-32/full_4500_r.pt'
+# weight_path_student = '2024-12-31-10-45-09/full_4000_r.pt'
+# weight_path_student = '2024-12-31-14-08-48/full_4000_r.pt'
+# weight_path_student = '2025-01-01-11-39-58/full_4000_r.pt'
+weight_path_student = '2025-01-02-00-16-48/full_5000_r.pt'
+# weight_path_student = '2025-01-02-10-43-23/full_5000_r.pt'
 
 
 # configuration
@@ -111,8 +117,8 @@ cfg['environment']['visualize'] = False
 # cat_name = 'ycb_urdf_sim'
 # cat_name = 'ycb_urdf_all'
 # cat_name = 'ycb_urdf_light'
-# cat_name = 'ycb_urdf_sim_light'
-cat_name = 'large_scale_light'
+cat_name = 'ycb_urdf_sim_light'
+# cat_name = 'large_scale_light'
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
@@ -334,7 +340,7 @@ for update in range(5):
 
         no_feasible_ik = False
         top_grasp = cfg['environment']['top']
-        inverse_grasp = False
+        # inverse_grasp = False
         while True:
             if not no_feasible_ik:
                 # get the x_dir of the grasping frame
@@ -350,10 +356,11 @@ for update in range(5):
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                 if rot is None:
                     if top_grasp:
-                        if inverse_grasp:
-                            no_feasible_ik = True
-                        else:
-                            inverse_grasp = True
+                        # if inverse_grasp:
+                        #     no_feasible_ik = True
+                        # else:
+                        #     inverse_grasp = True
+                        no_feasible_ik = True
                     else:
                         top_grasp = True
                     continue
@@ -378,10 +385,11 @@ for update in range(5):
 
                 if ik.findClosestIK(gd, theta0) is None:
                     if top_grasp:
-                        if inverse_grasp:
-                            no_feasible_ik = True
-                        else:
-                            inverse_grasp = True
+                        # if inverse_grasp:
+                        #     no_feasible_ik = True
+                        # else:
+                        #     inverse_grasp = True
+                        no_feasible_ik = True
                     else:
                         top_grasp = True
                     continue
@@ -390,20 +398,22 @@ for update in range(5):
 
                 if math.isnan(qpos_reset_r[i, 0]):
                     if top_grasp:
-                        if inverse_grasp:
-                            no_feasible_ik = True
-                        else:
-                            inverse_grasp = True
+                        # if inverse_grasp:
+                        #     no_feasible_ik = True
+                        # else:
+                        #     inverse_grasp = True
+                        no_feasible_ik = True
                     else:
                         top_grasp = True
                     continue
                 else:
                     if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
                         if top_grasp:
-                            if inverse_grasp:
-                                no_feasible_ik = True
-                            else:
-                                inverse_grasp = True
+                            # if inverse_grasp:
+                            #     no_feasible_ik = True
+                            # else:
+                            #     inverse_grasp = True
+                            no_feasible_ik = True
                         else:
                             top_grasp = True
                         continue

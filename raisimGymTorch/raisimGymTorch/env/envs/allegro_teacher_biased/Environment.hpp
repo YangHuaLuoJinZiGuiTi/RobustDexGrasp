@@ -44,7 +44,7 @@ namespace raisim {
             world_->setDefaultMaterial(0.8, 0, 0, 0.8, 0.1);
 
             /// add mano
-            std::string hand_model_r =  cfg["hand_model_r"].As<std::string>();
+            std::string hand_model_r =  cfg["hardware"]["sim_model"].As<std::string>();
             if(visualizable_){
                 std::cout<<"hand_model_r: "<<hand_model_r<<std::endl;
             }

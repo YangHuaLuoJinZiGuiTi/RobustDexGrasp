@@ -301,7 +301,7 @@ for update in range(args.num_iterations):
 
             no_feasible_ik = False
             top_grasp = cfg['environment']['top']
-            inverse_grasp = False
+            # inverse_grasp = False
             while True:
                 if not no_feasible_ik:
                     # get the x_dir of the grasping frame
@@ -317,10 +317,11 @@ for update in range(args.num_iterations):
                     rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
                     if rot is None:
                         if top_grasp:
-                            if inverse_grasp:
-                                no_feasible_ik = True
-                            else:
-                                inverse_grasp = True
+                            # if inverse_grasp:
+                            #     no_feasible_ik = True
+                            # else:
+                            #     inverse_grasp = True
+                            no_feasible_ik = True
                         else:
                             top_grasp = True
                         continue
@@ -345,10 +346,11 @@ for update in range(args.num_iterations):
 
                     if ik.findClosestIK(gd, theta0) is None:
                         if top_grasp:
-                            if inverse_grasp:
-                                no_feasible_ik = True
-                            else:
-                                inverse_grasp = True
+                            # if inverse_grasp:
+                            #     no_feasible_ik = True
+                            # else:
+                            #     inverse_grasp = True
+                            no_feasible_ik = True
                         else:
                             top_grasp = True
                         continue
@@ -357,20 +359,22 @@ for update in range(args.num_iterations):
 
                     if math.isnan(qpos_reset_r[i, 0]):
                         if top_grasp:
-                            if inverse_grasp:
-                                no_feasible_ik = True
-                            else:
-                                inverse_grasp = True
+                            # if inverse_grasp:
+                            #     no_feasible_ik = True
+                            # else:
+                            #     inverse_grasp = True
+                            no_feasible_ik = True
                         else:
                             top_grasp = True
                         continue
                     else:
                         if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
                             if top_grasp:
-                                if inverse_grasp:
-                                    no_feasible_ik = True
-                                else:
-                                    inverse_grasp = True
+                                # if inverse_grasp:
+                                #     no_feasible_ik = True
+                                # else:
+                                #     inverse_grasp = True
+                                no_feasible_ik = True
                             else:
                                 top_grasp = True
                             continue
@@ -619,7 +623,7 @@ for update in range(args.num_iterations):
             rewards_r[i]['table_reward'] = table_reward_r[i] * cfg['environment']['reward']['table_reward']['coeff']
             rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
             rewards_r[i]['arm_action_reward'] = arm_action_reward_r[i] * min(update/1000, 1.0) * cfg['environment']['reward']['arm_action_reward']['coeff']
-            rewards_r[i]['hand_action_reward'] = hand_action_reward_r[i] * min(update/3000, 1.0) * cfg['environment']['reward']['hand_action_reward']['coeff']
+            rewards_r[i]['hand_action_reward'] = hand_action_reward_r[i] * min(update/1000, 1.0) * cfg['environment']['reward']['hand_action_reward']['coeff']
 
             # rewards_r[i]['reward_sum'] = (
             #             rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['center_reward'] +
