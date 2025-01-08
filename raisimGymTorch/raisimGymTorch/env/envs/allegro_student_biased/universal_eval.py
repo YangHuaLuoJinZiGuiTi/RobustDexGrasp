@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
-from raisimGymTorch.env.bin import allegro_teacher_biased as mano
+from raisimGymTorch.env.bin import allegro_student_biased as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.allegro_teacher_biased import NormalSampler
+from raisimGymTorch.env.bin.allegro_student_biased import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial_safe
 from scipy.spatial.transform import Rotation as R
 from random import choice
@@ -14,8 +14,8 @@ from random import choice
 import os
 import math
 import time
-import raisimGymTorch.algo.ppo.module as ppo_module
-import raisimGymTorch.algo.ppo.ppo as PPO
+import raisimGymTorch.algo.ppo_dagger_recon.module as ppo_module
+# import raisimGymTorch.algo.ppo.ppo as PPO
 import torch.nn as nn
 import numpy as np
 import torch
@@ -29,85 +29,13 @@ import wandb
 import torch
 
 
-exp_name = "arm_rand"
+exp_name = "arm_rand_student"
 
-# weight_saved = '2024-10-22-16-46-35/full_24500_r.pt'
-# weight_saved = '2024-10-23-08-13-36/full_20000_r.pt'
-# weight_saved = '2024-10-23-08-21-47/full_20000_r.pt'
-# weight_saved = '2024-10-23-08-34-20/full_20000_r.pt'
-# weight_saved = '2024-10-23-09-52-39/full_17500_r.pt'
-# weight_saved = '2024-10-23-12-15-12/full_15500_r.pt'
-# weight_saved = '2024-10-23-14-33-50/full_14500_r.pt'
-# weight_saved = '2024-10-23-15-05-08/full_12500_r.pt'
-# weight_saved = '2024-10-23-17-15-16/full_21000_r.pt'
-# weight_saved = '2024-10-23-17-22-34/full_21000_r.pt'
-# weight_saved = '2024-10-25-17-09-30/full_23000_r.pt'
-# weight_saved = '2024-10-25-17-16-54/full_23000_r.pt'
-# weight_saved = '2024-10-26-15-58-30/full_40000_r.pt'
-# weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
-# weight_saved = '2024-10-26-17-02-58/full_17000_r.pt'
-# weight_saved = '2024-10-28-10-29-30/full_22500_r.pt'
-# weight_saved = '2024-10-28-16-13-40/full_5500_r.pt'
-# weight_saved = '2024-10-28-16-53-10/full_6000_r.pt'
-# weight_saved = '2024-10-29-18-45-29/full_11000_r.pt'
-# weight_saved = '2024-10-29-18-49-44/full_9500_r.pt'
-# weight_saved = '2024-10-31-14-38-19/full_50000_r.pt'
-# weight_saved = '2024-10-31-16-40-52/full_50000_r.pt'
-# weight_saved = '2024-10-31-16-43-20/full_50000_r.pt'
-# weight_saved = '2024-11-04-16-42-02/full_11500_r.pt'
-# weight_saved = '2024-11-04-16-42-02/full_50000_r.pt'
-# weight_saved = '2024-11-19-18-53-10/full_44000_r.pt'
-# weight_saved = '2024-11-19-18-55-45/full_15000_r.pt'
-# weight_saved = '2024-11-26-18-01-13/full_12000_r.pt'
-# weight_saved = '2024-11-26-18-04-50/full_10000_r.pt'
-# weight_saved = '2024-11-26-18-08-39/full_10000_r.pt'
-# weight_saved = '2024-11-27-14-04-03/full_14000_r.pt'
-# weight_saved = '2024-11-28-15-40-26/full_7500_r.pt'
-# weight_saved = '2024-11-28-15-42-46/full_12500_r.pt'
-# weight_saved = '2024-11-28-15-47-05/full_11500_r.pt'
-# weight_saved = '2024-11-28-18-22-16/full_9000_r.pt'
-# weight_saved = '2024-11-29-11-20-34/full_9000_r.pt'
-# weight_saved = '2024-11-29-11-23-28/full_9000_r.pt'
-# weight_saved = '2024-11-29-11-24-39/full_9000_r.pt'
-# weight_saved = '2024-11-29-12-32-22/full_20000_r.pt'
-# weight_saved = '2024-11-29-12-56-22/full_19500_r.pt'
-# weight_saved = '2024-12-01-08-29-14/full_22500_r.pt'
-# weight_saved = '2024-12-02-13-52-26/full_18000_r.pt'
-# weight_saved = '2024-12-02-15-42-28/full_16000_r.pt'
-# weight_saved = '2024-12-02-15-44-36/full_9500_r.pt'
-# weight_saved = '2024-12-04-10-15-15/full_14500_r.pt'
-# weight_saved = '2024-12-04-17-35-23/full_15500_r.pt'
-# weight_saved = '2024-12-06-10-18-17/full_12500_r.pt'
-# weight_saved = '2024-12-06-17-04-47/full_31000_r.pt'
-# weight_saved = '2024-12-11-15-33-22/full_14000_r.pt'
-# weight_saved = '2024-12-12-09-55-30/full_27000_r.pt'
-# weight_saved = '2024-12-13-10-04-10/full_24000_r.pt'
-# weight_saved = '2024-12-13-15-47-58/full_25000_r.pt'
-# weight_saved = '2024-12-15-09-58-40/full_19000_r.pt'
-# weight_saved = '2024-12-15-11-00-37/full_19000_r.pt'
-# weight_saved = '2024-12-17-10-54-17/full_24000_r.pt'
-# weight_saved = '2024-12-17-10-56-52/full_18000_r.pt'
-# weight_saved = '2024-12-17-13-02-44/full_19000_r.pt'
-# weight_saved = '2024-12-19-18-02-00/full_30000_r.pt'
-# weight_saved = '2024-12-20-13-06-20/full_17500_r.pt'
-# weight_saved = '2024-12-20-13-10-39/full_14000_r.pt'
-# weight_saved = '2024-12-20-13-16-37/full_17500_r.pt'
-# weight_saved = '2024-12-25-18-27-31/full_8500_r.pt'
-# weight_saved = '2024-12-25-18-51-39/full_8500_r.pt'
-# weight_saved = '2024-12-25-18-57-50/full_8000_r.pt'
-# weight_saved = '2024-12-27-18-08-06/full_16500_r.pt'
-# weight_saved = '2024-12-27-18-09-12/full_12500_r.pt'
-weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
-# weight_saved = '2024-12-31-18-57-49/full_16000_r.pt'
-# weight_saved = '2024-12-31-19-13-20/full_12000_r.pt'
-# weight_saved = '2024-12-31-20-31-15/full_14500_r.pt'
-# weight_saved = '2025-01-01-10-01-41/full_16000_r.pt'
-# weight_saved = '2025-01-02-11-39-41/full_4500_r.pt'
-# weight_saved = '2025-01-03-18-29-42/full_20000_r.pt'
-# weight_saved = '2025-01-05-11-24-07/full_8500_r.pt'
-# weight_saved = '2025-01-06-14-32-58/full_8000_r.pt'
-# weight_saved = '2025-01-06-14-37-46/full_9000_r.pt'
-# weight_saved = '2025-01-06-19-53-12/full_3500_r.pt'
+weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
+
+# weight_path_student = '2024-12-29-10-02-39/full_4500_r.pt'
+weight_path_student = '2025-01-02-00-16-48/full_5000_r.pt'
+
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -116,13 +44,9 @@ parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str,
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
 parser.add_argument('-w', '--weight', type=str, default=weight_saved)
 parser.add_argument('-sd', '--storedir', type=str, default='data_all')
-parser.add_argument('-seed', '--seed', type=int, default=1)
-parser.add_argument('-itr', '--num_iterations', type=int, default=50001)
-parser.add_argument('-nr', '--num_repeats', type=int, default=1)
-parser.add_argument('-re', '--load_trained_policy', action="store_true")
-parser.add_argument('-renew', '--renew', help='update labels every iteration', action="store_true")
-parser.add_argument('-ln', '--log_name', type=str, default='single_obj')
-parser.add_argument('-mean', '--mean_pose', action="store_true")
+parser.add_argument('-itr', '--num_iterations', type=int, default=1)
+parser.add_argument('-group', '--group_name', type=int, default=0)
+parser.add_argument('-mode', '--mode', type=int, default=-1)
 
 args = parser.parse_args()
 weight_path = args.weight
@@ -150,68 +74,70 @@ cfg = YAML().load(open(task_path + '/cfgs/' + args.cfg, 'r'))
 if args.seed != 1:
     cfg['seed'] = args.seed
 
-# num_envs = args.num_repeats
-# activations = nn.LeakyReLU
-
 cfg['environment']['visualize'] = False
 
 
-# cat_name = 'mixed_test'
-# cat_name = 'mixed_unseen_test'
-# cat_name = 'mixed_unseen_category_test'
-# cat_name = 'mixed_train'
-# cat_name = 'ycb_urdf_sim'
-# cat_name = 'ycb_urdf_all'
-cat_name = 'ycb_urdf_light'
-# cat_name = 'ycb_urdf_sim_light'
-# cat_name = 'real_obj'
-# cat_name = 'affordance_level'
+mode = args.mode
+if mode == -1:
+    cat_name = f"urdf_group{args.group_name}"
+elif mode == 0:
+    cat_name = f"surdf_group{args.group_name}_s"
+elif mode == 1:
+    cat_name = f"surdf_group{args.group_name}_m"
+elif mode == 2:
+    cat_name = f"surdf_group{args.group_name}_l"
+
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
 
-items = os.listdir(directory_path)
-
 # # Filter out only the folders (directories) from the list of items
-folder_names = [item for item in items if os.path.isdir(os.path.join(directory_path, item))]
+if mode == -1:
+    load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}.npy').tolist()
+elif mode == 0:
+    load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_s.npy').tolist()
+elif mode == 1:
+    load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_m.npy').tolist()
+elif mode == 2:
+    load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_l.npy').tolist()
+print("number of objects", len(load_ids))
 
-obj_list = []
+
+
 obj_path_list = []
-obj_ori_list = folder_names
+obj_ori_list = load_ids
 
-# obj_item = choice(obj_ori_list)
-# obj_item = '002_master_chef_can'
-# obj_item = '003_cracker_box'
-# obj_item = '004_sugar_box'
-# obj_item = '005_tomato_soup_can'
-# obj_item = '006_mustard_bottle'
-# obj_item = '007_tuna_fish_can'
-# obj_item = '008_pudding_box'
-# obj_item = '009_gelatin_box'
-# obj_item = '010_potted_meat_can'
-# obj_item = '011_banana'
-# obj_item = '019_pitcher_base'
-# obj_item = '021_bleach_cleanser'
-# obj_item = '024_bowl'
-# obj_item = '025_mug'
-# obj_item = '035_power_drill'
-# obj_item = '036_wood_block'
-# obj_item = '037_scissors'
-# obj_item = '040_large_marker'
-# obj_item = '051_large_clamp'
-# obj_item = '052_extra_large_clamp'
-# obj_item = '061_foam_brick'
+num_env_per_iter = 500
+iter_num = args.num_iterations
+obj_list = []
+if iter_num < len(obj_ori_list) // num_env_per_iter:
+    num_envs = num_env_per_iter
+else:
+    num_envs = len(obj_ori_list) % num_env_per_iter
+for i in range(num_envs):
+    obj_list.append(obj_ori_list[i + iter_num * num_env_per_iter])
+print("iter_num", iter_num)
 
-num_envs = len(obj_ori_list) * 3
+num_envs = len(obj_list)
+
 activations = nn.LeakyReLU
 cfg['environment']['num_envs'] = num_envs
 print('num envs', num_envs)
 
-for i in range(3):
-    for item in obj_ori_list:
-        obj_list.append(item)
+if not cfg['environment']['randomization_eval']:
+    print("no randomization")
+    cfg['environment']['hardware']['randomize_friction'] = "0.8"
+    cfg['environment']['hardware']['randomize_gains_hand_p'] = 0.
+    cfg['environment']['hardware']['randomize_gains_hand_d'] = 0.
+    cfg['environment']['hardware']['randomize_gains_arm_p'] = 0.
+    cfg['environment']['hardware']['randomize_gains_arm_d'] = 0.
+    cfg['environment']['hardware']['randomize_gc_hand'] = 0.
+    cfg['environment']['hardware']['randomize_gc_arm'] = 0.
+    cfg['environment']['hardware']['randomize_frame_position'] = 0.
+    cfg['environment']['hardware']['randomize_frame_orientation'] = 0.
+else:
+    print("randomization")
 
-# Environment definition
 env = VecEnv(obj_list, mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
 
@@ -228,6 +154,12 @@ act_dim = 22
 print('ob dim', ob_dim_r)
 print('act dim', act_dim)
 
+tobeEncode_dim = 44
+t_steps = 10
+prop_latent_dim=26
+aff_vec_dim = 51
+total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
+
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps'] + 30
@@ -237,9 +169,10 @@ total_steps_r = n_steps_r * env.num_envs
 
 # RL network
 
-actor_r = ppo_module.Actor(
+actor_student_r = ppo_module.Actor(
     ppo_module.MLP(cfg['architecture']['policy_net'], activations, ob_dim_r, act_dim),
     ppo_module.MultivariateGaussianDiagonalCovariance(act_dim, num_envs, 1.0, NormalSampler(act_dim)), device)
+prop_latent_encoder = ppo_module.LSTM_StateHistoryEncoder(tobeEncode_dim, prop_latent_dim, t_steps, device)
 
 critic_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], activations, ob_dim_r, 1), device)
 
@@ -247,22 +180,14 @@ critic_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], ac
 test_dir = True
 
 saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir + "/" + task_name,
-                           save_items=[task_path + "/quantitative_eval.py"], test_dir=test_dir)
+                           save_items=[], test_dir=test_dir)
 
+print(f"load weight from {saver.data_dir.split('eval')[0] + weight_path_student}")
 
-ppo_r = PPO.PPO(actor=actor_r,
-                critic=critic_r,
-                num_envs=num_envs,
-                num_transitions_per_env=n_steps_r,
-                num_learning_epochs=4,
-                gamma=0.996,
-                lam=0.95,
-                num_mini_batches=4,
-                device=device,
-                log_dir=saver.data_dir,
-                shuffle_batch=False
-                )
-load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
+checkpoint_student = torch.load(saver.data_dir.split('eval')[0] + weight_path_student, map_location=torch.device('cpu'))
+actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architecture_state_dict'])
+actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
+prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
 for i in range(num_envs):
@@ -270,10 +195,9 @@ for i in range(num_envs):
     with open(txt_file_path, 'r') as txt_file:
         lowest_points[i] = float(txt_file.read())
 
-
 success_rate = 0.0
 
-for update in range(5):
+for update in range(1):
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -283,6 +207,15 @@ for update in range(5):
     target_center = np.zeros_like(env.affordance_center)
 
     qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
+
+
+    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
+    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
+
+    view_point_world = np.zeros((200, 3))
+    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
+    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
+    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
 
     hand_center_sample_w = np.zeros((1, 3))
     hand_center_sample_w[0, 0] = 0.669872 - 0.55
@@ -306,25 +239,12 @@ for update in range(5):
     ik.setJointWeights(joint_weights)
     ik.setJointLimits(-3.14, 3.14)
 
-    # partial_obs = cfg['environment']['partial_pt_init_pose']
-    #
-    # if partial_obs:
-
-    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
-    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
-
-    view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
-    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
-    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
-
     for i in range(num_envs):
-        # sample object states
+        # sample object states (not relavent for hardware deployment)
         sample_x = 0.15
         sample_y = 0.2 - 0.75152
         while True:
             angle = np.random.uniform(0, 2 * np.pi)
-            # angle = np.random.uniform(3*np.pi/2, 2 * np.pi)
             distance = np.random.uniform(0.45, 0.75)
             sample_x = distance * np.cos(angle)
             sample_y = distance * np.sin(angle)
@@ -341,7 +261,7 @@ for update in range(5):
         quats = rotations.axisangle2quat(axis_angles)
         obj_pose_reset[i, 3:7] = quats
 
-        # get the partial point cloud
+        # get the partial point cloud (not relavent for hardware deployment)
         obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
 
         view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
@@ -360,7 +280,8 @@ for update in range(5):
         visible_points_obj[i, :] = locations
         visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
 
-        obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200, 3), axis=0)
+        # get the x_dir of the grasping frame
+        obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
 
         no_feasible_ik = False
         top_grasp = cfg['environment']['top']
@@ -431,24 +352,6 @@ for update in range(5):
                         top_grasp = True
                     continue
                 else:
-                    # # check self collision
-                    # env.reset_state(qpos_reset_r,
-                    #                 qpos_reset_l,
-                    #                 np.zeros((num_envs, 22), 'float32'),
-                    #                 np.zeros((num_envs, 22), 'float32'),
-                    #                 obj_pose_reset,
-                    #                 )
-                    # temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
-                    # temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
-                    # _, _, _ = env.step(temp_action_r, temp_action_l)
-                    # global_state = env.get_global_state()
-                    # one_check = global_state[:, 124:128]
-                    # contains_one = np.any(one_check == 1, axis=1)
-                    # true_indices = np.where(contains_one)[0]
-                    # if len(true_indices) > 0:
-                    #     no_feasible_ik = True
-                    #     continue
-                    # else:
                     if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
                         if top_grasp:
                             # if inverse_grasp:
@@ -474,7 +377,7 @@ for update in range(5):
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True, z_dir_cmd=z_dir_in_world)
                 if rot is None:
-                    qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 wrist_in_world = rot
                 qpos_reset_r[i, :3] = pos[0, :]
@@ -496,35 +399,17 @@ for update in range(5):
                 gd[2, 3] = pos_in_ur5_new[2, 0]
 
                 if ik.findClosestIK(gd, theta0) is None:
-                    qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 else:
                     qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
 
                 if math.isnan(qpos_reset_r[i, 0]):
-                    qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 else:
-                    # # check self collision
-                    # env.reset_state(qpos_reset_r,
-                    #                 qpos_reset_l,
-                    #                 np.zeros((num_envs, 22), 'float32'),
-                    #                 np.zeros((num_envs, 22), 'float32'),
-                    #                 obj_pose_reset,
-                    #                 )
-                    # temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
-                    # temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
-                    # _, _, _ = env.step(temp_action_r, temp_action_l)
-                    # global_state = env.get_global_state()
-                    # one_check = global_state[:, 124:128]
-                    # contains_one = np.any(one_check == 1, axis=1)
-                    # true_indices = np.where(contains_one)[0]
-                    # if len(true_indices) > 0:
-                    #     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                    #     break
-                    # else:
                     if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                        qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
 
     # check self collision
@@ -554,6 +439,8 @@ for update in range(5):
             obj_pose_reset[true_idx, 0] = 0.15
             obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
 
+    print("complete initial pose generation")
+
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
                     np.zeros((num_envs, 22), 'float32'),
@@ -562,8 +449,7 @@ for update in range(5):
                     )
 
     obs_new_r, dis_info = env.observe_vision_new()
-
-    env.update_target(target_center)
+    aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
 
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
@@ -574,13 +460,25 @@ for update in range(5):
     else:
         obj_pos_bias = np.zeros((num_envs, 3), dtype='float32')
 
-
     for step in range(n_steps_r):
+        # print("step", step)
         frame_start = time.time()
+
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
 
-        action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
+        # if step > 0:
+        #     time.sleep(2)
+
+        encode_obs = torch.from_numpy(obs_r[:, :tobeEncode_dim * t_steps]).to(device)
+
+        student_latent = prop_latent_encoder(encode_obs)
+        student_mlp_obs = torch.cat((torch.from_numpy(obs_r[:, -ob_dim_r:-ob_dim_r + tobeEncode_dim]),
+                                     student_latent.cpu(),
+                                     torch.from_numpy(obs_r[:, -ob_dim_r + tobeEncode_dim + prop_latent_dim:-aff_vec_dim]),
+                                     torch.from_numpy(aff_vec)), dim=1).to(device)
+
+        action_r = actor_student_r.architecture.architecture(student_mlp_obs.to(device))
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
 
@@ -592,29 +490,77 @@ for update in range(5):
             if step == grasp_steps:
                 env.switch_root_guidance(True)
 
+
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
         obs_new_r, dis_info = env.observe_vision_new()
+        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
 
         if biased:
             obj_pos_bias_current = np.zeros((num_envs, 3), dtype='float32')
             for i in range(num_envs):
                 if np.min(dis_info[i, 0:17]) < 0.07 and obj_biased[i] == 0:
+                # if random.uniform (0, 1) < 0.3 and obj_biased[i] == 0 and np.min(dis_info[i, 0:17]) > 0.07:
                     obj_biased[i] = 1
                     obj_pos_bias_current[i] = obj_pos_bias[i]
             env.switch_obj_pos(obj_pos_bias_current)
 
-        # frame_end = time.time()
-        # wait_time = cfg['environment']['control_dt'] - (frame_end - frame_start)
-        # if wait_time > 0.:
-        #     time.sleep(wait_time)
-
     global_state = env.get_global_state()
-    # lifted = (global_state[:, 107] - obj_pose_reset[:, 2] > 0.1) * (np.linalg.norm(global_state[:, 112:115] - global_state[:, 105:108], axis=1) < 0.2)
+    # lifted = (global_state[:, 107] - obj_pose_reset[:, 2] > 0.1) * (
+    #             np.linalg.norm(global_state[:, 112:115] - global_state[:, 105:108], axis=1) < 0.2)
     lifted = global_state[:, 107] - obj_pose_reset[:, 2] > 0.1
     print("current success rate", np.sum(lifted) / num_envs)
 
     success_rate = (update * success_rate + np.sum(lifted) / num_envs) / (update + 1)
     print("average success rate", success_rate)
+
+direct_save = "/mnt/ssd/data3/hui/anydex_results/"
+
+try:
+    if mode == -1:
+        pre_result = np.load(direct_save + f"group{args.group_name}_results_{iter_num - 1}.npy", allow_pickle=True).item()
+    elif mode == 0:
+        pre_result = np.load(direct_save + f"group{args.group_name}_s_results_{iter_num - 1}.npy", allow_pickle=True).item()
+    elif mode == 1:
+        pre_result = np.load(direct_save + f"group{args.group_name}_m_results_{iter_num - 1}.npy", allow_pickle=True).item()
+    elif mode == 2:
+        pre_result = np.load(direct_save + f"group{args.group_name}_l_results_{iter_num - 1}.npy", allow_pickle=True).item()
+    print("load previous result")
+except:
+    pre_result = {}
+    pre_result["success_rate"] = 0
+    pre_result["obj_num"] = 0
+    print("no previous result")
+pre_success_rate = pre_result["success_rate"]
+pre_obj_num = pre_result["obj_num"]
+
+result = {}
+result["current_success_rate"] = success_rate
+result["current_obj_num"] = num_envs
+result["success_rate"] = (success_rate * num_envs + pre_success_rate * pre_obj_num) / (num_envs + pre_obj_num)
+result["obj_num"] = num_envs + pre_obj_num
+if mode == -1:
+    np.save(direct_save + f"group{args.group_name}_results_{iter_num}.npy", result)
+elif mode == 0:
+    np.save(direct_save + f"group{args.group_name}_s_results_{iter_num}.npy", result)
+elif mode == 1:
+    np.save(direct_save + f"group{args.group_name}_m_results_{iter_num}.npy", result)
+elif mode == 2:
+    np.save(direct_save + f"group{args.group_name}_l_results_{iter_num}.npy", result)
+
+
+print("iter num", iter_num)
+print("group", args.group_name)
+if mode == -1:
+    print("mode", "original")
+elif mode == 0:
+    print("mode", "small")
+elif mode == 1:
+    print("mode", "medium")
+elif mode == 2:
+    print("mode", "large")
+print("current averate success rate", result["success_rate"])
+print("current obj num", result["obj_num"])
+
 
 

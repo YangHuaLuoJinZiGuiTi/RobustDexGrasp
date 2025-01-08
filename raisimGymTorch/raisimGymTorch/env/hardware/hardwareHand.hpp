@@ -19,6 +19,7 @@ public:
     virtual void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int tail_shift) const = 0;
     virtual Eigen::VectorXd & getJointPosition() = 0;
     virtual Eigen::VectorXd & getJointVelocity() = 0;
+    virtual Eigen::VectorXd & getJointEffort() {return hand_joint_effort_;};
     virtual const int getDim() const = 0;
     virtual const int getNumFinger() const = 0;
     virtual int getBodies(std::vector<std::string> & get_vec, bool contact_flag) const = 0;
@@ -34,6 +35,7 @@ public:
     Eigen::VectorXd wrist_velocity_;
     Eigen::VectorXd hand_joint_position_;
     Eigen::VectorXd hand_joint_velocity_;
+    Eigen::VectorXd hand_joint_effort_;
 };
 
 

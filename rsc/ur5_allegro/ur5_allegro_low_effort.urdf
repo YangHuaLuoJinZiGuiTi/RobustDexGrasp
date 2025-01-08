@@ -449,7 +449,7 @@
   </link>
   <joint name="joint_0.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.47" upper="0.47" velocity="7"/>
+    <limit effort="0.7" lower="-0.47" upper="0.47" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_0.0"/>
     <origin rpy="-0.08726646255 0 0" xyz="0.0091 0.0435 0.103458"/> <!-- ly modified: -0.001542 > 0.049445 -->
@@ -479,7 +479,7 @@
     </inertial>
   </link>
   <joint name="joint_1.0" type="revolute">
-    <limit effort="15" lower="-0.196" upper="1.61" velocity="7"/>
+    <limit effort="0.7" lower="-0.196" upper="1.61" velocity="7"/>
     <axis xyz="0 1 0"/>
     <parent link="link_0.0"/>
     <child link="link_1.0"/>
@@ -511,7 +511,7 @@
   </link>
   <joint name="joint_2.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.174" upper="1.709" velocity="7"/>
+    <limit effort="0.7" lower="-0.174" upper="1.709" velocity="7"/>
     <parent link="link_1.0"/>
     <child link="link_2.0"/>
     <origin xyz="0 0 0.054"/>
@@ -542,7 +542,7 @@
   </link>
   <joint name="joint_3.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.227" upper="1.618" velocity="7"/>
+    <limit effort="0.7" lower="-0.227" upper="1.618" velocity="7"/>
     <parent link="link_2.0"/>
     <child link="link_3.0"/>
     <origin xyz="0 0 0.0384"/>
@@ -593,7 +593,7 @@
   </link>
   <joint name="joint_4.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.47" upper="0.47" velocity="7"/>
+    <limit effort="0.7" lower="-0.47" upper="0.47" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_4.0"/>
     <origin rpy="0.0 0 0" xyz="0.0091 0 0.1057"/>  <!-- ly modified: 0.0007 > 0.051687 -->
@@ -623,7 +623,7 @@
     </inertial>
   </link>
   <joint name="joint_5.0" type="revolute">
-    <limit effort="15" lower="-0.196" upper="1.61" velocity="7"/>
+    <limit effort="0.7" lower="-0.196" upper="1.61" velocity="7"/>
     <axis xyz="0 1 0"/>
     <parent link="link_4.0"/>
     <child link="link_5.0"/>
@@ -655,7 +655,7 @@
   </link>
   <joint name="joint_6.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.174" upper="1.709" velocity="7"/>
+    <limit effort="0.7" lower="-0.174" upper="1.709" velocity="7"/>
     <parent link="link_5.0"/>
     <child link="link_6.0"/>
     <origin xyz="0 0 0.054"/>
@@ -686,7 +686,7 @@
   </link>
   <joint name="joint_7.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.227" upper="1.618" velocity="7"/>
+    <limit effort="0.7" lower="-0.227" upper="1.618" velocity="7"/>
     <parent link="link_6.0"/>
     <child link="link_7.0"/>
     <origin xyz="0 0 0.0384"/>
@@ -737,7 +737,7 @@
   </link>
   <joint name="joint_8.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.47" upper="0.47" velocity="7"/>
+    <limit effort="0.7" lower="-0.47" upper="0.47" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_8.0"/>
     <origin rpy="0.08726646255 0 0" xyz="0.0091 -0.0435 0.103458"/> <!-- ly modified: -0.001542 > 0.049445 -->
@@ -767,7 +767,7 @@
     </inertial>
   </link>
   <joint name="joint_9.0" type="revolute">
-    <limit effort="15" lower="-0.196" upper="1.61" velocity="7"/>
+    <limit effort="0.7" lower="-0.196" upper="1.61" velocity="7"/>
     <axis xyz="0 1 0"/>
     <parent link="link_8.0"/>
     <child link="link_9.0"/>
@@ -799,7 +799,7 @@
   </link>
   <joint name="joint_10.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.174" upper="1.709" velocity="7"/>
+    <limit effort="0.7" lower="-0.174" upper="1.709" velocity="7"/>
     <parent link="link_9.0"/>
     <child link="link_10.0"/>
     <origin xyz="0 0 0.054"/>
@@ -830,7 +830,7 @@
   </link>
   <joint name="joint_11.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.227" upper="1.618" velocity="7"/>
+    <limit effort="0.7" lower="-0.227" upper="1.618" velocity="7"/>
     <parent link="link_10.0"/>
     <child link="link_11.0"/>
     <origin xyz="0 0 0.0384"/>
@@ -886,7 +886,7 @@
   </link>
   <joint name="joint_12.0" type="revolute">
     <axis xyz="-1 0 0"/>
-    <limit effort="15" lower="0.263" upper="1.396" velocity="7"/>
+    <limit effort="0.7" lower="0.263" upper="1.396" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_12.0"/>
     <origin rpy="0 -1.65806278845 -1.5707963259" xyz="-0.0091 0.019333 0.059013"/> <!-- ly modified: -0.045987 > 0.005 -->
@@ -920,7 +920,7 @@
   </link>
   <joint name="joint_13.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.105" upper="1.163" velocity="7"/>
+    <limit effort="0.7" lower="-0.105" upper="1.163" velocity="7"/>
     <parent link="link_12.0"/>
     <child link="link_13.0"/>
     <origin xyz="-0.027 0.005 0.0399"/>
@@ -952,7 +952,7 @@
   </link>
   <joint name="joint_14.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.189" upper="1.644" velocity="7"/>
+    <limit effort="0.7" lower="-0.189" upper="1.644" velocity="7"/>
     <parent link="link_13.0"/>
     <child link="link_14.0"/>
     <origin xyz="0 0 0.0177"/>
@@ -984,7 +984,7 @@
   </link>
   <joint name="joint_15.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.162" upper="1.719" velocity="7"/>
+    <limit effort="0.7" lower="-0.162" upper="1.719" velocity="7"/>
     <parent link="link_14.0"/>
     <child link="link_15.0"/>
     <origin xyz="0 0 0.0514"/>

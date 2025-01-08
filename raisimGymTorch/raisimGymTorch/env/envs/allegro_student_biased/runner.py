@@ -30,8 +30,8 @@ from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, tra
 exp_name = "arm_rand_student"
 
 # weight_saved = '/../../arm_rand/2024-12-27-18-08-06/full_12500_r.pt'
-# weight_saved = '/../../arm_rand/2024-12-27-18-11-12/full_15000_r.pt'
-weight_saved = '/../../arm_rand/2025-01-01-10-01-41/full_16500_r.pt'
+weight_saved = '/../../arm_rand/2024-12-27-18-11-12/full_15000_r.pt'
+# weight_saved = '/../../arm_rand/2025-01-01-10-01-41/full_16500_r.pt'
 weight_path_student = '2024-10-28-14-49-02/full_1000_r.pt'
 
 

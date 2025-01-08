@@ -32,7 +32,7 @@ from raisimGymTorch.env.hardware.log_data import d435_record
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'hui/full_2000_r.pt'
+weight_path_student = 'hui/full_7000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -239,7 +239,10 @@ while True:
         print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
     elif sample_pc_mode == 'auto':
         obj_pos_mean, obj_pointcloud = rs.GetPointCloud()
-        obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][2], 0.707, 0, 0.707, 0])
+        obj_h_half = ((obj_pos_mean[0][2] - 0.771) / 2.0)
+        if obj_h_half > 0.1:
+            obj_h_half = 0.1
+        obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][2] - 0.0, 0.707, 0, 0.707, 0])
     elif sample_pc_mode == 'mesh':
         pass
 
@@ -453,8 +456,8 @@ while True:
         qpos_reset_r[0, 0] -= 2*np.pi
     print(f" ================== samble obj reset pose = {obj_pose_reset}")
 
-    #vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
-    #env.set_sample_point_visual(vis_point, obj_pose_reset)
+    vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
+    env.set_sample_point_visual(vis_point, obj_pose_reset)
 
     for sim_flag in [False]: # True, False
         print(f"--------------------------- test in {sim_flag} flag ---------------------- ")
@@ -466,10 +469,10 @@ while True:
                         sim_flag
                         )
 
-        obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-        #obs_new_r, dis_info = env.observe_vision_new()
-        #aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-        #env.set_joint_sensor_visual(show_point)
+        #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+        obs_new_r, dis_info = env.observe_vision_new()
+        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        env.set_joint_sensor_visual(show_point)
 
         final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
@@ -498,6 +501,7 @@ while True:
                 action_r[:, :6] = theta0
                 if step == grasp_steps:
                     print("lift")
+                    #env.switch_root_guidance(True)
                     env.final_reset_state(action_r, False, sim_flag)
                     break
             frame_start2 = time.time()
@@ -508,15 +512,15 @@ while True:
             #time.sleep(0.5)
             frame_start3 = time.time()
             wait_time = cfg['environment']['control_dt'] - (frame_start3 - frame_start2)
-            #if wait_time > 0.:
-            #    time.sleep(wait_time)
+            if wait_time > 0.:
+                time.sleep(wait_time)
             frame_start4 = time.time()
 
             # cost 1-5ms
-            obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-            #obs_new_r, dis_info = env.observe_vision_new()
-            #aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-            #env.set_joint_sensor_visual(show_point)
+            #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+            obs_new_r, dis_info = env.observe_vision_new()
+            aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+            env.set_joint_sensor_visual(show_point)
 
             end = time.time()
             # print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")

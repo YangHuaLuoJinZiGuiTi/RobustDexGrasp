@@ -65,6 +65,7 @@ public:
         platform_->getState(gc, gv);
         hand_joint_position_ = gc.tail(num_joint_);
         hand_joint_velocity_ = gv.tail(num_joint_);
+        hand_joint_effort_ = platform_->getGeneralizedForce().e().tail(num_joint_);
         if (randomize_gc_ > 1e-9) {
             hand_joint_position_ += Eigen::VectorXd::Random(num_joint_) * randomize_gc_;
             hand_joint_position_ = hand_joint_position_.cwiseMax(joint_limit_low_).cwiseMin(joint_limit_high_);

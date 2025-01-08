@@ -140,7 +140,7 @@ public:
                 } else {
                     c = "arm" + std::to_string(i);
                 }
-                csv_file_ << c << "_posTarget========," << c << "_posCurReal,"  << c << "_posObsReal," << c << "_diff,";
+                csv_file_ << c << "tar========,cur,obsPose,tar-obsPose,tar-cur,simeff,realeff,,";
             }
             csv_file_ << "\n";
         }
@@ -221,9 +221,10 @@ public:
         if (force_sim) {
             Eigen::VectorXd gc(platform_gc_dim_), gv(platform_gv_dim_);
             arm_hand_platform_->getState(gc, gv);
+            raisim::VecDyn tor = arm_hand_platform_->getGeneralizedForce();
             if (save_state_ && start) {
                 for (int i = 0; i < platform_gc_dim_; i++) {
-                    csv_file_ << save_target_[i] << "," << save_current_[i] << ","  << gc[i] << "," << save_target_[i] - gc[i] << ",";
+                    csv_file_ << save_target_[i] << "," << save_current_[i] << ","  << gc[i] << "," << save_target_[i] - gc[i] << "," << save_target_[i] - save_current_[i] << "," << tor[i] << "," << tor[i] << ",,";
                 }
                 csv_file_ << "\n";
                 csv_file_.flush();
@@ -257,12 +258,15 @@ public:
         }
 
         if (save_state_ && start) {
-            Eigen::VectorXd now_joint_vel(platform_gc_dim_);
+            Eigen::VectorXd now_joint_vel(platform_gc_dim_), now_joint_eff(platform_gc_dim_);
             now_joint_vel.head(arm_dim_) = arm_->getJointVelocity();
             now_joint_vel.tail(hand_dim_) = hand_->getJointVelocity();
+            now_joint_eff.head(arm_dim_) = arm_->getJointEffort();
+            now_joint_eff.tail(hand_dim_) = hand_->getJointEffort();
 
+            raisim::VecDyn tor = arm_hand_platform_->getGeneralizedForce();
             for (int i = 0; i < platform_gc_dim_; i++) {
-                csv_file_ << save_target_[i] << "," << save_current_[i] << ","  << now_joint[i] << "," << save_target_[i] - now_joint[i] << ",";
+                csv_file_ << save_target_[i] << "," << save_current_[i] << ","  << now_joint[i] << "," << save_target_[i] - now_joint[i] << "," << save_target_[i] - save_current_[i] << "," << tor[i] << "," << now_joint_eff[i] << ",,";
             }
             csv_file_ << "\n";
             csv_file_.flush();
@@ -273,8 +277,6 @@ public:
             Eigen::VectorXd now_joint_v(platform_gv_dim_);
             arm_hand_platform_->setState(now_joint, now_joint_v);
         }
-
-        // std::cout<<"F: "<<arm_hand_platform_->getGeneralizedForce().e().tail(hand_dim_).transpose()<<std::endl;
     }
 
     /**
@@ -429,7 +431,7 @@ public:
         // save state
         if (save_state_) {
             for (int i = 0; i < platform_gc_dim_; i++) {
-                csv_file_ << genco[i] << "," << genco[i] << "," << now_joint[i] << "," << genco[i] - now_joint[i] << ",";
+                csv_file_ << genco[i] << "," << genco[i] << "," << now_joint[i] << "," << genco[i] - now_joint[i] << ",0,0,0,,";
             }
             csv_file_ << "\n";
             csv_file_.flush();

@@ -97,11 +97,19 @@ exp_name = "arm_rand"
 # weight_saved = '2024-12-25-18-57-50/full_8000_r.pt'
 # weight_saved = '2024-12-27-18-08-06/full_12500_r.pt'
 # weight_saved = '2024-12-27-18-09-12/full_12500_r.pt'
-# weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
+weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
 # weight_saved = '2024-12-31-18-57-49/full_16000_r.pt'
 # weight_saved = '2024-12-31-19-13-20/full_12000_r.pt'
-weight_saved = '2025-01-01-10-01-41/full_16000_r.pt'
+# weight_saved = '2025-01-01-10-01-41/full_16000_r.pt'
 # weight_saved = '2025-01-02-11-39-41/full_4500_r.pt'
+# weight_saved = '2025-01-03-18-29-42/full_20000_r.pt'
+# weight_saved = '2025-01-03-18-34-11/full_3500_r.pt'
+# weight_saved = '2025-01-04-07-55-08/full_13000_r.pt'
+# weight_saved = '2025-01-05-11-08-48/full_5500_r.pt'
+# weight_saved = '2025-01-05-11-24-07/full_8500_r.pt'
+# weight_saved = '2025-01-06-14-32-58/full_8000_r.pt'
+# weight_saved = '2025-01-06-14-37-46/full_9000_r.pt'
+# weight_saved = '2025-01-06-19-53-12/full_3500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -671,7 +679,7 @@ for update in range(args.num_iterations):
         action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
         action_r = action_r.cpu().detach().numpy()
         action_l = np.zeros_like(action_r)
-        # action_r[:, :6] = 0
+        # action_r[:, 6:] *= 0.1
 
         # print(action_r[:, :6])
         # print(action_r[:, 6:])

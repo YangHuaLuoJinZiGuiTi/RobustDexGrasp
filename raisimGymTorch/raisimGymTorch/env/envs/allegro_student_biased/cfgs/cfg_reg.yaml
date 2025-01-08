@@ -17,9 +17,11 @@ environment:
 #    arm_pd_file: "UR5Identification.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
     arm_pd_file: "UR5Identification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
 #    hand_pd_file: "AllegroIdentification.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
-#    hand_pd_file: "AllegroIdentification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+    hand_pd_file: "AllegroIdentification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
 #    hand_pd_file: "AllegroIdentification_hardware_pd.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
-    hand_pd_file: "AllegroIdentification_id5hz_small_p.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+#    hand_pd_file: "AllegroOfficial.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+#    hand_pd_file: "AllegroOfficial_new.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+#    hand_pd_file: "AllegroIdentification_id5hz_small_p.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
     init_finger_pose: [0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2]
     table_friction: 0.2
 
@@ -49,7 +51,7 @@ environment:
   eval_every_n: 500
   update_every_n: 20
   num_threads: 32
-  simulation_dt: 0.005
+  simulation_dt: 0.01
   control_dt: 0.2
   max_time: 4.0
   root_guided: True
@@ -57,24 +59,15 @@ environment:
   unseen: True
   new_category: False
   load_set: "mixed_train"
-#  hand_model_r: "allegro.urdf"
-#  hand_model_r: "ur5_allegro.urdf"
-#  hand_model_r: "ur5_allegro_ori.urdf"
-  finger_action_std: 0.03
+  finger_action_std: 0.015
   rot_action_std: 0.005
   reward:
     affordance_reward:
       coeff: 0.5
-#    not_affordance_reward:
-#      coeff: -0.0
     affordance_contact_reward:
       coeff: 1.5
-#    not_affordance_contact_reward:
-#      coeff: -0.0
     affordance_impulse_reward:
-      coeff: 2.0
-#    not_affordance_impulse_reward:
-#      coeff: -0.0
+      coeff: 1.0
 
 
     table_reward:
@@ -85,50 +78,38 @@ environment:
       coeff: -0.5
 
     arm_height_reward:
-#      coeff: -0.03
       coeff: -0.05
     arm_contact_reward:
-#      coeff: -3.0
       coeff: -0.1
     arm_impulse_reward:
-#      coeff: -1.0
       coeff: -0.1
+
+    arm_action_reward:
+      coeff: -0.0
+#      coeff: -0.5
+    hand_action_reward:
+      coeff: -0.0
+#      coeff: -0.5
+
+    wrist_vel_reward_:
+      coeff: -1.0
+    wrist_qvel_reward_:
+      coeff: -0.1
+    obj_vel_reward_:
+      coeff: -15.0
+    obj_qvel_reward_:
+      coeff: -0.2
+    obj_displacement_reward:
+      coeff: -5.0
+    arm_joint_vel_reward_:
+      coeff: -1.0
+
+
 
     direction_reward:
       coeff: -0.0
     center_reward:
       coeff: -0.0
-
-
-    wrist_vel_reward_:
-      coeff: -1.0
-    #      coeff: -0.0
-    wrist_qvel_reward_:
-      coeff: -0.1
-    #      coeff: -0.0
-
-    obj_vel_reward_:
-#      coeff: -1.5
-      coeff: -15.0
-    obj_qvel_reward_:
-#      coeff: -0.01
-      coeff: -0.2
-    obj_displacement_reward:
-#      coeff: -1.0
-      coeff: -5.0
-
-    arm_joint_vel_reward_:
-      coeff: -1.0
-
-
-    arm_action_reward:
-#      coeff: -0.4
-      coeff: -0.5
-
-    hand_action_reward:
-#      coeff: -0.4
-      coeff: -0.75
-
     anatomy_reward:
       coeff: -0.0
     torque:

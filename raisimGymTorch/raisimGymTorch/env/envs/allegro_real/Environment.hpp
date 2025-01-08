@@ -44,10 +44,10 @@ namespace raisim {
             world_->addGround();
             world_->setERP(0.0);
 
-            world_->setMaterialPairProp("object", "object", 0.6, 0.0, 0.0, 0.6, 0.1);
-            world_->setMaterialPairProp("object", "finger", 0.6, 0.0, 0.0, 0.6, 0.1);
-            world_->setMaterialPairProp("finger", "finger", 0.6, 0.0, 0.0, 0.6, 0.1);
-            world_->setDefaultMaterial(0.6, 0, 0, 0.6, 0.1);
+            world_->setMaterialPairProp("object", "object", 0.8, 0.0, 0.0, 0.8, 0.1);
+            world_->setMaterialPairProp("object", "finger", 0.8, 0.0, 0.0, 0.8, 0.1);
+            world_->setMaterialPairProp("finger", "finger", 0.8, 0.0, 0.0, 0.8, 0.1);
+            world_->setDefaultMaterial(0.8, 0, 0, 0.8, 0.1);
 
             /// add mano
             std::string hand_model_r =  cfg["hand_model_r"].As<std::string>();
@@ -581,7 +581,8 @@ namespace raisim {
 
         void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag) final {
             Eigen::VectorXd final_arm(6), final_hand(16);
-            final_arm << -1.57, -1.57, 1.57, 0., 1.57, -1.57;
+            final_arm << -1.57, -1.57, 1.57, 0., 1.57, -1.57; // put in desk
+            //final_arm << 0.0, -1.57, 1.57, 0., 1.57, -1.57; // lift on top
             final_hand << 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2;
             if (release_hand) {
                 pTarget_clipped_r.tail(16) = final_hand;
@@ -628,36 +629,37 @@ namespace raisim {
             pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
 
             /// Apply N control steps
-#if 0 // devide into small step or not
+            double delay_cnt = 1.0;
+#if 1 // devide into small step or not
             double max_step_distance_arm = 0.0;
             for (int i = 0; i < 6; i++) {
                 if (max_step_distance_arm < abs(pTarget_clipped_r[i] - gc_r_[i])) {
                     max_step_distance_arm = abs(pTarget_clipped_r[i] - gc_r_[i]);
                 }
             }
-            double delay_cnt = 1.0;
-            if (max_step_distance_arm > 0.025) {
-                delay_cnt = round(max_step_distance_arm / 0.02) + 1.0;
-                if (delay_cnt > 4.0) {
-                    delay_cnt = 4.0;
+            if (max_step_distance_arm > 0.02) {
+                delay_cnt = round(max_step_distance_arm / 0.018) + 1.0;
+                if (delay_cnt > 6.0) {
+                    delay_cnt = 6.0;
                 }
                 if (delay_cnt > 1.0) {
                     std::cout << "max_step_distance_arm = " << max_step_distance_arm << ", will delay times = " << delay_cnt << std::endl;
                 }
             }
 #else
-            double delay_cnt = 1.0;
+            // for (int i = 0; i < 6; i++) {
+            //     if (pTarget_clipped_r[i] - gc_r_[i]> 0.04) {
+            //         //pTarget_clipped_r[i] = 0.04 + gc_r_[i];
+            //         std::cout << i << ": too large gc = " << pTarget_clipped_r[i] - gc_r_[i] << std::endl;
+            //     } else if (pTarget_clipped_r[i] - gc_r_[i] < -0.04) {
+            //         //pTarget_clipped_r[i] = -0.04 + gc_r_[i];
+            //         std::cout << i << ": too large gc = " << pTarget_clipped_r[i] - gc_r_[i] << std::endl;
+            //     }
+            // }
 #endif
 
-            for (int i = 0; i < 6; i++) {
-                if (pTarget_clipped_r[i] - gc_r_[i]> 0.02) {
-                    pTarget_clipped_r[i] = 0.02 + gc_r_[i];
-                } else if (pTarget_clipped_r[i] - gc_r_[i] < -0.02) {
-                    pTarget_clipped_r[i] = -0.02 + gc_r_[i];
-                }
-            }
 
-#if 1 // delay more time or run more step
+#if 0 // delay more time or run more step
             /// Set PD targets (velocity zero)
             mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_, sim_flag);
 
@@ -682,16 +684,15 @@ namespace raisim {
             //std::cout << "target pose = " << pTarget_clipped_r.transpose() << std::endl;
             Eigen::VectorXd tmp_gc_r_ = gc_r_;
             for (int step = 1; step <= int(delay_cnt); step++) {
-                
                 double step_distance = 0.0;
-
                 Eigen::VectorXd pTarget_clipped_step = pTarget_clipped_r;
                 for (int i = 0; i < 6; i++) {
                     pTarget_clipped_step[i] = gc_r_[i] + (pTarget_clipped_r[i] - gc_r_[i]) / delay_cnt * step;
                 }
 
                 /// Set PD targets (velocity zero)
-                //printf("%d: set: %f/(%f,%f) \t %f/(%f,%f) \n",step, pTarget_clipped_step[0], gc_r_[0], pTarget_clipped_r[0], pTarget_clipped_step[5], gc_r_[5], pTarget_clipped_r[5]);
+                //if (delay_cnt > 1.0)
+                //    printf("%d: set: %f/(%f,%f) \t %f/(%f,%f) \t %f/(%f,%f) \t %f/(%f,%f) \t %f/(%f,%f) \t %f/(%f,%f) \n",step, pTarget_clipped_step[0], gc_r_[0], pTarget_clipped_r[0], pTarget_clipped_step[1], gc_r_[1], pTarget_clipped_r[1], pTarget_clipped_step[2], gc_r_[2], pTarget_clipped_r[2], pTarget_clipped_step[3], gc_r_[3], pTarget_clipped_r[3], pTarget_clipped_step[4], gc_r_[4], pTarget_clipped_r[4], pTarget_clipped_step[5], gc_r_[5], pTarget_clipped_r[5]);
                 mano_r_->setPdTarget(pTarget_clipped_step, vTarget_r_, sim_flag);
 
                 /// Apply N control steps

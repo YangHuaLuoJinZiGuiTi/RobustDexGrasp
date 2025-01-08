@@ -418,9 +418,9 @@
       <material name="">
           <contact name="finger"/>
       </material>
-      <origin rpy="0 0 0" xyz="0.0091 0 0.105"/> <!-- ly modified: -0.0475 > 0.003487 -->
+      <origin rpy="0 0 0" xyz="-0.0 0 0.0575"/> <!-- ly modified: -0.0475 > 0.003487 -->
       <geometry>
-        <mesh filename="allegro_meshes/palm_sim.obj"/>
+        <box size="0.0408 0.1130 0.095"/>
       </geometry>
     </collision>
     <inertial>
@@ -441,6 +441,15 @@
       </geometry>
       <material name="black"/>
     </visual>
+    <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
+      <geometry>
+        <box size="0.0196 0.0275 0.0164"/>
+      </geometry>
+      <origin rpy="0 0 0" xyz="0 0 0.0082"/>
+    </collision>
     <inertial>
       <mass value="0.0119"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -468,9 +477,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.04"/>
+        <box size="0.0196 0.0275 0.054"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.018"/>
+      <origin rpy="0 0 0" xyz="0 0 0.027"/>
     </collision>
     <inertial>
       <mass value="0.065"/>
@@ -499,9 +508,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0344"/>
+        <box size="0.0196 0.0275 0.0384"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.0122"/>
+      <origin rpy="0 0 0" xyz="0 0 0.0192"/>
     </collision>
     <inertial>
       <mass value="0.0355"/>
@@ -530,9 +539,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0117"/>
+        <box size="0.0196 0.0275 0.0267"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.00985"/>
+      <origin rpy="0 0 0" xyz="0 0 0.01335"/>
     </collision>
     <inertial>
       <mass value="0.0096"/>
@@ -563,7 +572,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <mesh filename="allegro_meshes/tip.obj"/>
+        <sphere radius="0.012"/>  <!-- 测试剪刀的抓握，原本是0.012 ，改成0.015之后超过visual part-->
       </geometry>
     </collision>
     <inertial>
@@ -585,6 +594,15 @@
       </geometry>
       <material name="black"/>
     </visual>
+    <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
+      <geometry>
+        <box size="0.0196 0.0275 0.0164"/>
+      </geometry>
+      <origin rpy="0 0 0" xyz="0 0 0.0082"/>
+    </collision>
     <inertial>
       <mass value="0.0119"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -612,9 +630,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.04"/>
+        <box size="0.0196 0.0275 0.054"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.018"/>
+      <origin rpy="0 0 0" xyz="0 0 0.027"/>
     </collision>
     <inertial>
       <mass value="0.065"/>
@@ -643,9 +661,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0344"/>
+        <box size="0.0196 0.0275 0.0384"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.0122"/>
+      <origin rpy="0 0 0" xyz="0 0 0.0192"/>
     </collision>
     <inertial>
       <mass value="0.0355"/>
@@ -674,9 +692,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0117"/>
+        <box size="0.0196 0.0275 0.0267"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.00985"/>
+      <origin rpy="0 0 0" xyz="0 0 0.01335"/>
     </collision>
     <inertial>
       <mass value="0.0096"/>
@@ -707,7 +725,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <mesh filename="allegro_meshes/tip.obj"/>
+        <sphere radius="0.012"/>  <!-- 测试剪刀的抓握，原本是0.012 -->
       </geometry>
     </collision>
     <inertial>
@@ -729,6 +747,15 @@
       </geometry>
       <material name="black"/>
     </visual>
+    <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
+      <geometry>
+        <box size="0.0196 0.0275 0.0164"/>
+      </geometry>
+      <origin rpy="0 0 0" xyz="0 0 0.0082"/>
+    </collision>
     <inertial>
       <mass value="0.0119"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -756,9 +783,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.04"/>
+        <box size="0.0196 0.0275 0.054"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.018"/>
+      <origin rpy="0 0 0" xyz="0 0 0.027"/>
     </collision>
     <inertial>
       <mass value="0.065"/>
@@ -787,9 +814,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0344"/>
+        <box size="0.0196 0.0275 0.0384"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.0122"/>
+      <origin rpy="0 0 0" xyz="0 0 0.0192"/>
     </collision>
     <inertial>
       <mass value="0.0355"/>
@@ -818,9 +845,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0117"/>
+        <box size="0.0196 0.0275 0.0267"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.00985"/>
+      <origin rpy="0 0 0" xyz="0 0 0.01335"/>
     </collision>
     <inertial>
       <mass value="0.0096"/>
@@ -851,7 +878,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <mesh filename="allegro_meshes/tip.obj"/>
+        <sphere radius="0.012"/>  <!-- 测试剪刀的抓握，原本是0.012 -->
       </geometry>
     </collision>
     <inertial>
@@ -878,6 +905,15 @@
       </material>
       <!--<origin rpy="3.1415926518 0 0" xyz="0 0 0"/>--> <!-- ly modified -->
     </visual>
+    <collision>
+      <material name="">
+          <contact name="finger"/>
+      </material>
+      <geometry>
+        <box size="0.0358 0.034 0.0455"/>
+      </geometry>
+      <origin rpy="0 0 0" xyz="-0.0179 0.009 0.0145"/>
+    </collision>
     <inertial>
       <mass value="0.0176"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -908,9 +944,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0107"/>
+        <box size="0.0196 0.0275 0.0177"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.00905"/>
+      <origin rpy="0 0 0" xyz="0 0 0.00885"/>
     </collision>
     <inertial>
       <mass value="0.0119"/>
@@ -940,7 +976,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.035"/>
+        <box size="0.0196 0.0275 0.0514"/>
       </geometry>
       <origin rpy="0 0 0" xyz="0 0 0.0257"/>
     </collision>
@@ -972,9 +1008,9 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <box size="0.0196 0.0275 0.0253"/>
+        <box size="0.0196 0.0275 0.0423"/>
       </geometry>
-      <origin rpy="0 0 0" xyz="0 0 0.01815"/>
+      <origin rpy="0 0 0" xyz="0 0 0.02115"/>
     </collision>
     <inertial>
       <mass value="0.0388"/>
@@ -1005,7 +1041,7 @@
           <contact name="finger"/>
       </material>
       <geometry>
-        <mesh filename="allegro_meshes/tip.obj"/>
+        <sphere radius="0.012"/>   <!-- 测试剪刀的抓握，原本是0.012 -->
       </geometry>
       <origin rpy="0 0 0" xyz="0 0 0"/>
     </collision>

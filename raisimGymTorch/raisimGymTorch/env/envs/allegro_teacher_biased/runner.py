@@ -614,8 +614,8 @@ for update in range(args.num_iterations):
         table_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 70:87], a_min=0.002, a_max=0.02)) * finger_weights, axis=1)
         arm_height_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 89:93], a_min=0.002, a_max=0.02)), axis=1)
         # if the abs of the first 6 dim of action_r are larger than 6, then give a negative reward arm_action_reward_r
-        arm_action_reward_r = np.sum((np.abs(action_r[:, :6])-4) * (np.abs(action_r[:, :6]) > 4), axis=1)
-        hand_action_reward_r = np.sum((np.abs(action_r[:, 6:])-2) * (np.abs(action_r[:, 6:]) > 2), axis=1)
+        arm_action_reward_r = np.sum((np.abs(action_r[:, :6])-6) * (np.abs(action_r[:, :6]) > 6), axis=1)
+        hand_action_reward_r = np.sum((np.abs(action_r[:, 6:])-6) * (np.abs(action_r[:, 6:]) > 6), axis=1)
 
         for i in range(num_envs):
             rewards_r[i]['affordance_reward'] = affordance_reward_r[i] * cfg['environment']['reward']['affordance_reward']['coeff']

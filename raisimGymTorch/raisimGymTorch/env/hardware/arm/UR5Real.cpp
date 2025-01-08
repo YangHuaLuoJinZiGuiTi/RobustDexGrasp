@@ -13,6 +13,7 @@ public:
     void init(const std::string &rsc_pth, const Yaml::Node &cfg) final override {
         arm_joint_position_.setZero(num_joint_);
         arm_joint_velocity_.setZero(num_joint_);
+        arm_joint_effort_.setZero(num_joint_);
         end_effector_pose_.setZero(6);
         end_effector_velocity_.setZero(3);
         end_effector_angle_velocity_.setZero(3);
@@ -148,6 +149,9 @@ public:
         return arm_init_base_pose_;
     }
 
+    Eigen::VectorXd & getJointEffort() final override {
+        return arm_joint_effort_;
+    }
     Eigen::VectorXd & getJointVelocity() final override {
         return arm_joint_velocity_;
     }

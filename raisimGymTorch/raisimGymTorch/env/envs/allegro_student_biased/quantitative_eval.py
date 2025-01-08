@@ -51,7 +51,6 @@ weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 # weight_path_student = '2024-12-16-22-33-03/full_8000_r.pt'
 # weight_path_student = '2024-12-23-12-41-34/full_7500_r.pt'
 # weight_path_student = '2024-12-29-10-01-25/full_6500_r.pt'
-# weight_path_student = '2024-12-29-10-02-39/full_4000_r.pt'
 # weight_path_student = '2024-12-30-14-33-27/full_4500_r.pt'
 # weight_path_student = '2024-12-30-14-47-53/full_4500_r.pt'
 # weight_path_student = '2024-12-30-14-50-50/full_4500_r.pt'
@@ -59,8 +58,12 @@ weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 # weight_path_student = '2024-12-31-10-45-09/full_4000_r.pt'
 # weight_path_student = '2024-12-31-14-08-48/full_4000_r.pt'
 # weight_path_student = '2025-01-01-11-39-58/full_4000_r.pt'
-weight_path_student = '2025-01-02-00-16-48/full_5000_r.pt'
 # weight_path_student = '2025-01-02-10-43-23/full_5000_r.pt'
+# weight_path_student = '2025-01-03-16-21-27/full_4000_r.pt'
+# weight_path_student = '2025-01-03-16-22-25/full_3500_r.pt'
+
+weight_path_student = '2024-12-29-10-02-39/full_4500_r.pt'
+# weight_path_student = '2025-01-02-00-16-48/full_5000_r.pt'
 
 
 # configuration

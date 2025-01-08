@@ -53,5 +53,5 @@ def process_objects(root_folder):
 
 
 # Replace 'path/to/mixed_unseen_test' with the actual path to your root folder
-root_folder_path = 'ycb_urdf_all/'
+root_folder_path = 'real_obj/'
 process_objects(root_folder_path)

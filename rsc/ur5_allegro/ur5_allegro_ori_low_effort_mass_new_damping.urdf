@@ -442,18 +442,18 @@
       <material name="black"/>
     </visual>
     <inertial>
-      <mass value="0.0119"/>
+      <mass value="0.01458"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="1.01666658333e-06" ixy="0.0" ixz="0.0" iyy="6.47677333333e-07" iyz="0.0" izz="1.01666658333e-06"/>
+      <inertia ixx="1.2454165645792e-06" ixy="0.0" ixz="0.0" iyy="7.9340473333292e-07" iyz="0.0" izz="1.2454165645792e-06"/>
     </inertial>
   </link>
   <joint name="joint_0.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.47" upper="0.47" velocity="7"/>
+    <limit effort="0.7" lower="-0.47" upper="0.47" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_0.0"/>
     <origin rpy="-0.08726646255 0 0" xyz="0.0091 0.0435 0.103458"/> <!-- ly modified: -0.001542 > 0.049445 -->
-    <dynamics damping="3" friction="10"/>
+    <dynamics damping="0.19177416" friction="10"/>
   </joint>
   <!-- [LINK 1, 5, 9] -->
   <link name="link_1.0">
@@ -473,18 +473,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.018"/>
     </collision>
     <inertial>
-      <mass value="0.065"/>
+      <mass value="0.0796"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="7.95654166667e-05" ixy="1.7199e-05" ixz="8.75875e-06" iyy="2.47088833333e-05" iyz="2.413125e-05" izz="7.95654166667e-05"/>
+      <inertia ixx="9.7467635416707e-05" ixy="2.1068775e-05" ixz="1.072946875e-05" iyy="3.0268382083292e-05" iyz="2.956078125e-05" izz="9.7467635416707e-05"/>
     </inertial>
   </link>
   <joint name="joint_1.0" type="revolute">
-    <limit effort="15" lower="-0.196" upper="1.61" velocity="7"/>
+    <limit effort="0.7" lower="-0.196" upper="1.61" velocity="7"/>
     <axis xyz="0 1 0"/>
     <parent link="link_0.0"/>
     <child link="link_1.0"/>
     <origin xyz="0 0 0.0164"/>
-    <dynamics damping="3" friction="5"/>
+    <dynamics damping="0.08384709" friction="5"/>
   </joint>
   <!-- [LINK 2, 6, 10]-->
   <link name="link_2.0">
@@ -504,18 +504,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.0122"/>
     </collision>
     <inertial>
-      <mass value="0.0355"/>
+      <mass value="0.04349"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="2.63979183333e-05" ixy="6.67968e-06" ixz="4.783625e-06" iyy="1.34948516667e-05" iyz="9.372e-06" izz="2.63979183333e-05"/>
+      <inertia ixx="3.2337449958292e-05" ixy="8.182608e-06" ixz="5.859940625e-06" iyy="1.6531193291707e-05" iyz="1.14807e-05" izz="3.2337449958292e-05"/>
     </inertial>
   </link>
   <joint name="joint_2.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.174" upper="1.709" velocity="7"/>
+    <limit effort="0.7" lower="-0.174" upper="1.709" velocity="7"/>
     <parent link="link_1.0"/>
     <child link="link_2.0"/>
     <origin xyz="0 0 0.054"/>
-    <dynamics damping="8" friction="10"/>
+    <dynamics damping="0.12092325" friction="10"/>
   </joint>
   <!-- [LINK 3, 7, 11] -->
   <link name="link_3.0">
@@ -535,18 +535,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.00985"/>
     </collision>
     <inertial>
-      <mass value="0.0096"/>
+      <mass value="0.01103"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="4.701248e-06" ixy="1.255968e-06" ixz="1.2936e-06" iyy="3.649312e-06" iyz="1.7622e-06" izz="4.701248e-06"/>
+      <inertia ixx="5.7590288e-06" ixy="1.5385608e-06" ixz="1.58466e-06" iyy="4.4704072e-06" iyz="2.158695e-06" izz="5.7590288e-06"/>
     </inertial>
   </link>
   <joint name="joint_3.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.227" upper="1.618" velocity="7"/>
+    <limit effort="0.7" lower="-0.227" upper="1.618" velocity="7"/>
     <parent link="link_2.0"/>
     <child link="link_3.0"/>
     <origin xyz="0 0 0.0384"/>
-    <dynamics damping="10" friction="12"/>
+    <dynamics damping="0.10698928" friction="12"/>
   </joint>
   <!-- [FINGER TIP] -->
   <link name="link_3.0_tip">
@@ -567,9 +567,9 @@
       </geometry>
     </collision>
     <inertial>
-      <mass value="0.0168"/>
+      <mass value="0.02058"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="9.68e-07" ixy="0" ixz="0" iyy="9.68e-07" iyz="0" izz="9.68e-07"/>
+      <inertia ixx="1.1858e-06" ixy="0" ixz="0" iyy="1.1858e-06" iyz="0" izz="1.1858e-06"/>
     </inertial>
   </link>
   <joint name="joint_3.0_tip" type="fixed">
@@ -586,18 +586,18 @@
       <material name="black"/>
     </visual>
     <inertial>
-      <mass value="0.0119"/>
+      <mass value="0.01458"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="1.01666658333e-06" ixy="0.0" ixz="0.0" iyy="6.47677333333e-07" iyz="0.0" izz="1.01666658333e-06"/>
+      <inertia ixx="1.2454165645792e-06" ixy="0.0" ixz="0.0" iyy="7.9340473333292e-07" iyz="0.0" izz="1.2454165645792e-06"/>
     </inertial>
   </link>
   <joint name="joint_4.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.47" upper="0.47" velocity="7"/>
+    <limit effort="0.7" lower="-0.47" upper="0.47" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_4.0"/>
     <origin rpy="0.0 0 0" xyz="0.0091 0 0.1057"/>  <!-- ly modified: 0.0007 > 0.051687 -->
-    <dynamics damping="3" friction="10"/>
+    <dynamics damping="2.491851" friction="10"/>
   </joint>
   <!-- [LINK 1, 5, 9] -->
   <link name="link_5.0">
@@ -617,18 +617,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.018"/>
     </collision>
     <inertial>
-      <mass value="0.065"/>
+      <mass value="0.0796"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="7.95654166667e-05" ixy="1.7199e-05" ixz="8.75875e-06" iyy="2.47088833333e-05" iyz="2.413125e-05" izz="7.95654166667e-05"/>
+      <inertia ixx="9.7467635416707e-05" ixy="2.1068775e-05" ixz="1.072946875e-05" iyy="3.0268382083292e-05" iyz="2.956078125e-05" izz="9.7467635416707e-05"/>
     </inertial>
   </link>
   <joint name="joint_5.0" type="revolute">
-    <limit effort="15" lower="-0.196" upper="1.61" velocity="7"/>
+    <limit effort="0.7" lower="-0.196" upper="1.61" velocity="7"/>
     <axis xyz="0 1 0"/>
     <parent link="link_4.0"/>
     <child link="link_5.0"/>
     <origin xyz="0 0 0.0164"/>
-    <dynamics damping="3" friction="5"/>
+    <dynamics damping="0.11895244" friction="5"/>
   </joint>
   <!-- [LINK 2, 6, 10]-->
   <link name="link_6.0">
@@ -648,18 +648,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.0122"/>
     </collision>
     <inertial>
-      <mass value="0.0355"/>
+      <mass value="0.04349"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="2.63979183333e-05" ixy="6.67968e-06" ixz="4.783625e-06" iyy="1.34948516667e-05" iyz="9.372e-06" izz="2.63979183333e-05"/>
+      <inertia ixx="3.2337449958292e-05" ixy="8.182608e-06" ixz="5.859940625e-06" iyy="1.6531193291707e-05" iyz="1.14807e-05" izz="3.2337449958292e-05"/>
     </inertial>
   </link>
   <joint name="joint_6.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.174" upper="1.709" velocity="7"/>
+    <limit effort="0.7" lower="-0.174" upper="1.709" velocity="7"/>
     <parent link="link_5.0"/>
     <child link="link_6.0"/>
     <origin xyz="0 0 0.054"/>
-    <dynamics damping="8" friction="10"/>
+    <dynamics damping="0.21261743" friction="10"/>
   </joint>
   <!-- [LINK 3, 7, 11] -->
   <link name="link_7.0">
@@ -679,18 +679,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.00985"/>
     </collision>
     <inertial>
-      <mass value="0.0096"/>
+      <mass value="0.01103"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="4.701248e-06" ixy="1.255968e-06" ixz="1.2936e-06" iyy="3.649312e-06" iyz="1.7622e-06" izz="4.701248e-06"/>
+      <inertia ixx="5.7590288e-06" ixy="1.5385608e-06" ixz="1.58466e-06" iyy="4.4704072e-06" iyz="2.158695e-06" izz="5.7590288e-06"/>
     </inertial>
   </link>
   <joint name="joint_7.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.227" upper="1.618" velocity="7"/>
+    <limit effort="0.7" lower="-0.227" upper="1.618" velocity="7"/>
     <parent link="link_6.0"/>
     <child link="link_7.0"/>
     <origin xyz="0 0 0.0384"/>
-    <dynamics damping="10" friction="12"/>
+    <dynamics damping="0.24763638" friction="12"/>
   </joint>
   <!-- [FINGER TIP] -->
   <link name="link_7.0_tip">
@@ -711,9 +711,9 @@
       </geometry>
     </collision>
     <inertial>
-      <mass value="0.0168"/>
+      <mass value="0.02058"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="9.68e-07" ixy="0" ixz="0" iyy="9.68e-07" iyz="0" izz="9.68e-07"/>
+      <inertia ixx="1.1858e-06" ixy="0" ixz="0" iyy="1.1858e-06" iyz="0" izz="1.1858e-06"/>
     </inertial>
   </link>
   <joint name="joint_7.0_tip" type="fixed">
@@ -730,18 +730,18 @@
       <material name="black"/>
     </visual>
     <inertial>
-      <mass value="0.0119"/>
+      <mass value="0.01458"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="1.01666658333e-06" ixy="0.0" ixz="0.0" iyy="6.47677333333e-07" iyz="0.0" izz="1.01666658333e-06"/>
+      <inertia ixx="1.2454165645792e-06" ixy="0.0" ixz="0.0" iyy="7.9340473333292e-07" iyz="0.0" izz="1.2454165645792e-06"/>
     </inertial>
   </link>
   <joint name="joint_8.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.47" upper="0.47" velocity="7"/>
+    <limit effort="0.7" lower="-0.47" upper="0.47" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_8.0"/>
     <origin rpy="0.08726646255 0 0" xyz="0.0091 -0.0435 0.103458"/> <!-- ly modified: -0.001542 > 0.049445 -->
-    <dynamics damping="3" friction="10"/>
+    <dynamics damping="0.14542228" friction="10"/>
   </joint>
   <!-- [LINK 1, 5, 9] -->
   <link name="link_9.0">
@@ -761,18 +761,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.018"/>
     </collision>
     <inertial>
-      <mass value="0.065"/>
+      <mass value="0.0796"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="7.95654166667e-05" ixy="1.7199e-05" ixz="8.75875e-06" iyy="2.47088833333e-05" iyz="2.413125e-05" izz="7.95654166667e-05"/>
+      <inertia ixx="9.7467635416707e-05" ixy="2.1068775e-05" ixz="1.072946875e-05" iyy="3.0268382083292e-05" iyz="2.956078125e-05" izz="9.7467635416707e-05"/>
     </inertial>
   </link>
   <joint name="joint_9.0" type="revolute">
-    <limit effort="15" lower="-0.196" upper="1.61" velocity="7"/>
+    <limit effort="0.7" lower="-0.196" upper="1.61" velocity="7"/>
     <axis xyz="0 1 0"/>
     <parent link="link_8.0"/>
     <child link="link_9.0"/>
     <origin xyz="0 0 0.0164"/>
-    <dynamics damping="3" friction="5"/>
+    <dynamics damping="0.0969547" friction="5"/>
   </joint>
   <!-- [LINK 2, 6, 10]-->
   <link name="link_10.0">
@@ -792,18 +792,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.0122"/>
     </collision>
     <inertial>
-      <mass value="0.0355"/>
+      <mass value="0.04349"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="2.63979183333e-05" ixy="6.67968e-06" ixz="4.783625e-06" iyy="1.34948516667e-05" iyz="9.372e-06" izz="2.63979183333e-05"/>
+      <inertia ixx="3.2337449958292e-05" ixy="8.182608e-06" ixz="5.859940625e-06" iyy="1.6531193291707e-05" iyz="1.14807e-05" izz="3.2337449958292e-05"/>
     </inertial>
   </link>
   <joint name="joint_10.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.174" upper="1.709" velocity="7"/>
+    <limit effort="0.7" lower="-0.174" upper="1.709" velocity="7"/>
     <parent link="link_9.0"/>
     <child link="link_10.0"/>
     <origin xyz="0 0 0.054"/>
-    <dynamics damping="8" friction="10"/>
+    <dynamics damping="0.08028909" friction="10"/>
   </joint>
   <!-- [LINK 3, 7, 11] -->
   <link name="link_11.0">
@@ -823,18 +823,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.00985"/>
     </collision>
     <inertial>
-      <mass value="0.0096"/>
+      <mass value="0.01103"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="4.701248e-06" ixy="1.255968e-06" ixz="1.2936e-06" iyy="3.649312e-06" iyz="1.7622e-06" izz="4.701248e-06"/>
+      <inertia ixx="5.7590288e-06" ixy="1.5385608e-06" ixz="1.58466e-06" iyy="4.4704072e-06" iyz="2.158695e-06" izz="5.7590288e-06"/>
     </inertial>
   </link>
   <joint name="joint_11.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.227" upper="1.618" velocity="7"/>
+    <limit effort="0.7" lower="-0.227" upper="1.618" velocity="7"/>
     <parent link="link_10.0"/>
     <child link="link_11.0"/>
     <origin xyz="0 0 0.0384"/>
-    <dynamics damping="10" friction="12"/>
+    <dynamics damping="0.11018146" friction="12"/>
   </joint>
   <!-- [FINGER TIP] -->
   <link name="link_11.0_tip">
@@ -855,9 +855,9 @@
       </geometry>
     </collision>
     <inertial>
-      <mass value="0.0168"/>
+      <mass value="0.02058"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="9.68e-07" ixy="0" ixz="0" iyy="9.68e-07" iyz="0" izz="9.68e-07"/>
+      <inertia ixx="1.1858e-06" ixy="0" ixz="0" iyy="1.1858e-06" iyz="0" izz="1.1858e-06"/>
     </inertial>
   </link>
   <joint name="joint_11.0_tip" type="fixed">
@@ -879,18 +879,18 @@
       <!--<origin rpy="3.1415926518 0 0" xyz="0 0 0"/>--> <!-- ly modified -->
     </visual>
     <inertial>
-      <mass value="0.0176"/>
+      <mass value="0.0272"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="1.89273333333e-5" ixy="7.16716e-06" ixz="5.35568e-06" iyy="1.43008213333e-05" iyz="6.8068e-06" izz="1.89273333333e-05"/>
+      <inertia ixx="2.9204875333281e-05" ixy="1.105892788e-05" ixz="8.26381424e-06" iyy="2.2066167317281e-05" iyz="1.05028924e-05" izz="2.9204875333281e-05"/>
     </inertial>
   </link>
   <joint name="joint_12.0" type="revolute">
     <axis xyz="-1 0 0"/>
-    <limit effort="15" lower="0.263" upper="1.396" velocity="7"/>
+    <limit effort="0.7" lower="0.263" upper="1.396" velocity="7"/>
     <parent link="Allegro_base_link"/>
     <child link="link_12.0"/>
     <origin rpy="0 -1.65806278845 -1.5707963259" xyz="-0.0091 0.019333 0.059013"/> <!-- ly modified: -0.045987 > 0.005 -->
-    <dynamics damping="3" friction="10"/>
+    <dynamics damping="0.5706389" friction="10"/>
   </joint>
   <!-- [LINK 13] -->
   <link name="link_13.0">
@@ -913,18 +913,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.00905"/>
     </collision>
     <inertial>
-      <mass value="0.0119"/>
+      <mass value="0.01836"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="4.24250866667e-06" ixy="1.032087e-06" ixz="1.603525e-06" iyy="4.52362633333e-06" iyz="1.44808125e-06" izz="4.24250866667e-06"/>
+      <inertia ixx="6.5461908726718e-06" ixy="1.592510241e-06" ixz="2.474239075e-06" iyy="6.9799554323281e-06" iyz="2.23438936875e-06" izz="6.5461908726718e-06"/>
     </inertial>
   </link>
   <joint name="joint_13.0" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="15" lower="-0.105" upper="1.163" velocity="7"/>
+    <limit effort="0.7" lower="-0.105" upper="1.163" velocity="7"/>
     <parent link="link_12.0"/>
     <child link="link_13.0"/>
     <origin xyz="-0.027 0.005 0.0399"/>
-    <dynamics damping="3" friction="5"/>
+    <dynamics damping="0.14623265" friction="5"/>
   </joint>
   <!-- [LINK 14] -->
   <link name="link_14.0">
@@ -945,18 +945,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.0257"/>
     </collision>
     <inertial>
-      <mass value="0.038"/>
+      <mass value="0.05863"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="4.30439933333e-05" ixy="9.57068e-06" ixz="5.1205e-06" iyy="1.44451933333e-05" iyz="1.342825e-05" izz="4.30439933333e-05"/>
+      <inertia ixx="6.6416881713281e-05" ixy="1.476755924e-05" ixz="7.9009315e-06" iyy="2.2288933313281e-05" iyz="2.071978975e-05" izz="6.6416881713281e-05"/>
     </inertial>
   </link>
   <joint name="joint_14.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.189" upper="1.644" velocity="7"/>
+    <limit effort="0.7" lower="-0.189" upper="1.644" velocity="7"/>
     <parent link="link_13.0"/>
     <child link="link_14.0"/>
     <origin xyz="0 0 0.0177"/>
-    <dynamics damping="3" friction="10"/>
+    <dynamics damping="0.07956193" friction="10"/>
   </joint>
   <!-- [LINK 15] -->
   <link name="link_15.0">
@@ -977,18 +977,18 @@
       <origin rpy="0 0 0" xyz="0 0 0.01815"/>
     </collision>
     <inertial>
-      <mass value="0.0388"/>
+      <mass value="0.05987"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="3.29223173333e-05" ixy="8.042076e-06" ixz="5.2283e-06" iyy="1.47493026667e-5" iyz="1.1283525e-5" izz="3.29223173333e-05"/>
+      <inertia ixx="5.0799135645281e-05" ixy="1.2408923268e-05" ixz="8.0672669e-06" iyy="2.27581740414718e-5" iyz="1.7410479075e-5" izz="5.0799135645281e-05"/>
     </inertial>
   </link>
   <joint name="joint_15.0" type="revolute">
     <axis xyz="0 1 0"/>
-    <limit effort="15" lower="-0.162" upper="1.719" velocity="7"/>
+    <limit effort="0.7" lower="-0.162" upper="1.719" velocity="7"/>
     <parent link="link_14.0"/>
     <child link="link_15.0"/>
     <origin xyz="0 0 0.0514"/>
-    <dynamics damping="3" friction="12"/>
+    <dynamics damping="0.18069135" friction="12"/>
   </joint>
   <!-- [FINGER TIP] -->
   <link name="link_15.0_tip">
@@ -1010,9 +1010,9 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
     </collision>
     <inertial>
-      <mass value="0.0168"/>
+      <mass value="0.0259224"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <inertia ixx="9.68e-07" ixy="0" ixz="0" iyy="9.68e-07" iyz="0" izz="9.68e-07"/>
+      <inertia ixx="1.493624e-06" ixy="0" ixz="0" iyy="1.493624e-06" iyz="0" izz="1.493624e-06"/>
     </inertial>
   </link>
   <joint name="joint_15.0_tip" type="fixed">

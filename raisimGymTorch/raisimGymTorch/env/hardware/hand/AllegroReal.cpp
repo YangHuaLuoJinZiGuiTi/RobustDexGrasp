@@ -14,6 +14,7 @@ public:
         wrist_velocity_.setZero(6);
         hand_joint_position_.setZero(num_joint_);
         hand_joint_velocity_.setZero(num_joint_);
+        hand_joint_effort_.setZero(num_joint_);
         
         flying_hand_mode_ = cfg["flying_hand_mode"].As<bool>();
         freq_hz_ = cfg["hand_real"]["freq_hz"].As<double>();
@@ -30,6 +31,8 @@ public:
             cur_joint_state_.effort.push_back(0.0);
             tar_joint_state_.name.push_back(joint_names[i]);
             tar_joint_state_.position.push_back(0.0);
+            tar_tor_joint_state_.name.push_back(joint_names[i]);
+            tar_tor_joint_state_.effort.push_back(0.0);
         }
         
         nh_ = new ros::NodeHandle();
@@ -87,8 +90,18 @@ public:
         }
     }
 
+    Eigen::VectorXd & getJointEffort() final override {
+        std::chrono::milliseconds timeout(10);
+        //std::lock_guard<std::mutex> lock(cb_mutex);
+        if (cb_mutex.try_lock_for(timeout)){
+            cb_mutex.unlock();
+        } else {
+            printf("++++++++++++++++++++++++++++lock timeout get joint effort");
+        }
+        return hand_joint_effort_;
+    }
     Eigen::VectorXd & getJointVelocity() final override {
-        std::chrono::milliseconds timeout(100);
+        std::chrono::milliseconds timeout(10);
         //std::lock_guard<std::mutex> lock(cb_mutex);
         if (cb_mutex.try_lock_for(timeout)){
             cb_mutex.unlock();
@@ -98,7 +111,7 @@ public:
         return hand_joint_velocity_;
     }
     Eigen::VectorXd & getJointPosition() final override {
-        std::chrono::milliseconds timeout(100);
+        std::chrono::milliseconds timeout(10);
         //std::lock_guard<std::mutex> lock(cb_mutex);
         if (cb_mutex.try_lock_for(timeout)){
             cb_mutex.unlock();
@@ -157,6 +170,7 @@ private:
         for (int i = 0; i < num_joint_; i++) {
             hand_joint_position_[i] = msg->position[i];
             hand_joint_velocity_[i] = msg->velocity[i];
+            hand_joint_effort_[i] = msg->effort[i];
         }
     }
 
@@ -206,6 +220,7 @@ private:
     ros::Subscriber sub_cur_joints;
     sensor_msgs::JointState cur_joint_state_;
     sensor_msgs::JointState tar_joint_state_;
+    sensor_msgs::JointState tar_tor_joint_state_;
     std::thread subscribe_thread_;
     std::timed_mutex cb_mutex;
 

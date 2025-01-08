@@ -21,6 +21,7 @@ public:
     virtual Eigen::VectorXd & getSimBasePose() = 0;
     virtual Eigen::VectorXd & getJointPosition() = 0;
     virtual Eigen::VectorXd & getJointVelocity() = 0;
+    virtual Eigen::VectorXd & getJointEffort() {return arm_joint_effort_;};
     virtual Eigen::VectorXd & getEefPose() = 0;
     virtual Eigen::VectorXd & getEefVelocity() = 0;
     virtual Eigen::VectorXd & getEefAngleVelocity() = 0;
@@ -39,6 +40,8 @@ public:
     Eigen::VectorXd arm_joint_position_;
     // p0~p5: the velocity(rad/s) of each revolute joint describe in URDF, or prismatic joint for flying
     Eigen::VectorXd arm_joint_velocity_;
+    // p0~p5: the effort(Nm) of each revolute joint describe in URDF, or prismatic joint for flying
+    Eigen::VectorXd arm_joint_effort_;
     // x,y,z,rx,ry,rz: the position(m) and euler angle(rad) of the base frame expressed in raisim wrold frame 
     Eigen::VectorXd arm_init_base_pose_;
 };
