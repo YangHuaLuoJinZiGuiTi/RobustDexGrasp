@@ -9,5 +9,5 @@ find_package(Threads REQUIRED)
 include_directories(
   ${raisim_INCLUDE_DIRS}
 )
-add_executable(test_raisim_ur5 test_raisim_ur5.cpp)
-target_link_libraries(test_raisim_ur5 PRIVATE Eigen3::Eigen raisim::raisim Threads::Threads)
+add_executable(test_raisim_allegro test_raisim_allegro.cpp)
+target_link_libraries(test_raisim_allegro PRIVATE Eigen3::Eigen raisim::raisim Threads::Threads)

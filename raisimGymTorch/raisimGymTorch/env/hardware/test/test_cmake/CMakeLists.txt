@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(testcmake)
+project(sysid)
 
 # for raisim
 list(APPEND CMAKE_PREFIX_PATH "/home/ubuntu/hand/github/vision_dex/raisim/linux/lib/cmake/raisim/")
@@ -42,8 +42,8 @@ set(Includes
 )
 
 
-add_executable(testcmake cmake.cpp)
-target_link_libraries(testcmake PRIVATE ${Dependencies})
+add_executable(sysid sysid.cpp)
+target_link_libraries(sysid PRIVATE ${Dependencies})
 
 include_directories(
   ${Includes}

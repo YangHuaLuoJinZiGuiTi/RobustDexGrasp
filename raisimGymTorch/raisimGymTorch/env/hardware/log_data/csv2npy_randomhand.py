@@ -12,30 +12,26 @@ for cnt in range(CSV_NUM):
 
     tarPos_idx = []
     realPos_idx = []
-    simPos_idx = []
     realVel_idx = []
-    simVel_idx = []
+    realEff_idx = []
 
     for i in range(22):
-        tarPos_idx.append(0 + i * 4)
-        realPos_idx.append(2 + i * 4)
-        #simPos_idx.append(2 + i * 4)
-        #realVel_idx.append(3 + i * 4)
-        #simVel_idx.append(4 + i * 4)
+        tarPos_idx.append(0 + i * 5)
+        realPos_idx.append(1 + i * 5)
+        realVel_idx.append(2 + i * 5)
+        realEff_idx.append(3 + i * 5)
 
     tarPos = np.array(df[tarPos_idx].values)
     realPos = np.array(df[realPos_idx].values)
-    simPos = np.array(0.0)
-    realVel = np.array(0.0)
-    simVel = np.array(0.0)
+    realVel = np.array(df[realVel_idx].values)
+    realEff = np.array(df[realEff_idx].values)
 
 
     data = {
         'command':tarPos,
         'real_gcActualq':realPos,
         'real_gcActualv':realVel,
-        'sim_gcActualq':simPos,
-        'sim_gcActualv':simVel,
+        'real_gcActualeff':realEff,
     }
 
     np.savez(f'{PATH}/npz/{cnt}.npz', **data)

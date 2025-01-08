@@ -45,8 +45,8 @@ public:
         csv_file_ << "\n";
 
         nh_ = new ros::NodeHandle();
-        pub_tar_joints = nh_->advertise<sensor_msgs::JointState>("/allegroHand/joint_cmd", 1);
-        sub_cur_joints = nh_->subscribe("/allegroHand/joint_states", 1, &AllegroReal::jointStateCallback, this);
+        pub_tar_joints = nh_->advertise<sensor_msgs::JointState>("allegroHand/joint_cmd", 1);
+        sub_cur_joints = nh_->subscribe("allegroHand/joint_states", 1, &AllegroReal::jointStateCallback, this);
         subscribe_thread_ = std::thread(&AllegroReal::subscribeLoop, this);
 
         std::cout << "init finish all !!!" << std::endl;
@@ -79,16 +79,17 @@ public:
 
     void control_delay(std::vector<double> &tar, double delay_s) {
         std::vector<double> get_pos(16), get_vel(16);
-        int wait_cnt = int(delay_s / 0.005);
+        double obs_dt = 0.01;
+        int wait_cnt = int(delay_s / obs_dt);
         publishJointStates(tar);
         while (ros::ok() && wait_cnt > 0) {
             wait_cnt--;
             getCurrentStates(get_pos, get_vel);
-            for (int i = 0; i < 16; i++) {
+            /*for (int i = 0; i < 16; i++) {
                 csv_file_ << tar[i] << "," << get_pos[i] << ",,";
             }
-            csv_file_ << "\n";
-            usleep(5000);
+            csv_file_ << "\n";*/
+            usleep(obs_dt*1000000.0);
         }
     }
 
@@ -102,18 +103,20 @@ public:
 
     static const int DOF_JOINTS = 16;
     bool start_get_flag_ = false;
-    double min_limit[DOF_JOINTS] = {
-        -0.45, -0.196, -0.174, -0.227, 
-        -0.46, -0.196, -0.174, -0.227, 
-        -0.46, -0.196, -0.174, -0.227, 
-        0.35, -0.105, 0.15, -0.162
-    };
-    double max_limit[DOF_JOINTS] = {
-        0.44, 1.61, 1.709, 1.618, 
-        0.44, 1.61, 1.709, 1.618, 
-        0.44, 1.61, 1.709, 1.618, 
-        1.38, 1.163, 1.2, 1.719
-    };
+
+         double min_limit[16] = {
+    -0.47, -0.196, -0.174, -0.227, 
+    -0.47, -0.196, -0.174, -0.227, 
+    -0.47, -0.196, -0.174, -0.227, 
+    0.263, -0.105, -0.189, -0.162
+};
+         double max_limit[16] = {
+    0.47, 1.61, 1.709, 1.618, 
+    0.47, 1.61, 1.709, 1.618, 
+    0.47, 1.61, 1.709, 1.618, 
+    1.396, 1.163, 1.644, 1.719
+};
+
 
     std::string joint_names[DOF_JOINTS] = {
         "joint_0.0", "joint_1.0", "joint_2.0", "joint_3.0",
@@ -181,14 +184,10 @@ int control_test()
 
     for (int j = 1; j <= int(1.8/step_length_rad); j++) {
         set_pos[1] = 1.6 - j * step_length_rad;
-        set_pos[5] = 1.6 - j * step_length_rad;
-        set_pos[9] = 1.6 - j * step_length_rad;
         test.control_delay(set_pos, step_dt_s);
     }
     for (int j = 1; j <= int(1.8/step_length_rad); j++) {
         set_pos[1] = -0.2 + j * step_length_rad;
-        set_pos[5] = -0.2 + j * step_length_rad;
-        set_pos[9] = -0.2 + j * step_length_rad;
         test.control_delay(set_pos, step_dt_s);
     }
     test.end();
@@ -200,19 +199,19 @@ void control_test()
     test.init();
     usleep(2000000);
     std::vector<double> set_pos(16);
-    double tmp[] = {0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0, 0., 1.3, 0.0, 0.0, 0.0};
+    double tmp[16] = {0.0, 0.0, 0.0, 1.5, 0.0, 0.0, 0.0, 1.5, 0.0, 0.0, 0.0, 1.5, 0.9, 0.0, 0.0, 0.0};
     set_pos.insert(set_pos.begin(), tmp,  tmp+16);
     test.publishJointStates(set_pos);
     usleep(2000000);
     test.control_delay(set_pos, 0.2);
     bool flag[16] = {false};
     while (ros::ok()) {
-        for (int i = 0; i < 4; i++) {
-            int finger = 4*i+2;
+        for (int i = 0; i < 1; i++) {
+            int finger = 14;
             if (flag[finger]) {
-                set_pos[finger] -= test.set_random(0.05, 0.1);
+                set_pos[finger] -= test.set_random(0.1, 0.1);
             } else {
-                set_pos[finger] += test.set_random(0.05, 0.1);
+                set_pos[finger] += test.set_random(0.1, 0.1);
             }
 
             if (set_pos[finger] > test.max_limit[finger]) {
