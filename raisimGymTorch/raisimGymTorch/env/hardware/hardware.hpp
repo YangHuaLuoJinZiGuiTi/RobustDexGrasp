@@ -20,6 +20,9 @@
 #include <functional>
 #include <time.h>
 #include <stack>
+#include <regex>
+#include <fstream>
+#include <filesystem>
 
 extern "C" std::unique_ptr<HardwareKinematic> createSimFK();
 #ifdef BUILD_PINOCCHIO
@@ -127,10 +130,29 @@ public:
         save_target_.setZero(platform_gc_dim_);
         save_current_.setZero(platform_gc_dim_);
         if (save_state_) {
+
+            // add file name from 0.csv to N.csv automatically
             std::string save_state_path = cfg["log_real"]["save_state_path"].As<std::string>();
-            csv_file_.open(save_state_path.c_str(), std::ios::out);
+            int max_number = -1;
+            std::regex csv_regex(R"((\d+)\.csv)"); 
+            for (const auto& entry : std::filesystem::directory_iterator(save_state_path)) {
+                if (entry.is_regular_file()) {
+                    std::string filename = entry.path().filename().string();
+                    std::smatch match;
+                    if (std::regex_match(filename, match, csv_regex)) {
+                        int number = std::stoi(match[1].str());
+                        if (number > max_number) {
+                            max_number = number;
+                        }
+                    }
+                }
+            }
+
+            int new_number = max_number + 1;
+            std::string new_filename = save_state_path + std::to_string(new_number) + ".csv";
+            csv_file_.open(new_filename.c_str(), std::ios::out);
             if (!csv_file_.is_open()) {
-                std::cout << "open file fail: " << save_state_path << std::endl;
+                std::cout << "open file fail: " << new_filename << std::endl;
                 exit(0);
             }
             for (int i = 0; i < 16+6; i++) {

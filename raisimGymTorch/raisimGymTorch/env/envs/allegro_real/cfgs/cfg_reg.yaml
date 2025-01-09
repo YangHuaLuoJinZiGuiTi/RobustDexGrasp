@@ -20,7 +20,7 @@ environment:
     table_friction: 0.2
  
     log_real:
-      save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/joint.csv"
+      save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/"
 
     pointcloud_real:
       camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
