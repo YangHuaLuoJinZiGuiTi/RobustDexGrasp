@@ -11,20 +11,16 @@ environment:
     save_state_mode: False
     test_log: False
     rsc_model: "ur5_allegro"
-    sim_model: "ur5_allegro_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+    sim_model: "ur5_allegro_low_effort_mass"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
     init_finger_pose: [0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2]
-    arm_pd_file: "UR5Identification.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
-    hand_pd_file: "AllegroIdentification.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+    arm_pd_file: "UR5Identification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
+    hand_pd_file: "AllegroIdentification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
     table_friction: 0.2
  
     log_real:
       save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/joint.csv"
-      record_video: False
-      mp4_record_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/mp4/log.mp4"
-      eval_sysid: False 
-      old_sysid_param: False
 
     pointcloud_real:
       camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"

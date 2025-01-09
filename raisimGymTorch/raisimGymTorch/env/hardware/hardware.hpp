@@ -111,7 +111,7 @@ public:
 
         // set PD control mode
         arm_hand_platform_->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
-        arm_hand_platform_->setComputeInverseDynamics(true);
+//        arm_hand_platform_->setComputeInverseDynamics(true);
 
         // check the gc and gv dim of the arm and hand and platform are the same
         hand_dim_ = hand_->getDim();
@@ -422,10 +422,7 @@ public:
 
             }
         } else {
-            now_joint = genco;
-            now_joint += Eigen::VectorXd::Random(platform_gc_dim_) * 0.004;
-            std::cout << "new reset joint = " << now_joint.transpose() << std::endl;
-            arm_hand_platform_->setState(now_joint, genvel);
+            arm_hand_platform_->setState(genco, genvel);
         }
         
         // save state

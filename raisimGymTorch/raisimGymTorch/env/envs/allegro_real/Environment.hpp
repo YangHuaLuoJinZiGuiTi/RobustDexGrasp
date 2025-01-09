@@ -30,8 +30,6 @@ namespace raisim {
                 std::cout<<"visualizable_: "<<visualizable_<<std::endl;
             }
             test_log = cfg["hardware"]["test_log"].As<bool>();
-            eval_sysid = cfg["hardware"]["log_real"]["eval_sysid"].As<bool>();
-            old_sysid_param = cfg["hardware"]["log_real"]["old_sysid_param"].As<bool>();
             if ("dummy" == cfg["hardware"]["pointcloud_real"]["obj_mesh"].As<std::string>()) {
                 dummy_obj_flag_ = true;
                 std::cout << "+++++++++++++++++++++++++++ dummy object " << std::endl;
@@ -253,37 +251,6 @@ namespace raisim {
                 if(server_) server_->unlockVisualizationServerMutex();
             }
 
-            if (eval_sysid) {
-                test_sysid.open("/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/joint.csv");
-                if (!test_sysid) {
-                    std::cout << "open file error" << std::endl;
-                    exit(0);
-                } else {
-                    std::string line;
-                    if (getline(test_sysid, line)) {
-                        std::cout << "csv read :::: " << line << std::endl;
-                    }
-                }
-
-                test_sysid_out.open("/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/joint_eval.csv", std::ios::out);
-                if (!test_sysid_out.is_open()) {
-                    std::cout << "open file output fail: "<< std::endl;
-                    exit(0);
-                } else {
-                    for (int i = 0; i < 16+6; i++) {
-                        std::string c;
-                        if (i > 5) {
-                            c = "hand" + std::to_string(i-6);
-                        } else {
-                            c = "arm" + std::to_string(i);
-                        }
-                        test_sysid_out << c << ":tar," << c << ":tar-real," << c << ":real-simold," << c << ":real-simnew,,";
-                    }
-                    test_sysid_out << "\n";
-                }
-            }
-
-
             if (test_log) {
                 test_log_file_.open("/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/test_log.csv", std::ios::out);
                 if (!test_log_file_.is_open()) {
@@ -292,6 +259,15 @@ namespace raisim {
                 }
                 for (int i = 0; i < 22; i++) {
                     test_log_file_ << "gc" + std::to_string(i) << ",";
+                }
+                for (int i = 0; i < 22; i++) {
+                    test_log_file_ << "torque" + std::to_string(i) << ",";
+                }
+                for (int i = 0; i < 13; i++) {
+                    test_log_file_ << "contacts" + std::to_string(i) << ",";
+                }
+                for (int i = 0; i < 13; i++) {
+                    test_log_file_ << "impulses" + std::to_string(i) << ",";
                 }
                 for (int i = 0; i < 17; i++) {
                     test_log_file_ << "joint_h" + std::to_string(i) << ",";
@@ -527,25 +503,6 @@ namespace raisim {
 
             mano_r_->setBasePos(base_pos);
             mano_r_->setBaseOrientation(base_mat);
-
-            if (eval_sysid) {
-                std::string line;
-                if (getline(test_sysid, line)) {
-                    std::stringstream ss(line);
-                    std::string str;
-                    int col = 0;
-                    while (getline(ss, str, ',')){
-                        if (col % 4 == 0) {
-                            std::stringstream double_str(str); 
-                            double_str >> gc_set_r_[col / 4];
-                        }
-                        col++;
-                    }
-                } else {
-                    std::cout << "errunknow " << std::endl;
-                    exit(0);
-                }
-            }
             mano_r_->setState(gc_set_r_, gv_set_r_, sim_flag);
 
             /// Set action mean to initial pose (first 6DoF since start at 0)
@@ -698,19 +655,23 @@ namespace raisim {
                 /// Apply N control steps
                 int step_cnt = 0;
                 auto starttime = std::chrono::system_clock::now();
+
+                /// Apply N control steps
+                for (int i = 0; i < int(control_dt_ / simulation_dt_ + 1e-10); i++){
+                    if(server_) server_->lockVisualizationServerMutex();
+                    world_->integrate();
+                    if(server_) server_->unlockVisualizationServerMutex();
+                }
+
                 while (1) {
                     auto diff_time = std::chrono::system_clock::now() - starttime;
-                    if ((real_ == true) && (diff_time.count() / 1e9 > control_dt_)) {
+                    if (diff_time.count() / 1e9 > control_dt_) {
                         break;
-                    } else if ((real_ == false) && (step_cnt > int(control_dt_ / simulation_dt_ + 1e-10))) {
-                        break;
-                    }
-                    step_cnt++;
-                    if(server_) server_->lockVisualizationServerMutex();
-                     world_->integrate();
-                    if(server_) server_->unlockVisualizationServerMutex();
+                    } 
                }
-                updateObservation(false, sim_flag);
+               
+                // mano_r_->updateObservation(false, sim_flag);
+                // mano_r_->getState(gc_r_, gv_r_, sim_flag);
             }
             mano_r_->set_log_data(pTarget_clipped_r, tmp_gc_r_);
             updateObservation(lift == false, sim_flag);
@@ -778,8 +739,17 @@ namespace raisim {
                             arm_height_w,
                             hand_center_w,
                             euler_diff,
-                            wrist_euler_current;
+                            wrist_euler_current.e();
+
+            if (test_log && start) {
+                for (int i = 0; i < obDouble_r_.size(); i++) {
+                    test_log_file_ << obDouble_r_[i] << ",";
+                }
+                test_log_file_ << "\n";
+                test_log_file_.flush();
+            }
             obs_history.push_back(obDouble_r_);
+            std::cout << "obs_history len = " << obs_history.size() << ", and obs euler = " << obDouble_r_.tail(3).transpose() << std::endl;
 
            raisim::Vec<3> obj_pose, wrist_pos_obj, hand_pose_trans, obj_pose_wrist;
            obj_pose.setZero();wrist_pos_obj.setZero();obj_pose_wrist.setZero();Obj_Position.setZero();
@@ -866,8 +836,6 @@ namespace raisim {
         bool new_category = false;
         bool lift = false;
         bool dummy_obj_flag_ = false;
-        bool eval_sysid = false;
-        bool old_sysid_param = false;
         bool test_log = false;
 
         std::ofstream test_log_file_;
@@ -964,7 +932,7 @@ namespace raisim {
         Eigen::VectorXd mean_pose;
 
         std::ifstream test_sysid;
-        std::ofstream test_sysid_out;
+        std::ofstream log_obs_out;
 
         raisim::PolyLine *lines[17];
         raisim::Visuals *table_top, *leg1,*leg2,*leg3,*leg4, *plane;
