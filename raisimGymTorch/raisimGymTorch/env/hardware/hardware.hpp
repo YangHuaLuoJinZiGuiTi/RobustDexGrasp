@@ -58,6 +58,7 @@ public:
         real_world_mode_ = cfg["real_world_mode"].As<bool>();
         flying_hand_mode_ = cfg["flying_hand_mode"].As<bool>();
         save_state_ = cfg["save_state_mode"].As<bool>();
+        log_dir_ = cfg["log_real"]["save_state_path"].As<std::string>();
         
         if (!cfg["randomize_gains_hand_p"].IsNone()) {
             randomize_gains_hand_p_ = cfg["randomize_gains_hand_p"].As<double>();
@@ -129,43 +130,6 @@ public:
 
         save_target_.setZero(platform_gc_dim_);
         save_current_.setZero(platform_gc_dim_);
-        if (save_state_) {
-
-            // add file name from 0.csv to N.csv automatically
-            std::string save_state_path = cfg["log_real"]["save_state_path"].As<std::string>();
-            int max_number = -1;
-            std::regex csv_regex(R"((\d+)\.csv)"); 
-            for (const auto& entry : std::filesystem::directory_iterator(save_state_path)) {
-                if (entry.is_regular_file()) {
-                    std::string filename = entry.path().filename().string();
-                    std::smatch match;
-                    if (std::regex_match(filename, match, csv_regex)) {
-                        int number = std::stoi(match[1].str());
-                        if (number > max_number) {
-                            max_number = number;
-                        }
-                    }
-                }
-            }
-
-            int new_number = max_number + 1;
-            std::string new_filename = save_state_path + std::to_string(new_number) + ".csv";
-            csv_file_.open(new_filename.c_str(), std::ios::out);
-            if (!csv_file_.is_open()) {
-                std::cout << "open file fail: " << new_filename << std::endl;
-                exit(0);
-            }
-            for (int i = 0; i < 16+6; i++) {
-                std::string c;
-                if (i > 5) {
-                    c = "hand" + std::to_string(i-6);
-                } else {
-                    c = "arm" + std::to_string(i);
-                }
-                csv_file_ << c << "tar========,cur,obsPose,tar-obsPose,tar-cur,simeff,realeff,,";
-            }
-            csv_file_ << "\n";
-        }
 
         srand((unsigned)time(NULL));
     }
@@ -395,7 +359,7 @@ public:
      * @param[in] genvel joint velocity (rad/s)
      * @return None
      */
-    void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel, bool vis_in_sim = false, bool no_wait = false) {
+    void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel, bool vis_in_sim = false, bool no_wait = false, bool no_log = false) {
         Eigen::VectorXd now_joint(platform_gc_dim_);
         if (vis_in_sim) {
             arm_hand_platform_->setState(genco, genvel);
@@ -448,7 +412,8 @@ public:
         }
         
         // save state
-        if (save_state_) {
+        if (save_state_ && no_log == false) {
+            start_new_log_file();
             for (int i = 0; i < platform_gc_dim_; i++) {
                 csv_file_ << genco[i] << "," << genco[i] << "," << now_joint[i] << "," << genco[i] - now_joint[i] << ",0,0,0,,";
             }
@@ -655,6 +620,47 @@ private:
         return result.empty() ? "/" : result;
     }
 
+    void start_new_log_file() {
+        // add file name from 0.csv to N.csv automatically
+        if (csv_file_.is_open()) {
+            std::cout << "csv file is open, will reopen it " << std::endl;
+            csv_file_.close();
+        }
+        
+        int max_number = -1;
+        std::regex csv_regex(R"((\d+)\.csv)"); 
+        for (const auto& entry : std::filesystem::directory_iterator(log_dir_)) {
+            if (entry.is_regular_file()) {
+                std::string filename = entry.path().filename().string();
+                std::smatch match;
+                if (std::regex_match(filename, match, csv_regex)) {
+                    int number = std::stoi(match[1].str());
+                    if (number > max_number) {
+                        max_number = number;
+                    }
+                }
+            }
+        }
+
+        int new_number = max_number + 1;
+        std::string new_filename = log_dir_ + std::to_string(new_number) + ".csv";
+        csv_file_.open(new_filename.c_str(), std::ios::out);
+        if (!csv_file_.is_open()) {
+            std::cout << "open file fail: " << new_filename << std::endl;
+            exit(0);
+        }
+        for (int i = 0; i < 16+6; i++) {
+            std::string c;
+            if (i > 5) {
+                c = "hand" + std::to_string(i-6);
+            } else {
+                c = "arm" + std::to_string(i);
+            }
+            csv_file_ << c << "tar========,cur,obsPose,tar-obsPose,tar-cur,simeff,realeff,,";
+        }
+        csv_file_ << "\n";
+    }
+
 private:
     std::unique_ptr<HardwareArm> arm_;
     std::unique_ptr<HardwareHand> hand_;
@@ -680,6 +686,7 @@ private:
     bool real_world_mode_ = false;
     bool save_state_ = false;
     std::ofstream csv_file_;
+    std::string log_dir_;
     Eigen::VectorXd save_target_;
     Eigen::VectorXd save_current_;
 

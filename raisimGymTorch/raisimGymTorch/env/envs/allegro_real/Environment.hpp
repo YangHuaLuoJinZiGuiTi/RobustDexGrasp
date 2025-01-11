@@ -518,6 +518,13 @@ namespace raisim {
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
             raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
 
+            if (test_log) {
+                for (int i = 0; i < obDouble_r_.size(); i++) {
+                    test_log_file_ << obDouble_r_[i] << ",";
+                }
+                test_log_file_ << "\n";
+                test_log_file_.flush();
+            }
         }
 
         void reset_state(const Eigen::Ref<EigenVec>& init_state_r,
@@ -551,7 +558,7 @@ namespace raisim {
             }
             pTarget_clipped_r.head(6) = final_arm;
             std::cout << "set lift target = " << pTarget_clipped_r.transpose() << std::endl;
-            mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag, true);
+            mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag, true, true);
         }
 
         void update_target(const Eigen::Ref<EigenVec>& target_center) final {
@@ -595,9 +602,9 @@ namespace raisim {
                 }
             }
             if (max_step_distance_arm > 0.02) {
-                delay_cnt = round(max_step_distance_arm / 0.018) + 1.0;
-                if (delay_cnt > 6.0) {
-                    delay_cnt = 6.0;
+                delay_cnt = round(max_step_distance_arm / 0.016) + 1.0;
+                if (delay_cnt > 8.0) {
+                    delay_cnt = 8.0;
                 }
                 if (delay_cnt > 1.0) {
                     std::cout << "max_step_distance_arm = " << max_step_distance_arm << ", will delay times = " << delay_cnt << std::endl;
@@ -657,21 +664,37 @@ namespace raisim {
                 auto starttime = std::chrono::system_clock::now();
 
                 /// Apply N control steps
-                for (int i = 0; i < int(control_dt_ / simulation_dt_ + 1e-10); i++){
+                // for (int i = 0; i < int(control_dt_ / simulation_dt_ + 1e-10); i++){
+                //     if(server_) server_->lockVisualizationServerMutex();
+                //     world_->integrate();
+                //     if(server_) server_->unlockVisualizationServerMutex();
+                // }
+
+                // auto diff_time = std::chrono::system_clock::now() - starttime;
+                // if (diff_time.count() / 1e9 > control_dt_) {
+                //     std::cout << "sim step too long ??? " << diff_time.count() / 1e9  << std::endl;
+                // } else {
+                //     while (1) {
+                //         diff_time = std::chrono::system_clock::now() - starttime;
+                //         int delay_time = int((control_dt_ - diff_time.count() / 1e9) * 1e6);
+                //         if (diff_time.count() / 1e9 > control_dt_) {
+                //             break;
+                //         }
+                //         usleep(delay_time + 10);
+                //     }
+                // }
+                while (1) {
                     if(server_) server_->lockVisualizationServerMutex();
                     world_->integrate();
                     if(server_) server_->unlockVisualizationServerMutex();
-                }
-
-                while (1) {
                     auto diff_time = std::chrono::system_clock::now() - starttime;
                     if (diff_time.count() / 1e9 > control_dt_) {
                         break;
-                    } 
-               }
-               
-                // mano_r_->updateObservation(false, sim_flag);
-                // mano_r_->getState(gc_r_, gv_r_, sim_flag);
+                    }
+                }
+
+                mano_r_->updateObservation(false, sim_flag);
+                mano_r_->getState(gc_r_, gv_r_, sim_flag);
             }
             mano_r_->set_log_data(pTarget_clipped_r, tmp_gc_r_);
             updateObservation(lift == false, sim_flag);
@@ -749,7 +772,6 @@ namespace raisim {
                 test_log_file_.flush();
             }
             obs_history.push_back(obDouble_r_);
-            std::cout << "obs_history len = " << obs_history.size() << ", and obs euler = " << obDouble_r_.tail(3).transpose() << std::endl;
 
            raisim::Vec<3> obj_pose, wrist_pos_obj, hand_pose_trans, obj_pose_wrist;
            obj_pose.setZero();wrist_pos_obj.setZero();obj_pose_wrist.setZero();Obj_Position.setZero();

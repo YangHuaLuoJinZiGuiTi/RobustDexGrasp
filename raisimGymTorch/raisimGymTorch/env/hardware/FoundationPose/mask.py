@@ -30,43 +30,40 @@ def create_mask():
     # Start streaming
     pipeline.start(config)
 
-    try:
-        # Wait for 1 second to allow the camera to warm up
-        time.sleep(1)
-        # Wait for a coherent pair of frames: depth and color    
-        frames = pipeline.wait_for_frames()
-        color_frame = frames.get_color_frame()
+    # Wait for 1 second to allow the camera to warm up
+    time.sleep(1)
+    # Wait for a coherent pair of frames: depth and color    
+    frames = pipeline.wait_for_frames()
+    color_frame = frames.get_color_frame()
 
-        if not color_frame:
-            raise Exception("Could not capture color frame")
+    if not color_frame:
+        raise Exception("Could not capture color frame")
 
-        # Convert image to numpy array
-        image = np.asanyarray(color_frame.get_data())
-        image_display = image.copy()
+    # Convert image to numpy array
+    image = np.asanyarray(color_frame.get_data())
+    image_display = image.copy()
 
-        cv2.namedWindow("Image")
-        cv2.setMouseCallback("Image", select_points)
+    cv2.namedWindow("Image")
+    cv2.setMouseCallback("Image", select_points)
 
-        print("Click on the image to select points. Press Enter when done.")
+    print("Click on the image to select points. Press Enter when done.")
 
-        while True:
-            cv2.imshow("Image", image_display)
-            key = cv2.waitKey(1) & 0xFF
-            if key == 13:  # Enter key
-                break
+    while True:
+        cv2.imshow("Image", image_display)
+        key = cv2.waitKey(1) & 0xFF
+        if key == 13:  # Enter key
+            break
 
-        mask = generate_mask(image, points)
+    mask = generate_mask(image, points)
 
-        # Save the mask image
-        cv2.imwrite(mask_path, mask)
-        print("------------------write masks success !!!!!!!!!")
-        cv2.destroyAllWindows()
+    # Save the mask image
+    cv2.imwrite(mask_path, mask)
+    print("------------------write masks success !!!!!!!!!")
+    cv2.destroyAllWindows()
+    
+    pipeline.stop()
+    return mask_path
 
-        return mask_path
-
-    finally:
-        # Stop streaming
-        pipeline.stop()
 
 if __name__ == "__main__":
     mask_file_path = create_mask()
