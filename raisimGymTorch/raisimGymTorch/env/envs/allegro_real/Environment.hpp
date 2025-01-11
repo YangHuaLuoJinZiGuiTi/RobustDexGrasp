@@ -460,6 +460,9 @@ namespace raisim {
             /// reset gains (only required in case for inference)
             mano_r_->setPdGains(0);
 
+            // reset state 
+            pTarget_clipped_r.setZero(gcDim_); pTarget_prev_r.setZero(gcDim_);
+
             Eigen::VectorXd gen_force;
             gen_force.setZero(gcDim_);
             mano_r_->setGeneralizedForce(gen_force);
@@ -513,10 +516,11 @@ namespace raisim {
             gen_force.setZero(gcDim_);
             mano_r_->setGeneralizedForce(gen_force);
 
-            updateObservation(false, sim_flag);
+            mano_r_->updateObservation(false, sim_flag);
             raisim::Mat<3,3> wrist_mat_r;
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
             raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
+            updateObservation(false, sim_flag);
 
             if (test_log) {
                 for (int i = 0; i < obDouble_r_.size(); i++) {

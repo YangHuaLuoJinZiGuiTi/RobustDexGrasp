@@ -405,6 +405,9 @@ namespace raisim {
             /// reset gains (only required in case for inference)
             mano_r_->setPdGains(0);
 
+            // reset state 
+            pTarget_clipped_r.setZero(gcDim_); pTarget_prev_r.setZero(gcDim_);
+
             Eigen::VectorXd gen_force;
             gen_force.setZero(gcDim_);
             mano_r_->setGeneralizedForce(gen_force);
@@ -470,7 +473,7 @@ namespace raisim {
 
             mano_r_->setMaterialFriction(world_, arctic);
 
-            updateObservation();
+            mano_r_->updateObservation();
 
            auto affordance_id = arctic->getBodyIdx("top");
            arctic->getOrientation(affordance_id, Obj_orientation_init);
@@ -482,6 +485,7 @@ namespace raisim {
            raisim::RotmatToEuler(wrist_mat_r_in_obj_init, wrist_euler_in_obj_init);
            raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
 
+            updateObservation();
         }
 
         void update_target(const Eigen::Ref<EigenVec>& target_center) final {
