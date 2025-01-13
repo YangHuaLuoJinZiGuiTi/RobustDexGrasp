@@ -212,7 +212,7 @@ else:
     exit(0)
 
 while True:
-    start = time.time()
+    np.random.seed(int(time.time()))
 
     obj_init_xyz_qwxyz = None
     obj_pointcloud = None
@@ -379,6 +379,8 @@ while True:
                         continue
                     else:
                         if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                            print("-------------easy collision !!!")
+                            break
                             if top_grasp:
                                 # if inverse_grasp:
                                 #     no_feasible_ik = True
@@ -454,6 +456,8 @@ while True:
 
     if qpos_reset_r[0, 0] > np.pi:
         qpos_reset_r[0, 0] -= 2*np.pi
+    if qpos_reset_r[0, 4] < -np.pi/2.0:
+        qpos_reset_r[0, 4] += 2*np.pi
     print(f" ================== samble obj reset pose = {obj_pose_reset}")
 
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
