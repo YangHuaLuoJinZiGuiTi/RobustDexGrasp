@@ -1711,11 +1711,15 @@ def get_initial_pose_allegro_arm_partial_safe(partial_obj_pcd, x_dir, obj_mat, t
         z_dir = axis.reshape(1,3)
         z_dir_in_world = np.matmul(obj_mat, z_dir.T).T
         if hand == "allegro":
-            if z_dir_in_world[0,1] < 0:
-                z_dir = -z_dir
-        elif hand == "faive":
-            if z_dir_in_world[0,1] > 0:
-                z_dir = -z_dir
+            if inverse_grasp:
+                if z_dir_in_world[0,1] > 0:
+                    z_dir = -z_dir
+            else:
+                if z_dir_in_world[0,1] < 0:
+                    z_dir = -z_dir
+        # elif hand == "faive":
+        #     if z_dir_in_world[0,1] > 0:
+        #         z_dir = -z_dir
         # if hand == "allegro":
         #     if inverse_grasp:
         #         if z_dir_in_world[0,1] > 0:

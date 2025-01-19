@@ -45,22 +45,31 @@ exp_name = "arm_rand_student"
 # weight_saved = '2024-10-25-17-16-54/full_23000_r.pt'
 # weight_saved = '2024-10-26-15-58-30/full_40000_r.pt'
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
-weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
+# weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 
 # weight_path_student = '2024-12-11-09-43-04/full_3000_r.pt'
 # weight_path_student = '2024-12-16-22-33-03/full_3000_r.pt'
 # weight_path_student = '2024-12-29-10-01-25/full_6500_r.pt'
 # weight_path_student = '2024-12-29-10-02-39/full_7000_r.pt'
 # weight_path_student = '2024-12-30-14-33-27/full_4500_r.pt'
-weight_path_student = '2024-12-30-14-47-53/full_5000_r.pt'
+# weight_path_student = '2024-12-30-14-47-53/full_5000_r.pt'
 # weight_path_student = '2024-12-30-14-50-50/full_5000_r.pt'
+# weight_path_student = '2025-01-09-14-18-00/full_2500_r.pt'
+# weight_path_student = '2025-01-09-14-19-41/full_2500_r.pt'
+# weight_path_student = '2025-01-11-13-50-06/full_4500_r.pt'
+# weight_path_student = '2025-01-11-13-51-35/full_6000_r.pt'
+weight_path_student = '2025-01-12-17-56-20/full_3000_r.pt'
+# weight_path_student = '2025-01-12-18-12-37/full_2500_r.pt'
+
+# weight_path_student = '2024-12-29-10-02-39/full_4500_r.pt'
+# weight_path_student = '2025-01-02-00-16-48/full_5000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
-parser.add_argument('-w', '--weight', type=str, default=weight_saved)
+parser.add_argument('-w', '--weight', type=str, default=weight_path_student)
 parser.add_argument('-sd', '--storedir', type=str, default='data_all')
 parser.add_argument('-seed', '--seed', type=int, default=1)
 parser.add_argument('-itr', '--num_iterations', type=int, default=50001)
@@ -110,10 +119,21 @@ print('num envs', num_envs)
 # cat_name = 'mixed_train'
 # cat_name = 'ycb_urdf_sim'
 # cat_name = 'ycb_urdf_all'
-cat_name = 'ycb_urdf_light'
+# cat_name = 'ycb_urdf_light'
 # cat_name = 'ycb_urdf_sim_light'
 # cat_name = 'large_scale'
 # cat_name = 'real_obj'
+# cat_name = 'large_scale_light_stable'
+# cat_name = 'surdf_group27_m'
+# cat_name = 'surdf_group4_s'
+cat_name = 'large_training'
+
+
+if cat_name == 'large_scale_light_stable' or cat_name == 'large_training':
+    stable = True
+else:
+    stable = False
+
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
@@ -130,6 +150,8 @@ obj_ori_list = folder_names
 
 obj_item = choice(obj_ori_list)
 # obj_item = 'backet_functional'
+
+# obj_item = '19105b05cd134f80a009ada6bd8b1f4e'
 
 # obj_item = '002_master_chef_can'
 # obj_item = '003_cracker_box'
@@ -192,7 +214,7 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps']
-lift_steps = 100
+lift_steps = 20
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
@@ -217,12 +239,24 @@ actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribut
 prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
+if stable:
+    stable_states = np.zeros((num_envs, 7), dtype='float32')
 for i in range(num_envs):
     txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
     with open(txt_file_path, 'r') as txt_file:
         lowest_points[i] = float(txt_file.read())
 
+    if stable:
+        if cat_name == 'large_training':
+
+            stable_state_path = home_path + f"/rsc/stable_states/surdf_group27_m/{obj_item}.npy"
+        else:
+            stable_state_path = home_path + f"/rsc/stable_states/{cat_name}/{obj_item}.npy"
+
+        stable_states[i] = np.load(stable_state_path)
+
 for update in range(args.num_iterations):
+    np.random.seed(int(time.time()))
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -281,13 +315,17 @@ for update in range(args.num_iterations):
                 break
         obj_pose_reset[i, 0] = sample_x
         obj_pose_reset[i, 1] = sample_y
-        obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
-        obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
-
-        axis_angles = np.zeros((1, 3))
-        axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-        quats = rotations.axisangle2quat(axis_angles)
-        obj_pose_reset[i, 3:7] = quats
+        if stable:
+            obj_pose_reset[i, 2:7] = stable_states[i, 2:7]
+            obj_pose_reset[i, 2] += 0.005
+            quats = stable_states[i, 3:7]
+        else:
+            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+            obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+            axis_angles = np.zeros((1, 3))
+            axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+            quats = rotations.axisangle2quat(axis_angles)
+            obj_pose_reset[i, 3:7] = quats
 
         # get the partial point cloud (not relavent for hardware deployment)
         obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
@@ -331,6 +369,7 @@ for update in range(args.num_iterations):
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3))
                 if rot is None:
                     if top_grasp:
+                        print("no feasible pose")
                         # if inverse_grasp:
                         #     no_feasible_ik = True
                         # else:
@@ -360,6 +399,7 @@ for update in range(args.num_iterations):
 
                 if ik.findClosestIK(gd, theta0) is None:
                     if top_grasp:
+                        print("no feasible ik 1")
                         # if inverse_grasp:
                         #     no_feasible_ik = True
                         # else:
@@ -373,6 +413,7 @@ for update in range(args.num_iterations):
 
                 if math.isnan(qpos_reset_r[i, 0]):
                     if top_grasp:
+                        print("no feasible ik 2")
                         # if inverse_grasp:
                         #     no_feasible_ik = True
                         # else:
@@ -398,6 +439,7 @@ for update in range(args.num_iterations):
                     true_indices = np.where(contains_one)[0]
                     if len(true_indices) > 0:
                         if top_grasp:
+                            print("self collision")
                             # if inverse_grasp:
                             #     no_feasible_ik = True
                             # else:
@@ -407,18 +449,19 @@ for update in range(args.num_iterations):
                             top_grasp = True
                         continue
                     else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            if top_grasp:
-                                # if inverse_grasp:
-                                #     no_feasible_ik = True
-                                # else:
-                                #     inverse_grasp = True
-                                no_feasible_ik = True
-                            else:
-                                top_grasp = True
-                            continue
-                        else:
-                            break
+                        # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                        #     if top_grasp:
+                        #         # print("out of safety limit")
+                        #         # if inverse_grasp:
+                        #         #     no_feasible_ik = True
+                        #         # else:
+                        #         #     inverse_grasp = True
+                        #         no_feasible_ik = True
+                        #     else:
+                        #         top_grasp = True
+                        #     continue
+                        # else:
+                        break
             else:
                 # get the x_dir of the grasping frame
                 hand_dir_x_w = np.zeros((1, 3))
@@ -481,8 +524,8 @@ for update in range(args.num_iterations):
                         qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                         break
                     else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                        # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                        #     qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                         break
 
     env.reset_state(qpos_reset_r,

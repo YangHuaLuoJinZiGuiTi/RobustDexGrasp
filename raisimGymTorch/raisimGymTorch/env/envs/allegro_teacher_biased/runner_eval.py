@@ -97,7 +97,6 @@ exp_name = "arm_rand"
 # weight_saved = '2024-12-25-18-57-50/full_8000_r.pt'
 # weight_saved = '2024-12-27-18-08-06/full_12500_r.pt'
 # weight_saved = '2024-12-27-18-09-12/full_12500_r.pt'
-weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
 # weight_saved = '2024-12-31-18-57-49/full_16000_r.pt'
 # weight_saved = '2024-12-31-19-13-20/full_12000_r.pt'
 # weight_saved = '2025-01-01-10-01-41/full_16000_r.pt'
@@ -110,6 +109,16 @@ weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
 # weight_saved = '2025-01-06-14-32-58/full_8000_r.pt'
 # weight_saved = '2025-01-06-14-37-46/full_9000_r.pt'
 # weight_saved = '2025-01-06-19-53-12/full_3500_r.pt'
+# weight_saved = '2025-01-07-21-04-51/full_10000_r.pt'
+# weight_saved = '2025-01-08-10-20-03/full_4000_r.pt'
+# weight_saved = '2025-01-08-10-22-54/full_5500_r.pt'
+# weight_saved = '2025-01-12-18-19-14/full_16000_r.pt'
+weight_saved = '2025-01-15-16-15-07/full_1000_r.pt'
+
+# weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
+# weight_saved = '2025-01-07-20-39-18/full_15000_r.pt'
+
+
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -166,10 +175,11 @@ print('num envs', num_envs)
 # cat_name = 'mixed_train'
 # cat_name = 'ycb_urdf_sim'
 # cat_name = 'ycb_urdf_all'
-# cat_name = 'ycb_urdf_light'
-cat_name = 'ycb_urdf_sim_light'
+cat_name = 'ycb_urdf_light'
+# cat_name = 'ycb_urdf_sim_light'
 # cat_name = 'real_obj'
 # cat_name = 'affordance_level'
+# cat_name = 'large_scale_light_stable'
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
@@ -264,6 +274,7 @@ for i in range(num_envs):
         lowest_points[i] = float(txt_file.read())
 
 for update in range(args.num_iterations):
+    np.random.seed(int(time.time()))
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -355,7 +366,7 @@ for update in range(args.num_iterations):
 
         no_feasible_ik = False
         top_grasp = cfg['environment']['top']
-        inverse_grasp = False
+        # inverse_grasp = False
         while True:
             if not no_feasible_ik:
                 # get the x_dir of the grasping frame
@@ -447,18 +458,18 @@ for update in range(args.num_iterations):
                             top_grasp = True
                         continue
                     else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            if top_grasp:
-                                # if inverse_grasp:
-                                #     no_feasible_ik = True
-                                # else:
-                                #     inverse_grasp = True
-                                no_feasible_ik = True
-                            else:
-                                top_grasp = True
-                            continue
-                        else:
-                            break
+                        # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                        #     if top_grasp:
+                        #         # if inverse_grasp:
+                        #         #     no_feasible_ik = True
+                        #         # else:
+                        #         #     inverse_grasp = True
+                        #         no_feasible_ik = True
+                        #     else:
+                        #         top_grasp = True
+                        #     continue
+                        # else:
+                        break
             else:
                 # get the x_dir of the grasping frame
                 hand_dir_x_w = np.zeros((1, 3))
@@ -521,8 +532,8 @@ for update in range(args.num_iterations):
                         qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                         break
                     else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                        # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                        #     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                         break
 
     # else:

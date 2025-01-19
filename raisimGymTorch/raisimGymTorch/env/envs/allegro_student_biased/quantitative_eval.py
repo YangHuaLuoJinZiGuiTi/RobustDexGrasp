@@ -62,9 +62,18 @@ weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 # weight_path_student = '2025-01-03-16-21-27/full_4000_r.pt'
 # weight_path_student = '2025-01-03-16-22-25/full_3500_r.pt'
 
-weight_path_student = '2024-12-29-10-02-39/full_4500_r.pt'
+# weight_path_student = '2024-12-29-10-02-39/full_4500_r.pt'
 # weight_path_student = '2025-01-02-00-16-48/full_5000_r.pt'
+# weight_path_student = '2025-01-09-14-18-00/full_4500_r.pt'
+# weight_path_student = '2025-01-09-14-19-41/full_6500_r.pt'
+# weight_path_student = '2025-01-11-13-50-06/full_4500_r.pt'
+# weight_path_student = '2025-01-11-13-51-35/full_6000_r.pt'
+# weight_path_student = '2025-01-12-18-12-37/full_5000_r.pt'
+weight_path_student = '2025-01-15-10-48-01/full_3500_r.pt'
+# weight_path_student = '2025-01-15-10-50-43/full_4000_r.pt'
+# weight_path_student = '2025-01-15-10-51-51/full_4000_r.pt'
 
+# weight_path_student = '2025-01-12-17-56-20/full_3000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -120,8 +129,9 @@ cfg['environment']['visualize'] = False
 # cat_name = 'ycb_urdf_sim'
 # cat_name = 'ycb_urdf_all'
 # cat_name = 'ycb_urdf_light'
-cat_name = 'ycb_urdf_sim_light'
-# cat_name = 'large_scale_light'
+# cat_name = 'ycb_urdf_sim_light'
+cat_name = 'large_scale_light_stable'
+# cat_name = 'surdf_group27_m'
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
@@ -135,35 +145,12 @@ obj_list = []
 obj_path_list = []
 obj_ori_list = folder_names
 
-if cat_name == 'large_scale_light':
+if cat_name == 'large_scale_light_stable':
     obj_ori_list = obj_ori_list[:50]
-
-# obj_item = choice(obj_ori_list)
-# obj_item = '002_master_chef_can'
-# obj_item = '003_cracker_box'
-# obj_item = '004_sugar_box'
-# obj_item = '005_tomato_soup_can'
-# obj_item = '006_mustard_bottle'
-# obj_item = '007_tuna_fish_can'
-# obj_item = '008_pudding_box'
-# obj_item = '009_gelatin_box'
-# obj_item = '010_potted_meat_can'
-# obj_item = '011_banana'
-# obj_item = '019_pitcher_base'
-# obj_item = '021_bleach_cleanser'
-# obj_item = '024_bowl'
-# obj_item = '025_mug'
-# obj_item = '035_power_drill'
-# obj_item = '036_wood_block'
-# obj_item = '037_scissors'
-# obj_item = '040_large_marker'
-# obj_item = '051_large_clamp'
-# obj_item = '052_extra_large_clamp'
-# obj_item = '061_foam_brick'
 
 # Environment definition
 
-if cat_name != 'large_scale_light':
+if cat_name != 'large_scale_light_stable':
     num_envs = len(obj_ori_list) * 3
 else:
     num_envs = len(obj_ori_list)
@@ -171,7 +158,7 @@ activations = nn.LeakyReLU
 cfg['environment']['num_envs'] = num_envs
 print('num envs', num_envs)
 
-if cat_name != 'large_scale_light':
+if cat_name != 'large_scale_light_stable':
     for i in range(3):
         for item in obj_ori_list:
             obj_list.append(item)
@@ -245,14 +232,19 @@ actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribut
 prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
+stable_states = np.zeros((num_envs, 7), dtype='float32')
 for i in range(num_envs):
-    txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
+    txt_file_path = os.path.join(directory_path, obj_list[i]) + "/lowest_point_new.txt"
     with open(txt_file_path, 'r') as txt_file:
         lowest_points[i] = float(txt_file.read())
+    if cat_name == 'large_scale_light_stable':
+        stable_state_path = home_path + f"/rsc/stable_states/{cat_name}/{obj_list[i]}.npy"
+        stable_states[i] = np.load(stable_state_path)
 
 success_rate = 0.0
 
 for update in range(5):
+    np.random.seed(int(time.time()))
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -311,13 +303,18 @@ for update in range(5):
                 break
         obj_pose_reset[i, 0] = sample_x
         obj_pose_reset[i, 1] = sample_y
-        obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
-        obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+        if cat_name == 'large_scale_light_stable':
+            obj_pose_reset[i, 2:7] = stable_states[i, 2:7]
+            obj_pose_reset[i, 2] += 0.005
+            quats = stable_states[i, 3:7]
+        else:
+            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+            obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
-        axis_angles = np.zeros((1, 3))
-        axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-        quats = rotations.axisangle2quat(axis_angles)
-        obj_pose_reset[i, 3:7] = quats
+            axis_angles = np.zeros((1, 3))
+            axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+            quats = rotations.axisangle2quat(axis_angles)
+            obj_pose_reset[i, 3:7] = quats
 
         # get the partial point cloud (not relavent for hardware deployment)
         obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
@@ -410,18 +407,18 @@ for update in range(5):
                         top_grasp = True
                     continue
                 else:
-                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        if top_grasp:
-                            # if inverse_grasp:
-                            #     no_feasible_ik = True
-                            # else:
-                            #     inverse_grasp = True
-                            no_feasible_ik = True
-                        else:
-                            top_grasp = True
-                        continue
-                    else:
-                        break
+                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                    #     if top_grasp:
+                    #         # if inverse_grasp:
+                    #         #     no_feasible_ik = True
+                    #         # else:
+                    #         #     inverse_grasp = True
+                    #         no_feasible_ik = True
+                    #     else:
+                    #         top_grasp = True
+                    #     continue
+                    # else:
+                    break
             else:
                 # get the x_dir of the grasping frame
                 hand_dir_x_w = np.zeros((1, 3))
@@ -466,8 +463,8 @@ for update in range(5):
                     qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 else:
-                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                    #     qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
 
     # check self collision
@@ -485,17 +482,24 @@ for update in range(5):
     contains_one = np.any(one_check == 1, axis=1)
     true_indices = np.where(contains_one)[0]
     for true_idx in true_indices:
-        current_obj_idx = true_idx // 3
-        current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
-        false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
-        if len(false_indices) > 0:
-            chosen_index = np.random.choice(false_indices)
-            qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
-            obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
-        else:
+        if cat_name == 'large_scale_light_stable':
             qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
             obj_pose_reset[true_idx, 0] = 0.15
             obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
+        else:
+            current_obj_idx = true_idx // 3
+            current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
+            false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
+            if len(false_indices) > 0:
+                chosen_index = np.random.choice(false_indices)
+                qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
+                obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
+            else:
+                qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+                obj_pose_reset[true_idx, 0] = 0.15
+                obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
+
+    print("initial pose generated")
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -508,7 +512,7 @@ for update in range(5):
     # show_point = dis_info[:, 17:68].astype('float32').copy()
     aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
     # env.set_joint_sensor_visual(show_point)
-    # env.update_target(target_center)
+    env.update_target(target_center)
 
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 

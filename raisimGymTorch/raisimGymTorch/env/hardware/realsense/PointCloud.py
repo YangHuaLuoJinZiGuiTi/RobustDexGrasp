@@ -19,7 +19,7 @@ class Realsense:
             self.filter_time = 200
             self.downsample = 1
         else:
-            self.filter_time = 25
+            self.filter_time = 30
             self.downsample = 4
 
         self.width = 640
@@ -28,6 +28,7 @@ class Realsense:
         self.sample_pc_num = sample_pc_num
         self.camK_path = camK_path
         self.flat_npy_path = os.path.join(os.path.dirname(__file__), 'flat.npy')
+        self.obj_ply_path = os.path.join(os.path.dirname(__file__), 'obj.ply')
         self.rgb_K = None
         self.depth_K = None
         
@@ -188,7 +189,7 @@ class Realsense:
         # tf from RGB to left-IR camera
         Tcamrgb2depth = np.array([[  1., 0., 0., 0.],
                             [0., 1., 0., 0.],
-                            [ 0., 0., 1., 0.012],
+                            [ 0., 0., 1., 0.0031],
                             [ 0., 0., 0., 1.]])
 
         T_depth = np.hstack((cam_frame, np.ones((cam_frame.shape[0], 1))))  # (N, 4)
@@ -258,24 +259,25 @@ class Realsense:
                 continue
             
             log_time2 = time.time()
-            print(f"-------------get depth time = {log_time2 - log_time1}")
+            #print(f"-------------get depth time = {log_time2 - log_time1}")
             
             output = self.filter_pc(np.array(pointcloud_xyz_list))
 
             log_time3 = time.time()
-            print(f"-------------filter depth time = {log_time3 - log_time2}")
+            #print(f"-------------filter depth time = {log_time3 - log_time2}")
 
             # get point cloud
             pointcloud_xyz = self.depth2xyzmap(output)
             self.all_pc = pointcloud_xyz.reshape(-1, 3).astype(np.float32)
 
             log_time4 = time.time()
-            print(f"-------------get point cloud time = {log_time4 - log_time3}")
+            #print(f"-------------get point cloud time = {log_time4 - log_time3}")
             
             if self.calculate_flag is False:
-                # cloud = o3d.geometry.PointCloud()
-                # cloud.points = o3d.utility.Vector3dVector(self.all_pc)
-                # o3d.visualization.draw_geometries([cloud])
+                cloud = o3d.geometry.PointCloud()
+                cloud.points = o3d.utility.Vector3dVector(self.all_pc)
+                o3d.visualization.draw_geometries([cloud])
+                o3d.io.write_point_cloud(self.obj_ply_path, cloud)
                 pass
             else:
                 output_fill = output.copy()
@@ -294,16 +296,17 @@ class Realsense:
         mask_pcd_new, mean_pose = self.sample_pc()
         tsim2realpc = self.raisim_frame_tf(mask_pcd_new)
         tsim2realpose = self.raisim_frame_tf(mean_pose)
+        
 
         log_time5 = time.time()
-        print(f"-------------get calculate tf time = {log_time5 - log_time4}")
+        #print(f"-------------get calculate tf time = {log_time5 - log_time4}")
         print(f"-------------point cloud center: camera_frame={mean_pose}, raisim_world_frame={tsim2realpose}")
         return tsim2realpose[:, :3], tsim2realpc[:, :3]
         
 def main() -> None:
     print("test ...")
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--calculate_flag", help="check the table", type=bool, default=False)
+    parser.add_argument("-c", "--calculate_flag", help="check the table", type=bool, default=True)
     args = parser.parse_args()
     test = Realsense("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", 200, args.calculate_flag)
     pose, pc = test.GetPointCloud()

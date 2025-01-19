@@ -45,7 +45,7 @@ exp_name = "arm_rand_student"
 # weight_saved = '2024-10-25-17-16-54/full_23000_r.pt'
 # weight_saved = '2024-10-26-15-58-30/full_40000_r.pt'
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
-weight_saved = './../arm_rand/2024-11-19-18-53-10/full_44000_r.pt'
+# weight_saved = './../arm_rand/2024-11-19-18-53-10/full_44000_r.pt'
 
 weight_path_student = '2024-11-27-13-39-45/full_1500_r.pt'
 
@@ -55,7 +55,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
-parser.add_argument('-w', '--weight', type=str, default=weight_saved)
+parser.add_argument('-w', '--weight', type=str, default=weight_path_student)
 parser.add_argument('-sd', '--storedir', type=str, default='data_all')
 parser.add_argument('-seed', '--seed', type=int, default=1)
 parser.add_argument('-itr', '--num_iterations', type=int, default=50001)
@@ -213,6 +213,7 @@ for i in range(num_envs):
         lowest_points[i] = float(txt_file.read())
 
 for update in range(args.num_iterations):
+    np.random.seed(int(time.time()))
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -396,18 +397,18 @@ for update in range(args.num_iterations):
                             top_grasp = True
                         continue
                     else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            if top_grasp:
-                                # if inverse_grasp:
-                                #     no_feasible_ik = True
-                                # else:
-                                #     inverse_grasp = True
-                                no_feasible_ik = True
-                            else:
-                                top_grasp = True
-                            continue
-                        else:
-                            break
+                        # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                        #     if top_grasp:
+                        #         # if inverse_grasp:
+                        #         #     no_feasible_ik = True
+                        #         # else:
+                        #         #     inverse_grasp = True
+                        #         no_feasible_ik = True
+                        #     else:
+                        #         top_grasp = True
+                        #     continue
+                        # else:
+                        break
             else:
                 # get the x_dir of the grasping frame
                 hand_dir_x_w = np.zeros((1, 3))
@@ -470,8 +471,8 @@ for update in range(args.num_iterations):
                         qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                         break
                     else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                        # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                        #     qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                         break
 
     env.reset_state(qpos_reset_r,

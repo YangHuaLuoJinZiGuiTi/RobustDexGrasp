@@ -30,8 +30,13 @@ from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, tra
 exp_name = "arm_rand_student"
 
 # weight_saved = '/../../arm_rand/2024-12-27-18-08-06/full_12500_r.pt'
-weight_saved = '/../../arm_rand/2024-12-27-18-11-12/full_15000_r.pt'
-# weight_saved = '/../../arm_rand/2025-01-01-10-01-41/full_16500_r.pt'
+# weight_saved = '/../../arm_rand/2024-12-27-18-11-12/full_15000_r.pt'
+# weight_saved = '/../../arm_rand/2025-01-07-20-39-18/full_15000_r.pt'
+# weight_saved = '/../../arm_rand/2025-01-12-18-16-55/full_12000_r.pt'
+# weight_saved = '/../../arm_rand/2025-01-12-18-18-27/full_14000_r.pt'
+# weight_saved = '/../../arm_rand/2025-01-12-18-19-14/full_16000_r.pt'
+weight_saved = '/../../arm_rand/2025-01-16-10-36-16/full_16000_r.pt'
+
 weight_path_student = '2024-10-28-14-49-02/full_1000_r.pt'
 
 
@@ -242,10 +247,14 @@ qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')
 obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')
 
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
+stable_states = np.zeros((num_envs, 7), dtype='float32')
 for i in range(num_envs):
     txt_file_path = os.path.join(directory_path, obj_list[i]) + "/lowest_point_new.txt"
     with open(txt_file_path, 'r') as txt_file:
         lowest_points[i] = float(txt_file.read())
+    if cat_name == 'large_training':
+        stable_state_path = home_path + f"/rsc/stable_states/surdf_group27_m/{obj_list[i]}.npy"
+        stable_states[i] = np.load(stable_state_path)
 
 for update in range(args.num_iterations):
     # if update % 300 == 0 and ppo_ratio < 1.0 and update > 10:
@@ -254,6 +263,7 @@ for update in range(args.num_iterations):
     #     dagger.update_ppo_ratio(ppo_ratio)
     #     print('ppo ratio: ', ppo_ratio)
     #     print('student driven ratio: ', student_driven_ratio)
+    np.random.seed(int(time.time()))
 
     if cfg['environment']['curriculum']:
         ppo_ratio = min(update*0.0005, 1.0)
@@ -330,13 +340,18 @@ for update in range(args.num_iterations):
                 break
         obj_pose_reset[i, 0] = sample_x
         obj_pose_reset[i, 1] = sample_y
-        obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
-        obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+        if cat_name == 'large_training':
+            obj_pose_reset[i, 2:7] = stable_states[i, 2:7]
+            obj_pose_reset[i, 2] += 0.005
+            quats = stable_states[i, 3:7]
+        else:
+            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+            obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
-        axis_angles = np.zeros((1, 3))
-        axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-        quats = rotations.axisangle2quat(axis_angles)
-        obj_pose_reset[i, 3:7] = quats
+            axis_angles = np.zeros((1, 3))
+            axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+            quats = rotations.axisangle2quat(axis_angles)
+            obj_pose_reset[i, 3:7] = quats
 
         # get the partial point cloud
         obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
@@ -429,18 +444,18 @@ for update in range(args.num_iterations):
                         top_grasp = True
                     continue
                 else:
-                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        if top_grasp:
-                            # if inverse_grasp:
-                            #     no_feasible_ik = True
-                            # else:
-                            #     inverse_grasp = True
-                            no_feasible_ik = True
-                        else:
-                            top_grasp = True
-                        continue
-                    else:
-                        break
+                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                    #     if top_grasp:
+                    #         # if inverse_grasp:
+                    #         #     no_feasible_ik = True
+                    #         # else:
+                    #         #     inverse_grasp = True
+                    #         no_feasible_ik = True
+                    #     else:
+                    #         top_grasp = True
+                    #     continue
+                    # else:
+                    break
             else:
                 # get the x_dir of the grasping frame
                 hand_dir_x_w = np.zeros((1, 3))
@@ -486,11 +501,11 @@ for update in range(args.num_iterations):
                     qpos_reset_r[i, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 else:
-                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        qpos_reset_r[i, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
-                        break
-                    else:
-                        break
+                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                    #     qpos_reset_r[i, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+                    #     break
+                    # else:
+                    break
 
 
     # check self collision

@@ -97,7 +97,7 @@ exp_name = "arm_rand"
 # weight_saved = '2024-12-25-18-57-50/full_8000_r.pt'
 # weight_saved = '2024-12-27-18-08-06/full_16500_r.pt'
 # weight_saved = '2024-12-27-18-09-12/full_12500_r.pt'
-weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
+# weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
 # weight_saved = '2024-12-31-18-57-49/full_16000_r.pt'
 # weight_saved = '2024-12-31-19-13-20/full_12000_r.pt'
 # weight_saved = '2024-12-31-20-31-15/full_14500_r.pt'
@@ -108,6 +108,16 @@ weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
 # weight_saved = '2025-01-06-14-32-58/full_8000_r.pt'
 # weight_saved = '2025-01-06-14-37-46/full_9000_r.pt'
 # weight_saved = '2025-01-06-19-53-12/full_3500_r.pt'
+# weight_saved = '2025-01-07-21-04-51/full_10000_r.pt'
+# weight_saved = '2025-01-08-10-20-03/full_4000_r.pt'
+# weight_saved = '2025-01-08-10-22-54/full_5500_r.pt'
+# weight_saved = '2025-01-12-18-16-55/full_12000_r.pt'
+# weight_saved = '2025-01-12-18-18-27/full_14000_r.pt'
+# weight_saved = '2025-01-12-18-19-14/full_16000_r.pt'
+weight_saved = '2025-01-15-11-35-22/full_3000_r.pt'
+
+# weight_saved = '2024-12-27-18-11-12/full_15000_r.pt'
+# weight_saved = '2025-01-07-20-39-18/full_15000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -162,10 +172,11 @@ cfg['environment']['visualize'] = False
 # cat_name = 'mixed_train'
 # cat_name = 'ycb_urdf_sim'
 # cat_name = 'ycb_urdf_all'
-cat_name = 'ycb_urdf_light'
+# cat_name = 'ycb_urdf_light'
 # cat_name = 'ycb_urdf_sim_light'
 # cat_name = 'real_obj'
 # cat_name = 'affordance_level'
+cat_name = 'large_scale_light_stable'
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
 print(directory_path)
@@ -178,6 +189,9 @@ folder_names = [item for item in items if os.path.isdir(os.path.join(directory_p
 obj_list = []
 obj_path_list = []
 obj_ori_list = folder_names
+
+if cat_name == 'large_scale_light_stable':
+    obj_ori_list = obj_ori_list[:50]
 
 # obj_item = choice(obj_ori_list)
 # obj_item = '002_master_chef_can'
@@ -202,12 +216,19 @@ obj_ori_list = folder_names
 # obj_item = '052_extra_large_clamp'
 # obj_item = '061_foam_brick'
 
-num_envs = len(obj_ori_list) * 3
+if cat_name != 'large_scale_light_stable':
+    num_envs = len(obj_ori_list) * 3
+else:
+    num_envs = len(obj_ori_list)
 activations = nn.LeakyReLU
 cfg['environment']['num_envs'] = num_envs
 print('num envs', num_envs)
 
-for i in range(3):
+if cat_name != 'large_scale_light_stable':
+    for i in range(3):
+        for item in obj_ori_list:
+            obj_list.append(item)
+else:
     for item in obj_ori_list:
         obj_list.append(item)
 
@@ -265,15 +286,19 @@ ppo_r = PPO.PPO(actor=actor_r,
 load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
 
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
+stable_states = np.zeros((num_envs, 7), dtype='float32')
 for i in range(num_envs):
-    txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
+    txt_file_path = os.path.join(directory_path, obj_list[i]) + "/lowest_point_new.txt"
     with open(txt_file_path, 'r') as txt_file:
         lowest_points[i] = float(txt_file.read())
-
+    if cat_name == 'large_scale_light_stable':
+        stable_state_path = home_path + f"/rsc/stable_states/{cat_name}/{obj_list[i]}.npy"
+        stable_states[i] = np.load(stable_state_path)
 
 success_rate = 0.0
 
 for update in range(5):
+    np.random.seed(int(time.time()))
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -333,13 +358,18 @@ for update in range(5):
                 break
         obj_pose_reset[i, 0] = sample_x
         obj_pose_reset[i, 1] = sample_y
-        obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
-        obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+        if cat_name == 'large_scale_light_stable':
+            obj_pose_reset[i, 2:7] = stable_states[i, 2:7]
+            obj_pose_reset[i, 2] += 0.005
+            quats = stable_states[i, 3:7]
+        else:
+            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+            obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
-        axis_angles = np.zeros((1, 3))
-        axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-        quats = rotations.axisangle2quat(axis_angles)
-        obj_pose_reset[i, 3:7] = quats
+            axis_angles = np.zeros((1, 3))
+            axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+            quats = rotations.axisangle2quat(axis_angles)
+            obj_pose_reset[i, 3:7] = quats
 
         # get the partial point cloud
         obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
@@ -449,18 +479,18 @@ for update in range(5):
                     #     no_feasible_ik = True
                     #     continue
                     # else:
-                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        if top_grasp:
-                            # if inverse_grasp:
-                            #     no_feasible_ik = True
-                            # else:
-                            #     inverse_grasp = True
-                            no_feasible_ik = True
-                        else:
-                            top_grasp = True
-                        continue
-                    else:
-                        break
+                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                    #     if top_grasp:
+                    #         # if inverse_grasp:
+                    #         #     no_feasible_ik = True
+                    #         # else:
+                    #         #     inverse_grasp = True
+                    #         no_feasible_ik = True
+                    #     else:
+                    #         top_grasp = True
+                    #     continue
+                    # else:
+                    break
             else:
                 # get the x_dir of the grasping frame
                 hand_dir_x_w = np.zeros((1, 3))
@@ -523,8 +553,8 @@ for update in range(5):
                     #     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     #     break
                     # else:
-                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                    #     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
 
     # check self collision
@@ -542,13 +572,18 @@ for update in range(5):
     contains_one = np.any(one_check == 1, axis=1)
     true_indices = np.where(contains_one)[0]
     for true_idx in true_indices:
-        current_obj_idx = true_idx // 3
-        current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
-        false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
-        if len(false_indices) > 0:
-            chosen_index = np.random.choice(false_indices)
-            qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
-            obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
+        if cat_name == 'ycb_urdf_light':
+            current_obj_idx = true_idx // 3
+            current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
+            false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
+            if len(false_indices) > 0:
+                chosen_index = np.random.choice(false_indices)
+                qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
+                obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
+            else:
+                qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+                obj_pose_reset[true_idx, 0] = 0.15
+                obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
         else:
             qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
             obj_pose_reset[true_idx, 0] = 0.15

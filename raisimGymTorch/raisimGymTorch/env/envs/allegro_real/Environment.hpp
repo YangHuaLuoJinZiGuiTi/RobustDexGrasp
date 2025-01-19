@@ -114,6 +114,7 @@ namespace raisim {
             init_or_r_.setZero();  init_rot_r_.setZero(); init_root_r_.setZero();
             init_obj_rot_.setZero(); init_obj_or_.setZero(); init_obj_.setZero();
             wrist_euler_init.setZero();
+            wrist_mat_r_init.setZero();
             wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
             afford_center.setZero();
 //            wrist_target_o.setZero();
@@ -143,7 +144,7 @@ namespace raisim {
             contacts_arm_table.setZero(6); impulses_arm_table.setZero(6);
             contacts_arm_all.setZero(6);
 
-            pTarget_clipped_r.setZero(gcDim_); pTarget_prev_r.setZero(gcDim_);
+            pTarget_clipped_r.setZero(gcDim_);
 
             /// initialize 3D positions weights for fingertips higher than for other fingerparts
             finger_weights_contact.setOnes(num_contacts);
@@ -436,12 +437,12 @@ namespace raisim {
                 gv_set_r_.setZero(gvDim_);
                 pTarget_r_ = gc_set_r_;
                 pTarget_clipped_r = gc_set_r_;
-                pTarget_prev_r = gc_set_r_;
                 vTarget_r_.setZero(gvDim_);
                 actionMean_r_.setZero();
 //                actionMean_r_.tail(gcDim_-6) = gc_set_r_.tail(gcDim_-6);
                 actionMean_r_ = gc_set_r_;
                 wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
+                wrist_mat_r_init.setZero();
                 updateObservation();
             }
         }
@@ -459,9 +460,6 @@ namespace raisim {
             obs_history.clear();
             /// reset gains (only required in case for inference)
             mano_r_->setPdGains(0);
-
-            // reset state 
-            pTarget_clipped_r.setZero(gcDim_); pTarget_prev_r.setZero(gcDim_);
 
             Eigen::VectorXd gen_force;
             gen_force.setZero(gcDim_);
@@ -506,7 +504,7 @@ namespace raisim {
 
             mano_r_->setBasePos(base_pos);
             mano_r_->setBaseOrientation(base_mat);
-            mano_r_->setState(gc_set_r_, gv_set_r_, sim_flag);
+            mano_r_->setState(gc_set_r_, gv_set_r_, sim_flag, false, false);
 
             /// Set action mean to initial pose (first 6DoF since start at 0)
 //            actionMean_r_.setZero();
@@ -517,9 +515,14 @@ namespace raisim {
             mano_r_->setGeneralizedForce(gen_force);
 
             mano_r_->updateObservation(false, sim_flag);
+            mano_r_->getState(gc_r_, gv_r_, sim_flag);
+            pTarget_clipped_r = gc_r_;
+            step_cnt_ = 0;
+
             raisim::Mat<3,3> wrist_mat_r;
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
             raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
+            wrist_mat_r_init = wrist_mat_r;
             updateObservation(false, sim_flag);
 
             if (test_log) {
@@ -547,10 +550,13 @@ namespace raisim {
         reset_state_all(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose, false);
         }
 
-        void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag) final {
+        void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag, bool lift_up) final {
             Eigen::VectorXd final_arm(6), final_hand(16);
-            final_arm << -1.57, -1.57, 1.57, 0., 1.57, -1.57; // put in desk
-            //final_arm << 0.0, -1.57, 1.57, 0., 1.57, -1.57; // lift on top
+            if (lift_up) {
+                final_arm << 0.0, -1.57, 1.57, 0., 1.57, -1.57; // lift on top
+            } else {
+                final_arm << -1.57, -1.57, 1.57, 0., 1.57, -1.57; // put in desk
+            }
             final_hand << 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2;
             if (release_hand) {
                 pTarget_clipped_r.tail(16) = final_hand;
@@ -561,8 +567,8 @@ namespace raisim {
                 pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
             }
             pTarget_clipped_r.head(6) = final_arm;
-            std::cout << "set lift target = " << pTarget_clipped_r.transpose() << std::endl;
-            mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag, true, true);
+            //std::cout << "set lift target = " << pTarget_clipped_r.transpose() << std::endl;
+            mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag);
         }
 
         void update_target(const Eigen::Ref<EigenVec>& target_center) final {
@@ -605,10 +611,10 @@ namespace raisim {
                     max_step_distance_arm = abs(pTarget_clipped_r[i] - gc_r_[i]);
                 }
             }
-            if (max_step_distance_arm > 0.02) {
-                delay_cnt = round(max_step_distance_arm / 0.016) + 1.0;
-                if (delay_cnt > 8.0) {
-                    delay_cnt = 8.0;
+            if (max_step_distance_arm > 0.038) {
+                delay_cnt = round(max_step_distance_arm / 0.035) + 1.0;
+                if (delay_cnt > 3.0) {
+                    delay_cnt = 3.0;
                 }
                 if (delay_cnt > 1.0) {
                     std::cout << "max_step_distance_arm = " << max_step_distance_arm << ", will delay times = " << delay_cnt << std::endl;
@@ -616,12 +622,12 @@ namespace raisim {
             }
 #else
             // for (int i = 0; i < 6; i++) {
-            //     if (pTarget_clipped_r[i] - gc_r_[i]> 0.04) {
-            //         //pTarget_clipped_r[i] = 0.04 + gc_r_[i];
+            //     if (pTarget_clipped_r[i] - gc_r_[i]> 0.07) {
             //         std::cout << i << ": too large gc = " << pTarget_clipped_r[i] - gc_r_[i] << std::endl;
-            //     } else if (pTarget_clipped_r[i] - gc_r_[i] < -0.04) {
-            //         //pTarget_clipped_r[i] = -0.04 + gc_r_[i];
+            //         pTarget_clipped_r[i] = 0.07 + gc_r_[i];
+            //     } else if (pTarget_clipped_r[i] - gc_r_[i] < -0.07) {
             //         std::cout << i << ": too large gc = " << pTarget_clipped_r[i] - gc_r_[i] << std::endl;
+            //         pTarget_clipped_r[i] = -0.07 + gc_r_[i];
             //     }
             // }
 #endif
@@ -636,7 +642,7 @@ namespace raisim {
             auto starttime = std::chrono::system_clock::now();
             while (1) {
                 auto diff_time = std::chrono::system_clock::now() - starttime;
-                if ((real_ == true) && (diff_time.count() / 1e9 > control_dt_ * delay_cnt)) {
+                if ((real_ == true) && (diff_time.count() / 1e9 > control_dt_ * delay_cnt - 0.0005)) {
                     break;
                 } else if ((real_ == false) && (step_cnt > int(control_dt_ / simulation_dt_ * delay_cnt + 1e-10))) {
                     break;
@@ -704,7 +710,7 @@ namespace raisim {
             updateObservation(lift == false, sim_flag);
 #endif
             actionMean_r_ = gc_r_;
-            rewards_sum_[0] = 1.0;
+            rewards_sum_[0] = 0;
             rewards_sum_[1] = 0;
             return rewards_sum_;
         }
@@ -725,7 +731,12 @@ namespace raisim {
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
             raisim::transpose(wrist_mat_r, wrist_mat_r_trans);
             mano_r_->getState(gc_r_, gv_r_, force_sim);
-            right_hand_torque = (pTarget_clipped_r - gc_r_);
+
+            if (step_cnt_ < 0) {
+                right_hand_torque.setZero(gcDim_);
+            } else {
+                right_hand_torque = (pTarget_clipped_r - gc_r_);
+            }
 
             raisim::Vec<3> wrist_pos_w;
             mano_r_->getFramePosition(body_parts_r_[0], wrist_pos_w);
@@ -756,7 +767,15 @@ namespace raisim {
             raisim::Vec<3> wrist_euler_current;
             raisim::RotmatToEuler(wrist_mat_r, wrist_euler_current);
             Eigen::Vector3d euler_diff;
-            euler_diff = wrist_euler_current.e() - wrist_euler_init.e();
+
+
+            raisim::Vec<3> euler_diff_raisim;
+            raisim::Mat<3,3> wrist_mat_r_init_trans, wrist_mat_diff;
+            raisim::transpose(wrist_mat_r_init, wrist_mat_r_init_trans);
+            raisim::matmul(wrist_mat_r_init_trans, wrist_mat_r, wrist_mat_diff);
+            raisim::RotmatToEuler(wrist_mat_diff, euler_diff_raisim);
+            euler_diff = euler_diff_raisim.e();
+//            euler_diff = wrist_euler_current.e() - wrist_euler_init.e();
 
                 obDouble_r_ << gc_r_,
                             right_hand_torque,
@@ -766,7 +785,7 @@ namespace raisim {
                             arm_height_w,
                             hand_center_w,
                             euler_diff,
-                            wrist_euler_current.e();
+                            0,0,0;
 
             if (test_log && start) {
                 for (int i = 0; i < obDouble_r_.size(); i++) {
@@ -776,6 +795,7 @@ namespace raisim {
                 test_log_file_.flush();
             }
             obs_history.push_back(obDouble_r_);
+            step_cnt_++;
 
            raisim::Vec<3> obj_pose, wrist_pos_obj, hand_pose_trans, obj_pose_wrist;
            obj_pose.setZero();wrist_pos_obj.setZero();obj_pose_wrist.setZero();Obj_Position.setZero();
@@ -861,11 +881,12 @@ namespace raisim {
         bool unseen = false;
         bool new_category = false;
         bool lift = false;
-        bool dummy_obj_flag_ = false;
+        bool dummy_obj_flag_ = true;
         bool test_log = false;
 
         std::ofstream test_log_file_;
         int lift_num = 0;
+        int step_cnt_ = 0;
         raisim::ArticulatedSystem* mano_;
         Eigen::VectorXd gc_r_, gv_r_, pTarget_r_, vTarget_r_, gc_set_r_, gv_set_r_;
         Eigen::VectorXd obj_pos_init_;
@@ -972,6 +993,7 @@ namespace raisim {
         
         raisim::Vec<3> base_pos;
         raisim::Mat<3,3> base_mat;
+        raisim::Mat<3,3> wrist_mat_r_init;
 
         std::map<int,int> contactMapping_r_;
         std::map<int,int> contactMapping_l_;

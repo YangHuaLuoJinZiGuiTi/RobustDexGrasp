@@ -29,10 +29,11 @@ from raisimGymTorch.env.hardware.FoundationPose.interactive import FoundationDat
 from raisimGymTorch.env.hardware.FoundationPose.RGBDPointCloud import GetPointCloud
 from raisimGymTorch.env.hardware.log_data import d435_record
 
+import csv
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'hui/full_7000_r.pt'
+weight_path_student = 'hui_euler0/full_2000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -135,7 +136,7 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps']
-lift_steps = 100
+lift_steps = 40
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
@@ -159,42 +160,6 @@ actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architect
 actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
 prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
-qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
-qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')
-obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')
-target_center = np.zeros_like(env.affordance_center)
-qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
-
-visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
-visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
-
-view_point_world = np.zeros((200, 3))
-view_point_world[:, 0] = cfg['environment']['camera_position'][0]
-view_point_world[:, 1] = cfg['environment']['camera_position'][1]
-view_point_world[:, 2] = cfg['environment']['camera_position'][2]
-
-hand_center_sample_w = np.zeros((1, 3))
-hand_center_sample_w[0, 0] = 0.669872 - 0.55
-hand_center_sample_w[0, 1] = 0.141735 - 0.75152
-hand_center_sample_w[0, 2] = 1.5  # 1.11052
-
-wrist_bias = np.zeros((1, 3))
-wrist_bias[0, 0] = -0.0091
-wrist_bias[0, 2] = -0.095
-
-ur5_to_world = np.eye(3)
-ur5_to_world[0, 0] = 0
-ur5_to_world[0, 1] = -1
-ur5_to_world[1, 0] = 1
-ur5_to_world[1, 1] = 0
-
-theta0 = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
-joint_weights = [1, 1, 1, 1, 1, 1]
-
-ik = InverseKinematicsUR5()
-ik.setJointWeights(joint_weights)
-ik.setJointLimits(-3.14, 3.14)
-
 if sample_pc_mode == 'foundationpose':
     data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
 elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
@@ -213,6 +178,43 @@ else:
 
 while True:
     np.random.seed(int(time.time()))
+    start = time.time()
+
+    qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
+    qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')
+    obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')
+    target_center = np.zeros_like(env.affordance_center)
+    qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
+
+    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
+    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
+
+    view_point_world = np.zeros((200, 3))
+    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
+    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
+    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
+
+    hand_center_sample_w = np.zeros((1, 3))
+    hand_center_sample_w[0, 0] = 0.669872 - 0.55
+    hand_center_sample_w[0, 1] = 0.141735 - 0.75152
+    hand_center_sample_w[0, 2] = 1.5  # 1.11052
+
+    wrist_bias = np.zeros((1, 3))
+    wrist_bias[0, 0] = -0.0091
+    wrist_bias[0, 2] = -0.095
+
+    ur5_to_world = np.eye(3)
+    ur5_to_world[0, 0] = 0
+    ur5_to_world[0, 1] = -1
+    ur5_to_world[1, 0] = 1
+    ur5_to_world[1, 1] = 0
+
+    theta0 = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
+    joint_weights = [1, 1, 1, 1, 1, 1]
+
+    ik = InverseKinematicsUR5()
+    ik.setJointWeights(joint_weights)
+    ik.setJointLimits(-3.14, 3.14)
 
     obj_init_xyz_qwxyz = None
     obj_pointcloud = None
@@ -222,7 +224,7 @@ while True:
                 time.sleep(1)
                 obj_init_xyz_qwxyz = data_producer.get_data()
                 if obj_init_xyz_qwxyz is not None:
-                    print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
+                    #print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
                     time.sleep(0.5)
                     obj_init_xyz_qwxyz = data_producer.get_data()
                     obj_pointcloud = data_producer.get_pcd()
@@ -262,7 +264,7 @@ while True:
                 distance = np.random.uniform(0.45, 0.75)
                 sample_x = distance * np.cos(angle)
                 sample_y = distance * np.sin(angle)
-                if sample_y < 0.3 - 0.75152 and sample_x < 0.3 and sample_x > -0.3:
+                if sample_y < 0.3 - 0.75152:
                     # print(sample_x, sample_y, distance)
                     break
             obj_pose_reset[i, 0] = sample_x
@@ -273,6 +275,19 @@ while True:
             axis_angles = np.zeros((1, 3))
             axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
             obj_pose_reset[i, 3:7] = rotations.axisangle2quat(axis_angles)
+
+            ################## set default xyz and quats ############### for debug          
+            # 一下精选   037_scissors 
+            #obj_pose_reset[i, :8] = [-0.24842523, -0.6717001, 0.780741, 0.10874034, 0., 0., -0.9940702, 0.] # 临界值
+            # -0.57723176 -0.9771907   1.1137106  -0.9462291  -0.67278194 -0.99736685 # 正常pose
+            # -0.5753135  -0.9651766   1.0831178  -0.88515085 -0.71819276 -1.0162001  # 异常pose
+            
+            
+            
+            #obj_pose_reset[i, :8] = [ 0.12669958, -0.67506623, 0.780741, 0.4163684, 0., 0., -0.909196, 0.] # 手抓没力
+            #obj_pose_reset[i, :8] = [-0.18056332, -0.49197075, 0.780741, 0.21069525, 0., 0., 0.9775518, 0.] # 初始IK容易有差异
+            #obj_pose_reset[i, :8] = [0.46725762, -0.5274929, 0.780741, 0.39935145, 0., 0., -0.91679794, 0. ] # 容易自碰撞
+
 
             # get the partial point cloud
             obj_mat_single = rotations.quat2mat(obj_pose_reset[i, 3:7]).reshape(3, 3)
@@ -298,7 +313,7 @@ while True:
 
         no_feasible_ik = False
         top_grasp = cfg['environment']['top']
-        # inverse_grasp = False
+        inverse_grasp = False
         while True:
             if not no_feasible_ik:
                 # get the x_dir of the grasping frame
@@ -312,8 +327,12 @@ while True:
                 # get position and orientation of the wrist
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
+                #rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3),
+                #                                                top=False, z_dir_cmd=None, hand='allegro',
+                #                                                inverse_grasp=inverse_grasp)
                 if rot is None:
                     if top_grasp:
+                        print("no feasible pose")
                         # if inverse_grasp:
                         #     no_feasible_ik = True
                         # else:
@@ -343,6 +362,7 @@ while True:
 
                 if ik.findClosestIK(gd, theta0) is None:
                     if top_grasp:
+                        print("no feasible ik 1")
                         # if inverse_grasp:
                         #     no_feasible_ik = True
                         # else:
@@ -356,6 +376,7 @@ while True:
 
                 if math.isnan(qpos_reset_r[i, 0]):
                     if top_grasp:
+                        print("no feasible ik 2")
                         # if inverse_grasp:
                         #     no_feasible_ik = True
                         # else:
@@ -365,9 +386,9 @@ while True:
                         top_grasp = True
                     continue
                 else:
-                    # check self collision
-                    get_meaningful_ik = env.check_collision(qpos_reset_r)
-                    if not get_meaningful_ik:
+                    if qpos_reset_r[i, 4] < -2.0 or qpos_reset_r[i, 4] > 2.5:
+                        print("------------------ no safety, break or not !!!")
+                        break
                         if top_grasp:
                             # if inverse_grasp:
                             #     no_feasible_ik = True
@@ -378,20 +399,7 @@ while True:
                             top_grasp = True
                         continue
                     else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            print("-------------easy collision !!!")
-                            break
-                            if top_grasp:
-                                # if inverse_grasp:
-                                #     no_feasible_ik = True
-                                # else:
-                                #     inverse_grasp = True
-                                no_feasible_ik = True
-                            else:
-                                top_grasp = True
-                            continue
-                        else:
-                            break
+                        break
             else:
                 # get the x_dir of the grasping frame
                 hand_dir_x_w = np.zeros((1, 3))
@@ -405,6 +413,7 @@ while True:
                 pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
                 rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True,
                                                             z_dir_cmd=z_dir_in_world)
+                
                 if rot is None:
                     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     print("======== cannot get rot, use defalut pose = " + str(qpos_reset_r))
@@ -434,35 +443,36 @@ while True:
                     break
                 else:
                     qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
-                    if qpos_reset_r[i, 4] < -65.0/180.0*np.pi:
-                        qpos_reset_r[i, 4] += 2*np.pi
                         
                 if math.isnan(qpos_reset_r[i, 0]):
                     qpos_reset_r[i, :6] = [angle+np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     print("======== reset pose is nan, use defalut pose = " + str(qpos_reset_r))
                     break
                 else:
-                    # check self collision
-                    get_meaningful_ik = env.check_collision(qpos_reset_r)
-                    if not get_meaningful_ik:
+                    if qpos_reset_r[i, 4] < -2.0 or qpos_reset_r[i, 4] > 2.5:
                         qpos_reset_r[i, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
-                        print("======== self collision, use defalut pose = " + str(qpos_reset_r))
+                        print("======== joint4 out...  use defalut pose = " + str(qpos_reset_r))
                         break
                     else:
-                        if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                            qpos_reset_r[i, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
-                            print("======== bad reset pose, use defalut pose = " + str(qpos_reset_r))
                         break
 
+    collision_check = env.check_collision(qpos_reset_r)
+    if not collision_check:
+        qpos_reset_r[0, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+        print("======== self collision, use defalut pose = " + str(qpos_reset_r))
+
     if qpos_reset_r[0, 0] > np.pi:
+        print("will reset arm0")
         qpos_reset_r[0, 0] -= 2*np.pi
     if qpos_reset_r[0, 4] < -np.pi/2.0:
+        print("will reset arm4")
         qpos_reset_r[0, 4] += 2*np.pi
-    print(f" ================== samble obj reset pose = {obj_pose_reset}")
 
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
     env.set_sample_point_visual(vis_point, obj_pose_reset)
 
+    print(f" ================== obj  pose = {obj_pose_reset} ===============")
+    print(f" ================== hand pose = {qpos_reset_r} ================")
     for sim_flag in [False]: # True, False
         print(f"--------------------------- test in {sim_flag} flag ---------------------- ")
         env.reset_state(qpos_reset_r,
@@ -481,6 +491,9 @@ while True:
         final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
         step = 0
+        
+        csvfile = open(f"/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/recon{sim_flag}.csv","w")
+        writer = csv.writer(csvfile)
         while step < n_steps_r:
 
             frame_start = time.time()
@@ -490,11 +503,13 @@ while True:
             obs_r = obs_r[:, :].astype('float32')
             encode_obs = torch.from_numpy(obs_r[:, :tobeEncode_dim * t_steps]).to(device)
             student_latent = prop_latent_encoder(encode_obs)
-            student_mlp_obs = torch.cat((torch.from_numpy(obs_r[:, -ob_dim_r:-ob_dim_r + tobeEncode_dim]),
-                                        student_latent.cpu(),
-                                        torch.from_numpy(obs_r[:, -ob_dim_r + tobeEncode_dim + prop_latent_dim:-aff_vec_dim]),
-                                        torch.from_numpy(aff_vec)), dim=1).to(device)
+            student_mlp_obs = torch.cat((torch.from_numpy(obs_r[:, -ob_dim_r:-ob_dim_r + tobeEncode_dim]), # -153, -153+44 总共44个
+                                        student_latent.cpu(),   # 26个
+                                        torch.from_numpy(obs_r[:, -ob_dim_r + tobeEncode_dim + prop_latent_dim:-aff_vec_dim]), # -153 + 77 + 26, -51
+                                        torch.from_numpy(aff_vec)), dim=1).to(device) # 51(17*3)
 
+            newobs = student_mlp_obs.cpu().detach().numpy()
+            writer.writerows(newobs)
             action_r = actor_student_r.architecture.architecture(student_mlp_obs.to(device))
             action_r = action_r.cpu().detach().numpy()
             action_l = np.zeros_like(action_r)
@@ -505,9 +520,7 @@ while True:
                 action_r[:, :6] = theta0
                 if step == grasp_steps:
                     print("lift")
-                    #env.switch_root_guidance(True)
-                    env.final_reset_state(action_r, False, sim_flag)
-                    break
+                    env.switch_root_guidance(True)
             frame_start2 = time.time()
 
             # cost 0.3~1ms in simulation
@@ -521,15 +534,23 @@ while True:
             frame_start4 = time.time()
 
             # cost 1-5ms
-            #obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+            # obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
             obs_new_r, dis_info = env.observe_vision_new()
             aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
             env.set_joint_sensor_visual(show_point)
 
             end = time.time()
             # print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
-            step = step + int(reward_r)
+            step = step + 1
         print("end")
+        csvfile.close()
+        
+        print("will move ..... ")
+        env.final_reset_state(action_r, False, sim_flag, True)
 
-        env.final_reset_state(action_r, True, sim_flag)
+        print("will release ..... ")
+        env.final_reset_state(action_r, True, sim_flag, True)
+        
+        print("will move left ..... ")
+        env.final_reset_state(action_r, True, sim_flag, False)
         print("finsh all")

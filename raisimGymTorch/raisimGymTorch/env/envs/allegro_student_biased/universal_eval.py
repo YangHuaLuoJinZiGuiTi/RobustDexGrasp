@@ -31,18 +31,23 @@ import torch
 
 exp_name = "arm_rand_student"
 
-weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
+# weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 
 # weight_path_student = '2024-12-29-10-02-39/full_4500_r.pt'
-weight_path_student = '2025-01-02-00-16-48/full_5000_r.pt'
+# weight_path_student = '2025-01-02-00-16-48/full_5000_r.pt'
+# weight_path_student = '2025-01-09-14-18-00/full_4500_r.pt'
+# weight_path_student = '2025-01-09-14-19-41/full_6500_r.pt'
+# weight_path_student = '2025-01-11-13-51-35/full_6000_r.pt'
 
+# weight_path_student = '2025-01-11-13-50-06/full_4500_r.pt'
+weight_path_student = '2025-01-12-17-56-20/full_3000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
-parser.add_argument('-w', '--weight', type=str, default=weight_saved)
+parser.add_argument('-w', '--weight', type=str, default=weight_path_student)
 parser.add_argument('-sd', '--storedir', type=str, default='data_all')
 parser.add_argument('-itr', '--num_iterations', type=int, default=1)
 parser.add_argument('-group', '--group_name', type=int, default=0)
@@ -71,15 +76,13 @@ else:
 # config
 cfg = YAML().load(open(task_path + '/cfgs/' + args.cfg, 'r'))
 
-if args.seed != 1:
-    cfg['seed'] = args.seed
-
-cfg['environment']['visualize'] = False
-
+# if args.seed != 1:
+#     cfg['seed'] = args.seed
 
 mode = args.mode
 if mode == -1:
-    cat_name = f"urdf_group{args.group_name}"
+    # cat_name = "large_scale_light_stable"
+    cat_name = "temp"
 elif mode == 0:
     cat_name = f"surdf_group{args.group_name}_s"
 elif mode == 1:
@@ -93,13 +96,19 @@ print(directory_path)
 
 # # Filter out only the folders (directories) from the list of items
 if mode == -1:
-    load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}.npy').tolist()
-elif mode == 0:
-    load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_s.npy').tolist()
-elif mode == 1:
-    load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_m.npy').tolist()
-elif mode == 2:
-    load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_l.npy').tolist()
+    # load_ids = np.load(home_path + f'/rsc/{cat_name}.npy').tolist()
+    items = os.listdir(directory_path)
+    load_ids = [item for item in items if os.path.isdir(os.path.join(directory_path, item))]
+else:
+    load_ids = np.load(home_path + f'/rsc/stable_ids/{cat_name}.npy').tolist()
+# elif mode == 0:
+#     load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_s.npy').tolist()
+#     # load_ids = np.load(f'/home/huizhang/work/data_related/data/processed_objaverse_obj/selected_ids_new/surdf_group{args.group_name}_s.npy').tolist()
+# elif mode == 1:
+#     load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_m.npy').tolist()
+#     # load_ids = np.load(f'/home/huizhang/work/data_related/data/processed_objaverse_obj/selected_ids_new/surdf_group{args.group_name}_m.npy').tolist()
+# elif mode == 2:
+#     load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_l.npy').tolist()
 print("number of objects", len(load_ids))
 
 
@@ -117,6 +126,9 @@ else:
 for i in range(num_envs):
     obj_list.append(obj_ori_list[i + iter_num * num_env_per_iter])
 print("iter_num", iter_num)
+
+# cfg['environment']['visualize'] = True
+# obj_list = [choice(obj_ori_list) for _ in range(1)]
 
 num_envs = len(obj_list)
 
@@ -190,14 +202,18 @@ actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribut
 prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
+stable_states = np.zeros((num_envs, 7), dtype='float32')
 for i in range(num_envs):
-    txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
+    txt_file_path = os.path.join(directory_path, obj_list[i]) + "/lowest_point_new.txt"
     with open(txt_file_path, 'r') as txt_file:
         lowest_points[i] = float(txt_file.read())
+    stable_state_path = home_path + f"/rsc/stable_states/{cat_name}/{obj_list[i]}.npy"
+    stable_states[i] = np.load(stable_state_path)
 
 success_rate = 0.0
 
 for update in range(1):
+    np.random.seed(int(time.time()))
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -253,13 +269,16 @@ for update in range(1):
                 break
         obj_pose_reset[i, 0] = sample_x
         obj_pose_reset[i, 1] = sample_y
-        obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
-        obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+        obj_pose_reset[i, 2:7] = stable_states[i, 2:7]
+        obj_pose_reset[i, 2] += 0.005
 
-        axis_angles = np.zeros((1, 3))
-        axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-        quats = rotations.axisangle2quat(axis_angles)
-        obj_pose_reset[i, 3:7] = quats
+        # obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+        # obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+        # axis_angles = np.zeros((1, 3))
+        # axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+        # quats = rotations.axisangle2quat(axis_angles)
+        quats = stable_states[i, 3:7]
+
 
         # get the partial point cloud (not relavent for hardware deployment)
         obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
@@ -352,18 +371,18 @@ for update in range(1):
                         top_grasp = True
                     continue
                 else:
-                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        if top_grasp:
-                            # if inverse_grasp:
-                            #     no_feasible_ik = True
-                            # else:
-                            #     inverse_grasp = True
-                            no_feasible_ik = True
-                        else:
-                            top_grasp = True
-                        continue
-                    else:
-                        break
+                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                    #     if top_grasp:
+                    #         # if inverse_grasp:
+                    #         #     no_feasible_ik = True
+                    #         # else:
+                    #         #     inverse_grasp = True
+                    #         no_feasible_ik = True
+                    #     else:
+                    #         top_grasp = True
+                    #     continue
+                    # else:
+                    break
             else:
                 # get the x_dir of the grasping frame
                 hand_dir_x_w = np.zeros((1, 3))
@@ -408,8 +427,8 @@ for update in range(1):
                     qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
                 else:
-                    if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                        qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
+                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
+                    #     qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
                     break
 
     # check self collision
@@ -427,17 +446,20 @@ for update in range(1):
     contains_one = np.any(one_check == 1, axis=1)
     true_indices = np.where(contains_one)[0]
     for true_idx in true_indices:
-        current_obj_idx = true_idx // 3
-        current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
-        false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
-        if len(false_indices) > 0:
-            chosen_index = np.random.choice(false_indices)
-            qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
-            obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
-        else:
-            qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
-            obj_pose_reset[true_idx, 0] = 0.15
-            obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
+        qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+        obj_pose_reset[true_idx, 0] = 0.15
+        obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
+        # current_obj_idx = true_idx // 3
+        # current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
+        # false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
+        # if len(false_indices) > 0:
+        #     chosen_index = np.random.choice(false_indices)
+        #     qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
+        #     obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
+        # else:
+        #     qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+        #     obj_pose_reset[true_idx, 0] = 0.15
+        #     obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
 
     print("complete initial pose generation")
 
@@ -514,11 +536,12 @@ for update in range(1):
     success_rate = (update * success_rate + np.sum(lifted) / num_envs) / (update + 1)
     print("average success rate", success_rate)
 
-direct_save = "/mnt/ssd/data3/hui/anydex_results/"
+# direct_save = "/mnt/ssd/data3/hui/anydex_results/"
+direct_save = home_path + f'/rsc/anydex_results/'
 
 try:
     if mode == -1:
-        pre_result = np.load(direct_save + f"group{args.group_name}_results_{iter_num - 1}.npy", allow_pickle=True).item()
+        pre_result = np.load(home_path + f"/rsc/shapenet_{iter_num - 1}.npy", allow_pickle=True).item()
     elif mode == 0:
         pre_result = np.load(direct_save + f"group{args.group_name}_s_results_{iter_num - 1}.npy", allow_pickle=True).item()
     elif mode == 1:
@@ -540,7 +563,8 @@ result["current_obj_num"] = num_envs
 result["success_rate"] = (success_rate * num_envs + pre_success_rate * pre_obj_num) / (num_envs + pre_obj_num)
 result["obj_num"] = num_envs + pre_obj_num
 if mode == -1:
-    np.save(direct_save + f"group{args.group_name}_results_{iter_num}.npy", result)
+    # np.save(home_path + f"/rsc/shapenet_{iter_num}.npy", result)
+    np.save(home_path + f"/rsc/temp_{iter_num}.npy", result)
 elif mode == 0:
     np.save(direct_save + f"group{args.group_name}_s_results_{iter_num}.npy", result)
 elif mode == 1:
@@ -550,9 +574,11 @@ elif mode == 2:
 
 
 print("iter num", iter_num)
-print("group", args.group_name)
+if mode != -1:
+    print("group", args.group_name)
 if mode == -1:
-    print("mode", "original")
+    # print("mode", "shapenet")
+    print("mode", "temp")
 elif mode == 0:
     print("mode", "small")
 elif mode == 1:
@@ -561,6 +587,8 @@ elif mode == 2:
     print("mode", "large")
 print("current averate success rate", result["success_rate"])
 print("current obj num", result["obj_num"])
+print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+print(" ")
 
 
 

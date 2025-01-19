@@ -112,6 +112,7 @@ namespace raisim {
             wrist_mat_r_in_obj_init.setZero();
             wrist_euler_in_obj_init.setZero();
             wrist_euler_init.setZero();
+            wrist_mat_r_init.setZero();
             wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
             afford_center.setZero();
             obj_base_pos.setZero();
@@ -251,6 +252,7 @@ namespace raisim {
         void load_object(const Eigen::Ref<EigenVecInt>& obj_idx, const Eigen::Ref<EigenVec>& obj_weight, const Eigen::Ref<EigenVec>& obj_dim, const Eigen::Ref<EigenVecInt>& obj_type) final {}
         /// This function loads the object into the environment
         void load_articulated(const std::string& obj_model){
+            obj_name = obj_model;
             arctic = static_cast<raisim::ArticulatedSystem*>(world_->addArticulatedSystem(resourceDir_+"/"+load_set+"/"+obj_model, "", {}, raisim::COLLISION(2), raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63)));
             arctic->setName("object");
             if(visualizable_){
@@ -382,6 +384,7 @@ namespace raisim {
                 Obj_Position.setZero();Obj_orientation_temp.setZero();
                 obj_quat.setZero();
                 Obj_qvel.setZero(); Obj_linvel.setZero();
+                wrist_mat_r_init.setZero();
 
                 updateObservation();
             }
@@ -400,7 +403,7 @@ namespace raisim {
             /// reset gains (only required in case for inference)
             mano_r_->setPdGains(0);
 
-            // reset state 
+            // reset state
             pTarget_clipped_r.setZero(gcDim_); pTarget_prev_r.setZero(gcDim_);
 
             Eigen::VectorXd gen_force;
@@ -423,6 +426,9 @@ namespace raisim {
             gc_set_r_ = init_state_r.cast<double>(); //.cast<double>();
             gv_set_r_ = init_vel_r.cast<double>(); //.cast<double>();
             mano_r_->setState(gc_set_r_, gv_set_r_);
+
+            pTarget_clipped_r = gc_set_r_;
+            pTarget_prev_r = gc_set_r_;
 
             /// set initial root position in global frame as origin in new coordinate frame
 //            init_root_r_  = init_state_r.head(3);
@@ -478,6 +484,7 @@ namespace raisim {
            raisim::matmul(Obj_orientation_init_trans, wrist_mat_r, wrist_mat_r_in_obj_init);
            raisim::RotmatToEuler(wrist_mat_r_in_obj_init, wrist_euler_in_obj_init);
            raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
+           wrist_mat_r_init = wrist_mat_r;
 
             updateObservation();
         }
@@ -850,7 +857,14 @@ namespace raisim {
             raisim::Vec<3> wrist_euler_current;
             raisim::RotmatToEuler(wrist_mat_r, wrist_euler_current);
             Eigen::Vector3d euler_diff;
-            euler_diff = wrist_euler_current.e() - wrist_euler_init.e();
+
+            raisim::Vec<3> euler_diff_raisim;
+            raisim::Mat<3,3> wrist_mat_r_init_trans, wrist_mat_diff;
+            raisim::transpose(wrist_mat_r_init, wrist_mat_r_init_trans);
+            raisim::matmul(wrist_mat_r_init_trans, wrist_mat_r, wrist_mat_diff);
+            raisim::RotmatToEuler(wrist_mat_diff, euler_diff_raisim);
+            euler_diff = euler_diff_raisim.e();
+//            euler_diff = wrist_euler_current.e() - wrist_euler_init.e();
 
 //            std::cout<<"wrist euler diff: "<<euler_diff<<std::endl;
 //            obDouble_r_ << target_center_dif,           // 3, hand center diff
@@ -870,7 +884,8 @@ namespace raisim {
 //                            target_center_dif_world,
                             hand_center_w,
                             euler_diff,
-                            wrist_euler_current.e();
+                            0,0,0;
+//                            wrist_euler_current.e();
 //                            target_center,
 //                            euler_diff;
 
@@ -968,6 +983,7 @@ namespace raisim {
 
             if(obDouble_r_.hasNaN() || global_state_.hasNaN())
             {
+                std::cout<<"NaN detected in obj"<<obj_name<<std::endl;
                 std::cout<<"NaN detected obs"<< obDouble_r_.transpose()<<std::endl<<std::endl<<std::endl;
                 std::cout<<"NaN detected global"<< global_state_.transpose()<<std::endl<<std::endl<<std::endl;
                 return true;
@@ -990,6 +1006,7 @@ namespace raisim {
         Eigen::VectorXd joint_pos_in_world;
         Eigen::VectorXd arm_joint_pos_in_world;
         std::string load_set;
+        std::string obj_name;
 
         double affordance_contact_reward_r= 0.0;
         double not_affordance_contact_reward_r = 0.0;
@@ -1091,6 +1108,7 @@ namespace raisim {
 
         raisim::Vec<3> base_pos;
         raisim::Mat<3,3> base_mat;
+        raisim::Mat<3,3> wrist_mat_r_init;
 
         std::map<int,int> contactMapping_r_;
         std::map<int,int> contactMapping_l_;
