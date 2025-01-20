@@ -150,11 +150,12 @@ class FoundationData:
         print(f'mesh to_origin xyz={to_origin[:3, 3].reshape((1, 3))},  rpy={self.rot2euler(to_origin[:3, :3])}')
 
         # from txt
+        Tshift = np.array([[  1., 0., 0., 0.],
+                            [ 0., 1., 0., 0.],
+                            [ 0., 0., 1., 0.],
+                            [ 0., 0., 0., 1.]])
+
         Tbase2cam = np.loadtxt(self.camK_path + "/base2cam.txt", delimiter=',')
-        Tbase2cam[0][3] = Tbase2cam[0][3]
-        Tbase2cam[1][3] = Tbase2cam[1][3]
-        Tbase2cam[2][3] = Tbase2cam[2][3]
-        print(Tbase2cam)
 
         Treal2sim = np.array([[  0., 1., 0., 0.],
                             [-1., 0., 0., 0.],
@@ -165,7 +166,7 @@ class FoundationData:
 
         Tsimbase = np.array([[   1., 0., 0., 0.],
                             [ 0., 1., 0., 0.],
-                            [ 0., 0., 1., 0.771],
+                            [ 0., 0., 1., 0.75],
                             [ 0., 0., 0., 1.]])
 
         mask_file_path = create_mask()
@@ -246,9 +247,10 @@ class FoundationData:
                 rz = filter_rz.filter(angle[2])
                 Tcam2obj_filter = self.get_Tmat(x,y,z,rx,ry,rz)
 
+                Tshift_new = Tshift @ Tcam2obj_filter 
                 #print (f"camera frame pose = {Tcam2obj_filter[:3, 3].reshape((1, 3))}")
                 # camera坐标系下。obj的坐标。。
-                Tbase2obj = Tbase2cam @ Tcam2obj_filter 
+                Tbase2obj = Tbase2cam @ Tshift_new 
                 #print (f"realbase frame pose = {Tbase2obj[:3, 3].reshape((1, 3))}")
                 Tsim_base2obj = Tsim2real @ Tbase2obj
                 #print (f"simbase frame pose = {Tsim_base2obj[:3, 3].reshape((1, 3))}")
@@ -270,8 +272,9 @@ class FoundationData:
                     
                 mask_pcd = est.get_obj_point_cloud(cam_K, color, depth, mask, 200)
                 mask_pcd_homogeneous = np.hstack((mask_pcd, np.ones((mask_pcd.shape[0], 1))))  # (200, 4)
+                tshift_new = mask_pcd_homogeneous @ Tshift.T 
                 #print (f"camera frame pc = {mask_pcd_homogeneous[0]}")
-                tbase2pcd = mask_pcd_homogeneous @ Tbase2cam.T
+                tbase2pcd = tshift_new @ Tbase2cam.T
                 #print (f"realbase frame pc = {tbase2pcd[0]}")
                 tsim_base2pc = tbase2pcd @ Tsim2real.T
                 #print (f"simbase frame pc = {tsim_base2pc[0]}")

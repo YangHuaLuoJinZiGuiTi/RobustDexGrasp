@@ -6,17 +6,17 @@ environment:
     kinematic_type: "pinocchio"
     arm_type: "ur5"                
     hand_type: "allegro"
-    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
+    real_world_mode: True          # add suffix "_real" or "_sim" for arm_type and hand_type
     flying_hand_mode: False
     save_state_mode: False
     test_log: False
     rsc_model: "ur5_allegro"
-    sim_model: "ur5_allegro_low_effort_mass"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+    sim_model: "ur5_allegro_low_effort_mass_new_damping"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
     init_finger_pose: [0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2]
     arm_pd_file: "UR5Identification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
-    hand_pd_file: "AllegroIdentification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+    hand_pd_file: "Allegrotemp.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
     table_friction: 0.2
  
     log_real:
@@ -24,8 +24,8 @@ environment:
 
     pointcloud_real:
       camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
-      sample_pointcloud_mode: 'mesh' # 'auto' or 'sam' or 'manual' or 'foundationpose' or 'mesh'
-      obj_mesh: 'random' # 'random' or 'loopy_head_side' or '035_power_drill' or  'dummy'
+      sample_pointcloud_mode: 'auto' # 'auto' or 'sam' or 'manual' or 'foundationpose' or 'mesh'
+      obj_mesh: 'dummy' # 'random' or 'loopy_head_side' or '035_power_drill' or  'dummy'
 
     kinematic_real:
       fk_model: "ur5_allegro_fk"          # FK model in           rsc/${rsc_model}/${fk_model}.urdf
@@ -39,14 +39,14 @@ environment:
       move_vel: 1.0
       move_acc: 1.0
       servoJ_ahead_time: 0.15 # range [0.03,0.2] smoothens the trajectory with this lookahead time 0.18 for sysID
-      servoJ_gain: 1200 # for following target position, range [100,2000] 400 for sysID
+      servoJ_gain: 400 # for following target position, range [100,2000] 400 for sysID
       real_velocity_dt_s: 0.1
 
     hand_real:
       freq_hz: 500.0
 
-  grasp_steps: 50
-  top: False
+  grasp_steps: 70
+  top: True
   camera_position: [0.04, -0.59, 1.4]
 
   render: True
@@ -60,7 +60,7 @@ environment:
   visualize: False
   unseen: True
   new_category: False
-  load_set: "ycb_urdf_all" # ycb_urdf_all or real_obj
+  load_set: "mixed_train" # ycb_urdf_all or real_obj
 #  hand_model_r: "allegro.urdf"
 #  hand_model_r: "ur5_allegro.urdf"
   hand_model_r: "ur5_allegro_ori.urdf"

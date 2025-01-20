@@ -359,19 +359,28 @@ public:
      * @param[in] genvel joint velocity (rad/s)
      * @return None
      */
-    void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel, bool vis_in_sim = false, bool no_wait = false, bool no_log = false) {
+    void setState(const Eigen::VectorXd &genco, const Eigen::VectorXd &genvel, bool vis_in_sim = false, bool no_wait = false, bool no_log = true) {
         Eigen::VectorXd now_joint(platform_gc_dim_);
         if (vis_in_sim) {
             arm_hand_platform_->setState(genco, genvel);
+            // save state
+            if (save_state_ && no_log == false) {
+                start_new_log_file();
+                for (int i = 0; i < platform_gc_dim_; i++) {
+                    csv_file_ << genco[i] << "," << genco[i] << "," << now_joint[i] << "," << genco[i] - now_joint[i] << ",0,0,0,,";
+                }
+                csv_file_ << "\n";
+                csv_file_.flush();
+            }
             return;
         }
 
         if (real_world_mode_) {
             std::cout << "--------------set state = " << genco.transpose() << std::endl;
             int cnt = 10;
-            double max_gap[16] = {0.04, 0.05, 0.04, 0.04, 
-            0.04, 0.05, 0.04, 0.04,
-            0.04, 0.05, 0.04, 0.04,
+            double max_gap[16] = {0.04, 0.06, 0.04, 0.04, 
+            0.04, 0.06, 0.04, 0.04,
+            0.04, 0.06, 0.04, 0.04,
             0.08, 0.04, 0.08, 0.04};
             while (cnt > 0) {
                 cnt--;
@@ -389,7 +398,7 @@ public:
                 for (int i = 0; i < platform_gc_dim_; i++) {
                     double diff = std::abs(now_joint[i] - genco[i]);
                     if (i < 6) {
-                        if (diff > 0.004) {
+                        if (diff > 0.002) {
                             printf("arm joint[%d] has a large gap: %f --- %f\n", i, now_joint[i], genco[i]);
                             end_flag = false;
                         }

@@ -184,9 +184,9 @@ def GetPointCloud(camK_path, use_sam):
     
     # https://support.intelrealsense.com/hc/en-us/community/posts/4405875311123-About-make-sure-FOV-specification-of-D435i 
     # tf from RGB to left-IR camera
-    Tcamrgb2depth = np.array([[  1., 0., 0., -0.012],
-                        [0., 1., 0., 0.012],
-                        [ 0., 0., 1., 0.01],
+    Tcamrgb2depth = np.array([[  1., 0., 0., 0.],
+                        [0., 1., 0., 0.],
+                        [ 0., 0., 1., 0.],
                         [ 0., 0., 0., 1.]])
 
     # realsense get depth
@@ -248,6 +248,13 @@ def GetPointCloud(camK_path, use_sam):
             mask_pcd = np.mean(check_array, axis=0) # (200, 3)
         else:
             continue
+        
+        if True:
+            import open3d as o3d
+            points1 = mask_pcd.reshape(-1, 3).astype(np.float32)
+            cloud = o3d.geometry.PointCloud()
+            cloud.points = o3d.utility.Vector3dVector(points1)
+            o3d.visualization.draw_geometries([cloud])
 
         filtered_point_cloud = remove_outliers(mask_pcd, k=15, threshold=3.0)
         selected_indices = np.random.choice(filtered_point_cloud.shape[0], 200, replace=False)

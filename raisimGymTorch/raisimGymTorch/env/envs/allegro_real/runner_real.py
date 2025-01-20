@@ -33,7 +33,7 @@ import csv
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'hui_euler0/full_2000_r.pt'
+weight_path_student = 'hui_euler0/full_4500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -136,7 +136,7 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps']
-lift_steps = 40
+lift_steps = 10
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
@@ -287,7 +287,6 @@ while True:
             #obj_pose_reset[i, :8] = [ 0.12669958, -0.67506623, 0.780741, 0.4163684, 0., 0., -0.909196, 0.] # 手抓没力
             #obj_pose_reset[i, :8] = [-0.18056332, -0.49197075, 0.780741, 0.21069525, 0., 0., 0.9775518, 0.] # 初始IK容易有差异
             #obj_pose_reset[i, :8] = [0.46725762, -0.5274929, 0.780741, 0.39935145, 0., 0., -0.91679794, 0. ] # 容易自碰撞
-
 
             # get the partial point cloud
             obj_mat_single = rotations.quat2mat(obj_pose_reset[i, 3:7]).reshape(3, 3)
@@ -521,6 +520,7 @@ while True:
                 if step == grasp_steps:
                     print("lift")
                     env.switch_root_guidance(True)
+                    break
             frame_start2 = time.time()
 
             # cost 0.3~1ms in simulation

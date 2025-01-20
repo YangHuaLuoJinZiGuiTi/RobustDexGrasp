@@ -274,10 +274,10 @@ class Realsense:
             #print(f"-------------get point cloud time = {log_time4 - log_time3}")
             
             if self.calculate_flag is False:
-                cloud = o3d.geometry.PointCloud()
-                cloud.points = o3d.utility.Vector3dVector(self.all_pc)
-                o3d.visualization.draw_geometries([cloud])
-                o3d.io.write_point_cloud(self.obj_ply_path, cloud)
+                # cloud = o3d.geometry.PointCloud()
+                # cloud.points = o3d.utility.Vector3dVector(self.all_pc)
+                # o3d.visualization.draw_geometries([cloud])
+                # o3d.io.write_point_cloud(self.obj_ply_path, cloud)
                 pass
             else:
                 output_fill = output.copy()
@@ -306,7 +306,7 @@ class Realsense:
 def main() -> None:
     print("test ...")
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--calculate_flag", help="check the table", type=bool, default=True)
+    parser.add_argument("-c", "--calculate_flag", help="check the table", type=bool, default=False)
     args = parser.parse_args()
     test = Realsense("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", 200, args.calculate_flag)
     pose, pc = test.GetPointCloud()
