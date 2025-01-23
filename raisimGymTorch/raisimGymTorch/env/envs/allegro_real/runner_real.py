@@ -136,7 +136,11 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps']
-lift_steps = 10
+lift_steps = 5
+if cfg['environment']['long_steps']:
+    grasp_steps = 70
+    lift_steps = 60
+
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
@@ -455,17 +459,21 @@ while True:
                     else:
                         break
 
+    if qpos_reset_r[0, 3] > np.pi - 1.0:
+        print("=============== danger pose !!!!!!!!!!!!!!!!!!")
+        exit(0)
+    if qpos_reset_r[0, 4] < -np.pi + 0.5 or qpos_reset_r[0, 4] > np.pi - 0.2:
+        print("=============== will reset arm4!!!!!!!!!!!!!!!!!!")
+        qpos_reset_r[0, 4] = np.pi - 0.2
+
     collision_check = env.check_collision(qpos_reset_r)
     if not collision_check:
-        qpos_reset_r[0, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
         print("======== self collision, use defalut pose = " + str(qpos_reset_r))
+        continue
 
     if qpos_reset_r[0, 0] > np.pi:
-        print("will reset arm0")
+        print("===================== will reset arm0 ======================== ")
         qpos_reset_r[0, 0] -= 2*np.pi
-    if qpos_reset_r[0, 4] < -np.pi/2.0:
-        print("will reset arm4")
-        qpos_reset_r[0, 4] += 2*np.pi
 
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
     env.set_sample_point_visual(vis_point, obj_pose_reset)
@@ -491,8 +499,8 @@ while True:
 
         step = 0
         
-        csvfile = open(f"/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/recon{sim_flag}.csv","w")
-        writer = csv.writer(csvfile)
+        # csvfile = open(f"/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/recon{sim_flag}.csv","w")
+        # writer = csv.writer(csvfile)
         while step < n_steps_r:
 
             frame_start = time.time()
@@ -507,8 +515,8 @@ while True:
                                         torch.from_numpy(obs_r[:, -ob_dim_r + tobeEncode_dim + prop_latent_dim:-aff_vec_dim]), # -153 + 77 + 26, -51
                                         torch.from_numpy(aff_vec)), dim=1).to(device) # 51(17*3)
 
-            newobs = student_mlp_obs.cpu().detach().numpy()
-            writer.writerows(newobs)
+            # newobs = student_mlp_obs.cpu().detach().numpy()
+            # writer.writerows(newobs)
             action_r = actor_student_r.architecture.architecture(student_mlp_obs.to(device))
             action_r = action_r.cpu().detach().numpy()
             action_l = np.zeros_like(action_r)
@@ -520,7 +528,6 @@ while True:
                 if step == grasp_steps:
                     print("lift")
                     env.switch_root_guidance(True)
-                    break
             frame_start2 = time.time()
 
             # cost 0.3~1ms in simulation
@@ -534,23 +541,28 @@ while True:
             frame_start4 = time.time()
 
             # cost 1-5ms
-            # obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
-            obs_new_r, dis_info = env.observe_vision_new()
-            aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
-            env.set_joint_sensor_visual(show_point)
+            obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
+            # obs_new_r, dis_info = env.observe_vision_new()
+            # aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+            # env.set_joint_sensor_visual(show_point)
 
             end = time.time()
             # print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
             step = step + 1
         print("end")
-        csvfile.close()
+        # csvfile.close()
         
+        ## for test
         print("will move ..... ")
         env.final_reset_state(action_r, False, sim_flag, True)
-
         print("will release ..... ")
         env.final_reset_state(action_r, True, sim_flag, True)
-        
         print("will move left ..... ")
         env.final_reset_state(action_r, True, sim_flag, False)
         print("finsh all")
+        
+        ## for demo show
+        # print("will move ..... ")
+        # env.final_reset_state(action_r, False, sim_flag, False)
+        # env.final_reset_state(action_r, True, sim_flag, False)
+        # print("finsh all")

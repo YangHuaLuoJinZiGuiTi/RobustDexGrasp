@@ -36,16 +36,18 @@ environment:
     arm_real:
       ip: "192.168.56.101"
       freq_hz: 500.0
-      move_vel: 1.0
-      move_acc: 1.0
+      move_vel: 0.8 #1.1
+      move_acc: 0.6 #1.0
       servoJ_ahead_time: 0.15 # range [0.03,0.2] smoothens the trajectory with this lookahead time 0.18 for sysID
-      servoJ_gain: 400 # for following target position, range [100,2000] 400 for sysID
+      servoJ_gain: 500 # for following target position, range [100,2000] 400 for sysID
       real_velocity_dt_s: 0.1
 
     hand_real:
       freq_hz: 500.0
 
-  grasp_steps: 70
+  long_steps: True
+
+  grasp_steps: 30
   top: True
   camera_position: [0.04, -0.59, 1.4]
 
@@ -64,7 +66,7 @@ environment:
 #  hand_model_r: "allegro.urdf"
 #  hand_model_r: "ur5_allegro.urdf"
   hand_model_r: "ur5_allegro_ori.urdf"
-  finger_action_std: 0.015
+  finger_action_std: 0.02
   rot_action_std: 0.005
   reward:
     affordance_reward:

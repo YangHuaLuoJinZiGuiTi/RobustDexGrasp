@@ -555,7 +555,7 @@ namespace raisim {
             if (lift_up) {
                 final_arm << 0.0, -1.57, 1.57, 0., 1.57, -1.57; // lift on top
             } else {
-                final_arm << -1.57, -1.57, 1.57, 0., 1.57, -1.57; // put in desk
+                final_arm << -1.0, -1.57, 1.57, 0., 1.57, -1.57; // put in desk
             }
             final_hand << 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2;
             if (release_hand) {
@@ -568,7 +568,7 @@ namespace raisim {
             }
             pTarget_clipped_r.head(6) = final_arm;
             //std::cout << "set lift target = " << pTarget_clipped_r.transpose() << std::endl;
-            mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag);
+            mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag, true);
         }
 
         void update_target(const Eigen::Ref<EigenVec>& target_center) final {
@@ -732,7 +732,7 @@ namespace raisim {
             raisim::transpose(wrist_mat_r, wrist_mat_r_trans);
             mano_r_->getState(gc_r_, gv_r_, force_sim);
 
-            if (step_cnt_ < 0) {
+            if (step_cnt_ < 1) {
                 right_hand_torque.setZero(gcDim_);
             } else {
                 right_hand_torque = (pTarget_clipped_r - gc_r_);

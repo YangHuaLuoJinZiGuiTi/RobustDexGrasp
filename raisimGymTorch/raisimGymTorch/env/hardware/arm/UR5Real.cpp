@@ -111,7 +111,7 @@ public:
             rtde_control_->servoStop();
             rtde_control_->stopScript();
             usleep(50000);
-            rtde_control_->moveJ(tar_joint_pos, 0.5, 0.5);
+            rtde_control_->moveJ(tar_joint_pos, move_vel_, move_acc_);
             usleep(50000);
             rtde_control_->stopJ();
             rtde_control_->stopScript();

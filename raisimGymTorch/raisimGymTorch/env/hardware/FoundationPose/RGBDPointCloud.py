@@ -122,9 +122,9 @@ def create_mask_from_rgb_sensor():
     # Configure depth and color streams
     pipeline = rs.pipeline()
     config = rs.config()
-    with open("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview/deviceid.txt",'r') as f:
-        id=f.read().splitlines()[0]
-        config.enable_device(id)
+    # with open("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview/deviceid.txt",'r') as f:
+    #     id=f.read().splitlines()[0]
+    #     config.enable_device(id)
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 
     # Start streaming
@@ -192,9 +192,9 @@ def GetPointCloud(camK_path, use_sam):
     # realsense get depth
     pipeline = rs.pipeline()
     config = rs.config()
-    with open(camK_path + "/deviceid.txt",'r') as f:
-        id=f.read().splitlines()[0]
-        config.enable_device(id)
+    # with open(camK_path + "/deviceid.txt",'r') as f:
+    #     id=f.read().splitlines()[0]
+    #     config.enable_device(id)
     config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
     config.enable_stream(rs.stream.color, 640, 480, rs.format.rgb8, 30)
     profile = pipeline.start(config)

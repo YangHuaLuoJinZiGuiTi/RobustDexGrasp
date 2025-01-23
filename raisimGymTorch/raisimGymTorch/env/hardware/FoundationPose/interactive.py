@@ -166,7 +166,7 @@ class FoundationData:
 
         Tsimbase = np.array([[   1., 0., 0., 0.],
                             [ 0., 1., 0., 0.],
-                            [ 0., 0., 1., 0.75],
+                            [ 0., 0., 1., 0.771],
                             [ 0., 0., 0., 1.]])
 
         mask_file_path = create_mask()
@@ -178,9 +178,9 @@ class FoundationData:
         est = FoundationPose(model_pts=mesh.vertices, model_normals=mesh.vertex_normals, mesh=mesh, scorer=scorer, refiner=refiner,glctx=glctx,debug=0,debug_dir='/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/FoundationPose/debug')
         pipeline = rs.pipeline()
         config = rs.config()
-        with open(self.camK_path + "/deviceid.txt",'r') as f:
-            id=f.read().splitlines()[0]
-            config.enable_device(id)
+        # with open(self.camK_path + "/deviceid.txt",'r') as f:
+        #     id=f.read().splitlines()[0]
+        #     config.enable_device(id)
         pipeline_wrapper = rs.pipeline_wrapper(pipeline)
         pipeline_profile = config.resolve(pipeline_wrapper)
         device = pipeline_profile.get_device()

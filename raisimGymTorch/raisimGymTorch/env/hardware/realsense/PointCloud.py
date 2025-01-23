@@ -16,12 +16,14 @@ class Realsense:
 
         self.calculate_flag = calculate_flag
         if calculate_flag:
-            self.filter_time = 200
+            self.filter_time = 1000
             self.downsample = 1
         else:
-            self.filter_time = 30
+            self.filter_time = 20
             self.downsample = 4
 
+        self.mini_height = 0.02
+        self.debug = False
         self.width = 640
         self.hight = 480
         self.rate = 30
@@ -166,7 +168,7 @@ class Realsense:
                         #     continue
                                 
                 if self.calculate_flag is False:
-                    if abs(output[int_i][int_j] - self.flat_npy[int_i][int_j]) < 0.02:
+                    if abs(output[int_i][int_j] - self.flat_npy[int_i][int_j]) < self.mini_height:
                         output[int_i][int_j] = 0.0
 
         return output
@@ -274,10 +276,11 @@ class Realsense:
             #print(f"-------------get point cloud time = {log_time4 - log_time3}")
             
             if self.calculate_flag is False:
-                # cloud = o3d.geometry.PointCloud()
-                # cloud.points = o3d.utility.Vector3dVector(self.all_pc)
-                # o3d.visualization.draw_geometries([cloud])
-                # o3d.io.write_point_cloud(self.obj_ply_path, cloud)
+                if self.debug:
+                    cloud = o3d.geometry.PointCloud()
+                    cloud.points = o3d.utility.Vector3dVector(self.all_pc)
+                    o3d.visualization.draw_geometries([cloud])
+                    o3d.io.write_point_cloud(self.obj_ply_path, cloud)
                 pass
             else:
                 output_fill = output.copy()
