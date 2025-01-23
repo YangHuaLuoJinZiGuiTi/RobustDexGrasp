@@ -256,29 +256,35 @@ while True:
         # get_meaningful_ik = False
         # while not get_meaningful_ik:
         # sample object states (not relavent for hardware deployment)
-        if sample_pc_mode == 'manual' or sample_pc_mode == 'auto' or sample_pc_mode == 'foundationpose' or sample_pc_mode == 'sam':
+        if sample_pc_mode == 'manual' or sample_pc_mode == 'auto' or sample_pc_mode == 'sam':
             obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # mean of pointcloud
             visible_points_w[i, :] = obj_pointcloud # sample randomly from RGBD in mask
             angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
-        elif sample_pc_mode == 'mesh':
-            sample_x = 0.15
-            sample_y = 0.2 - 0.75152
-            while True:
-                angle = np.random.uniform(0, 2 * np.pi)
-                distance = np.random.uniform(0.45, 0.75)
-                sample_x = distance * np.cos(angle)
-                sample_y = distance * np.sin(angle)
-                if sample_y < 0.3 - 0.75152:
-                    # print(sample_x, sample_y, distance)
-                    break
-            obj_pose_reset[i, 0] = sample_x
-            obj_pose_reset[i, 1] = sample_y
-            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
-            obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+        elif sample_pc_mode == 'mesh' or sample_pc_mode == 'foundationpose':
+            if sample_pc_mode == 'foundationpose':
+                obj_pose_reset[i, :7] = obj_init_xyz_qwxyz
+                angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
+                print("------obj reset pose = ", obj_pose_reset)
+                print("------obj reset angle = ", angle)
+            else:
+                sample_x = 0.15
+                sample_y = 0.2 - 0.75152
+                while True:
+                    angle = np.random.uniform(0, 2 * np.pi)
+                    distance = np.random.uniform(0.45, 0.75)
+                    sample_x = distance * np.cos(angle)
+                    sample_y = distance * np.sin(angle)
+                    if sample_y < 0.3 - 0.75152:
+                        # print(sample_x, sample_y, distance)
+                        break
+                obj_pose_reset[i, 0] = sample_x
+                obj_pose_reset[i, 1] = sample_y
+                obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+                obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
 
-            axis_angles = np.zeros((1, 3))
-            axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-            obj_pose_reset[i, 3:7] = rotations.axisangle2quat(axis_angles)
+                axis_angles = np.zeros((1, 3))
+                axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+                obj_pose_reset[i, 3:7] = rotations.axisangle2quat(axis_angles)
 
             ################## set default xyz and quats ############### for debug          
             # 一下精选   037_scissors 
