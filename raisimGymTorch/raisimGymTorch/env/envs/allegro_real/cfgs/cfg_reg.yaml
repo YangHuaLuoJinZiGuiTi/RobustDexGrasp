@@ -23,8 +23,8 @@ environment:
       save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/"
 
     pointcloud_real:
-      camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
-      sample_pointcloud_mode: 'auto' # 'auto' or 'sam' or 'manual' or 'foundationpose' or 'mesh'
+      camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand" # 0_datasets_allegro_hand_topview or 0_datasets_allegro_hand
+      sample_pointcloud_mode: 'auto' # 'auto' or 'sam' or 'manual' or 'foundationpose' or 'mesh' or 'foundationpose_fullpc'
       obj_mesh: 'dummy' # 'random' or 'loopy_head_side' or '035_power_drill' or  'dummy'
 
     kinematic_real:
@@ -62,11 +62,11 @@ environment:
   visualize: False
   unseen: True
   new_category: False
-  load_set: "mixed_train" # ycb_urdf_all or real_obj
+  load_set: "shapenet-30obj" # ycb_urdf_all or real_obj
 #  hand_model_r: "allegro.urdf"
 #  hand_model_r: "ur5_allegro.urdf"
   hand_model_r: "ur5_allegro_ori.urdf"
-  finger_action_std: 0.02
+  finger_action_std: 0.015
   rot_action_std: 0.005
   reward:
     affordance_reward:

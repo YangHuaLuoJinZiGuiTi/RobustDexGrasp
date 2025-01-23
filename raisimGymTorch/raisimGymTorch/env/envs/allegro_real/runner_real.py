@@ -33,7 +33,7 @@ import csv
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'hui_euler0/full_4500_r.pt'
+weight_path_student = 'test/full_5000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -164,7 +164,7 @@ actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architect
 actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
 prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
-if sample_pc_mode == 'foundationpose':
+if sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
     data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
 elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
     pass
@@ -222,7 +222,7 @@ while True:
 
     obj_init_xyz_qwxyz = None
     obj_pointcloud = None
-    if sample_pc_mode == 'foundationpose':
+    if sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
         try:
             while True:
                 time.sleep(1)
@@ -260,8 +260,8 @@ while True:
             obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # mean of pointcloud
             visible_points_w[i, :] = obj_pointcloud # sample randomly from RGBD in mask
             angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
-        elif sample_pc_mode == 'mesh' or sample_pc_mode == 'foundationpose':
-            if sample_pc_mode == 'foundationpose':
+        elif sample_pc_mode == 'mesh' or sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
+            if sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
                 obj_pose_reset[i, :7] = obj_init_xyz_qwxyz
                 angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
                 print("------obj reset pose = ", obj_pose_reset)
@@ -304,18 +304,22 @@ while True:
             view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
             view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
             obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
-            directions = obj_pcd - view_point_obj
-            directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
-            locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
-                                                                                    ray_directions=directions,
-                                                                                    multiple_hits=False)
-            if locations.shape != (200, 3):
-                expanded_locations = np.zeros((200, 3))
-                expanded_locations[:, :] = locations[0, :]
-                expanded_locations[:locations.shape[0], :] = locations
-                locations = expanded_locations
-            visible_points_obj[i, :] = locations
-            visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
+            
+            if sample_pc_mode == 'foundationpose_fullpc':
+                visible_points_w[i, :] = np.matmul(obj_mat_single, obj_pcd.T).T + obj_pose_reset[i, :3]
+            else:
+                directions = obj_pcd - view_point_obj
+                directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
+                locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
+                                                                                        ray_directions=directions,
+                                                                                        multiple_hits=False)
+                if locations.shape != (200, 3):
+                    expanded_locations = np.zeros((200, 3))
+                    expanded_locations[:, :] = locations[0, :]
+                    expanded_locations[:locations.shape[0], :] = locations
+                    locations = expanded_locations
+                visible_points_obj[i, :] = locations
+                visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
 
         # get the x_dir of the grasping frame
         obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
@@ -470,7 +474,7 @@ while True:
         exit(0)
     if qpos_reset_r[0, 4] < -np.pi + 0.5 or qpos_reset_r[0, 4] > np.pi - 0.2:
         print("=============== will reset arm4!!!!!!!!!!!!!!!!!!")
-        qpos_reset_r[0, 4] = np.pi - 0.2
+        qpos_reset_r[0, 4] = np.pi - 0.25
 
     collision_check = env.check_collision(qpos_reset_r)
     if not collision_check:
