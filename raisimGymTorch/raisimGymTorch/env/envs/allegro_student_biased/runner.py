@@ -109,12 +109,16 @@ obj_ori_list = folder_names
 
 # label = {}
 
-num_envs = len(obj_ori_list) * 3
-activations = nn.LeakyReLU
-
-for i in range(3):
+if cat_name == 'ycb_urdf_sim':
+    num_envs = len(obj_ori_list) * 3
+    for i in range(3):
+        for item in obj_ori_list:
+            obj_list.append(item)
+else:
+    num_envs = len(obj_ori_list)
     for item in obj_ori_list:
         obj_list.append(item)
+activations = nn.LeakyReLU
 
 if args.log_name is None:
     num_envs = 2
@@ -161,7 +165,7 @@ aff_vec_dim = 51
 total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 
 update_mlp = True
-student_driven_ratio=0.5
+student_driven_ratio=1.0
 if update_mlp:
     ppo_ratio = 0.5
 else:
@@ -267,7 +271,7 @@ for update in range(args.num_iterations):
 
     if cfg['environment']['curriculum']:
         ppo_ratio = min(update*0.0005, 1.0)
-        student_driven_ratio = min(update*0.0005, 1.0)
+        # student_driven_ratio = min(update*0.0005, 1.0)
         dagger.update_ppo_ratio(ppo_ratio)
     if update % 1000 == 0:
         print('ppo ratio: ', ppo_ratio)
@@ -523,18 +527,23 @@ for update in range(args.num_iterations):
     contains_one = np.any(one_check == 1, axis=1)
     true_indices = np.where(contains_one)[0]
     for true_idx in true_indices:
-        current_obj_idx = true_idx // 3
-        current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
-        false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
-        if len(false_indices)>0:
-            chosen_index = np.random.choice(false_indices)
-            qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
-            obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
-        else:
+        if cat_name == 'large_training':
             qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
             obj_pose_reset[true_idx, 0] = 0.15
             obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
-            # obj_pose_reset[true_idx, 3:] = [1., -0., -0., 0., 0.]
+        else:
+            current_obj_idx = true_idx // 3
+            current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
+            false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
+            if len(false_indices) > 0:
+                chosen_index = np.random.choice(false_indices)
+                qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
+                obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
+            else:
+                qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+                obj_pose_reset[true_idx, 0] = 0.15
+                obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
+                # obj_pose_reset[true_idx, 3:] = [1., -0., -0., 0., 0.]
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
