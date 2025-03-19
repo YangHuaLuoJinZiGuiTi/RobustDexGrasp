@@ -5,7 +5,7 @@ from raisimGymTorch.env.bin import allegro_student_biased as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
 from raisimGymTorch.env.bin.allegro_student_biased import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial_safe
+from raisimGymTorch.helper.initial_pose_final import sample_rot_mats
 from scipy.spatial.transform import Rotation as R
 from random import choice
 
@@ -27,6 +27,9 @@ import joblib
 import random
 import wandb
 import torch
+import sys
+sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+
+
 
 
 exp_name = "arm_rand_student"
@@ -38,9 +41,11 @@ exp_name = "arm_rand_student"
 # weight_path_student = '2025-01-09-14-18-00/full_4500_r.pt'
 # weight_path_student = '2025-01-09-14-19-41/full_6500_r.pt'
 # weight_path_student = '2025-01-11-13-51-35/full_6000_r.pt'
+# weight_path_student = '2025-01-18-15-13-50/full_4500_r.pt'
+weight_path_student = '2025-01-20-13-33-26/full_5000_r.pt'
 
 # weight_path_student = '2025-01-11-13-50-06/full_4500_r.pt'
-weight_path_student = '2025-01-12-17-56-20/full_3000_r.pt'
+# weight_path_student = '2025-01-12-17-56-20/full_3000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -57,8 +62,8 @@ args = parser.parse_args()
 weight_path = args.weight
 cfg_grasp = args.cfg
 
-print(f"Configuration file: \"{args.cfg}\"")
-print(f"Experiment name: \"{args.exp_name}\"")
+print(f"Configuration file: \"{args.cfg}\"", file=sys.stdout)
+print(f"Experiment name: \"{args.exp_name}\"", file=sys.stdout)
 
 # task specification
 task_name = args.exp_name
@@ -92,7 +97,7 @@ elif mode == 2:
 
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
-print(directory_path)
+print(directory_path, file=sys.stdout)
 
 # # Filter out only the folders (directories) from the list of items
 if mode == -1:
@@ -109,7 +114,7 @@ else:
 #     # load_ids = np.load(f'/home/huizhang/work/data_related/data/processed_objaverse_obj/selected_ids_new/surdf_group{args.group_name}_m.npy').tolist()
 # elif mode == 2:
 #     load_ids = np.load(f'/mnt/ssd/data3/hui/selected_ids_new/surdf_group{args.group_name}_l.npy').tolist()
-print("number of objects", len(load_ids))
+print("number of objects", len(load_ids), file=sys.stdout)
 
 
 
@@ -125,7 +130,7 @@ else:
     num_envs = len(obj_ori_list) % num_env_per_iter
 for i in range(num_envs):
     obj_list.append(obj_ori_list[i + iter_num * num_env_per_iter])
-print("iter_num", iter_num)
+print("iter_num", iter_num, file=sys.stdout)
 
 # cfg['environment']['visualize'] = True
 # obj_list = [choice(obj_ori_list) for _ in range(1)]
@@ -134,10 +139,10 @@ num_envs = len(obj_list)
 
 activations = nn.LeakyReLU
 cfg['environment']['num_envs'] = num_envs
-print('num envs', num_envs)
+print('num envs', num_envs, file=sys.stdout)
 
 if not cfg['environment']['randomization_eval']:
-    print("no randomization")
+    print("no randomization", file=sys.stdout)
     cfg['environment']['hardware']['randomize_friction'] = "0.8"
     cfg['environment']['hardware']['randomize_gains_hand_p'] = 0.
     cfg['environment']['hardware']['randomize_gains_hand_d'] = 0.
@@ -148,12 +153,12 @@ if not cfg['environment']['randomization_eval']:
     cfg['environment']['hardware']['randomize_frame_position'] = 0.
     cfg['environment']['hardware']['randomize_frame_orientation'] = 0.
 else:
-    print("randomization")
+    print("randomization", file=sys.stdout)
 
 env = VecEnv(obj_list, mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
 
-print("initialization finished")
+print("initialization finished", file=sys.stdout)
 
 for obj_item in obj_list:
     obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
@@ -163,8 +168,8 @@ env.load_multi_articulated(obj_path_list)
 ob_dim_r = 153
 # act_dim = env.num_acts
 act_dim = 22
-print('ob dim', ob_dim_r)
-print('act dim', act_dim)
+print('ob dim', ob_dim_r, file=sys.stdout)
+print('act dim', act_dim, file=sys.stdout)
 
 tobeEncode_dim = 44
 t_steps = 10
@@ -194,7 +199,7 @@ test_dir = True
 saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir + "/" + task_name,
                            save_items=[], test_dir=test_dir)
 
-print(f"load weight from {saver.data_dir.split('eval')[0] + weight_path_student}")
+print(f"load weight from {saver.data_dir.split('eval')[0] + weight_path_student}", file=sys.stdout)
 
 checkpoint_student = torch.load(saver.data_dir.split('eval')[0] + weight_path_student, map_location=torch.device('cpu'))
 actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architecture_state_dict'])
@@ -213,7 +218,7 @@ for i in range(num_envs):
 success_rate = 0.0
 
 for update in range(1):
-    np.random.seed(int(time.time()))
+    # np.random.seed(int(time.time()))
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -225,18 +230,10 @@ for update in range(1):
     qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
 
 
-    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
-    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
-
-    view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
-    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
-    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
-
     hand_center_sample_w = np.zeros((1, 3))
-    hand_center_sample_w[0, 0] = 0.669872 - 0.55
-    hand_center_sample_w[0, 1] = 0.141735 - 0.75152
-    hand_center_sample_w[0, 2] = 1.5  # 1.11052
+    hand_center_sample_w[0, 0] = cfg['environment']['camera_position'][0]
+    hand_center_sample_w[0, 1] = cfg['environment']['camera_position'][1]
+    hand_center_sample_w[0, 2] = cfg['environment']['camera_position'][2]
 
     wrist_bias = np.zeros((1, 3))
     wrist_bias[0, 0] = -0.0091
@@ -255,17 +252,37 @@ for update in range(1):
     ik.setJointWeights(joint_weights)
     ik.setJointLimits(-3.14, 3.14)
 
+    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
+    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
+
+    view_point_world = np.zeros((200, 3))
+    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
+    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
+    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
+
+    sample_num = cfg['environment']['sample_num']
+
     for i in range(num_envs):
-        # sample object states (not relavent for hardware deployment)
-        sample_x = 0.15
-        sample_y = 0.2 - 0.75152
+        # # sample object states (not relavent for hardware deployment)
+        # sample_x = 0.15
+        # sample_y = 0.2 - 0.75152
+        # while True:
+        #     angle = np.random.uniform(0, 2 * np.pi)
+        #     distance = np.random.uniform(0.45, 0.75)
+        #     sample_x = distance * np.cos(angle)
+        #     sample_y = distance * np.sin(angle)
+        #     if sample_y < 0.3 - 0.75152:
+        #         # print(sample_x, sample_y, distance)
+        #         break
+        # sample_x = np.random.uniform(-0.35, 0.35)
+        # sample_y = np.random.uniform(-0.8, -0.35)
+        # angle = np.arctan2(sample_y, sample_x)
         while True:
-            angle = np.random.uniform(0, 2 * np.pi)
+            angle = np.random.uniform(-0.7 * np.pi, -0.3 * np.pi)
             distance = np.random.uniform(0.45, 0.75)
             sample_x = distance * np.cos(angle)
             sample_y = distance * np.sin(angle)
-            if sample_y < 0.3 - 0.75152:
-                # print(sample_x, sample_y, distance)
+            if sample_x < 0.25 and sample_x > -0.25:
                 break
         obj_pose_reset[i, 0] = sample_x
         obj_pose_reset[i, 1] = sample_y
@@ -302,134 +319,69 @@ for update in range(1):
         # get the x_dir of the grasping frame
         obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
 
-        no_feasible_ik = False
         top_grasp = cfg['environment']['top']
-        # inverse_grasp = False
-        while True:
-            if not no_feasible_ik:
-                # get the x_dir of the grasping frame
-                if top_grasp:
-                    hand_dir_x_w = np.zeros((1, 3))
-                    hand_dir_x_w[0, 2] = 1
-                else:
-                    hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
-                    hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
+        # get the x_dir of the grasping frame
+        if top_grasp:
+            hand_dir_x_w = np.zeros((1, 3))
+            hand_dir_x_w[0, 2] = 1
+        else:
+            hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
+            hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
-                # get position and orientation of the wrist
-                pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
-                if rot is None:
-                    if top_grasp:
-                        # if inverse_grasp:
-                        #     no_feasible_ik = True
-                        # else:
-                        #     inverse_grasp = True
-                        no_feasible_ik = True
-                    else:
-                        top_grasp = True
-                    continue
-                wrist_in_world = rot
-                qpos_reset_r[i, :3] = pos[0, :]
+        # get position and orientation of the wrist
+        pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
 
-                # from grasping frame pos to wrist pos
-                wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
-                pos_in_ur5 = np.zeros((3, 1))
-                pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0. + wrist_bias_in_world[0, 0]
-                pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0. + wrist_bias_in_world[0, 1]
-                pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
-                pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
+        rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
 
-                wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
+        feasible_ik_flag = np.zeros((sample_num), dtype='bool')
+        ik_results = np.zeros((sample_num, 6), dtype='float32')
+        for j in range(sample_num):
+            rot_mat = rot_mats[j]
+            wrist_in_world = rot_mat
+            wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
 
-                gd = np.eye(4)
-                gd[:3, :3] = wrist_mat_in_ur5
-                gd[0, 3] = pos_in_ur5_new[0, 0]
-                gd[1, 3] = pos_in_ur5_new[1, 0]
-                gd[2, 3] = pos_in_ur5_new[2, 0]
+            pos_in_ur5 = np.zeros((3, 1))
+            pos_in_ur5[0, 0] = pos[0, 0] - 0. + wrist_bias_in_world[0, 0]
+            pos_in_ur5[1, 0] = pos[0, 1] - 0. + wrist_bias_in_world[0, 1]
+            pos_in_ur5[2, 0] = pos[0, 2] - 0.771 + wrist_bias_in_world[0, 2]
+            pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
 
-                if ik.findClosestIK(gd, theta0) is None:
-                    if top_grasp:
-                        # if inverse_grasp:
-                        #     no_feasible_ik = True
-                        # else:
-                        #     inverse_grasp = True
-                        no_feasible_ik = True
-                    else:
-                        top_grasp = True
-                    continue
-                else:
-                    qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+            wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
 
-                if math.isnan(qpos_reset_r[i, 0]):
-                    if top_grasp:
-                        # if inverse_grasp:
-                        #     no_feasible_ik = True
-                        # else:
-                        #     inverse_grasp = True
-                        no_feasible_ik = True
-                    else:
-                        top_grasp = True
-                    continue
-                else:
-                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                    #     if top_grasp:
-                    #         # if inverse_grasp:
-                    #         #     no_feasible_ik = True
-                    #         # else:
-                    #         #     inverse_grasp = True
-                    #         no_feasible_ik = True
-                    #     else:
-                    #         top_grasp = True
-                    #     continue
-                    # else:
-                    break
+            gd = np.eye(4)
+            gd[:3, :3] = wrist_mat_in_ur5
+            gd[0, 3] = pos_in_ur5_new[0, 0]
+            gd[1, 3] = pos_in_ur5_new[1, 0]
+            gd[2, 3] = pos_in_ur5_new[2, 0]
+
+            ik_result = ik.findClosestIK(gd, theta0)
+            if ik_result is None or np.isnan(ik_result).any():
+                feasible_ik_flag[j] = False
+                continue
             else:
-                # get the x_dir of the grasping frame
-                hand_dir_x_w = np.zeros((1, 3))
-                hand_dir_x_w[0, 2] = 1
+                ik_results[j, :] = ik_result
+                feasible_ik_flag[j] = True
 
-                z_dir_in_world = -obj_aff_center_in_w.copy().reshape(1, 3)
-                z_dir_in_world[:, 2] = 0.
-                z_dir_in_world = z_dir_in_world / np.linalg.norm(z_dir_in_world, axis=1, keepdims=True)
-
-                # get position and orientation of the wrist
-                pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True, z_dir_cmd=z_dir_in_world)
-                if rot is None:
-                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                    break
-                wrist_in_world = rot
-                qpos_reset_r[i, :3] = pos[0, :]
-
-                # from grasping frame pos to wrist pos
-                wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
-                pos_in_ur5 = np.zeros((3, 1))
-                pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0. + wrist_bias_in_world[0, 0]
-                pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0. + wrist_bias_in_world[0, 1]
-                pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
-                pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
-
-                wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
-
-                gd = np.eye(4)
-                gd[:3, :3] = wrist_mat_in_ur5
-                gd[0, 3] = pos_in_ur5_new[0, 0]
-                gd[1, 3] = pos_in_ur5_new[1, 0]
-                gd[2, 3] = pos_in_ur5_new[2, 0]
-
-                if ik.findClosestIK(gd, theta0) is None:
-                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                    break
+        feasible_indices = np.where(feasible_ik_flag)[0]
+        scores = np.ones(sample_num, dtype='float32')
+        scores = scores * 10000.
+        if min(projection_lengths) < 0.18:
+            for j in feasible_indices:
+                if projection_lengths[j] < 0.18:
+                    score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
+                    score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']
+                    score3 = ((projection_lengths[j] / min(projection_lengths)) ** 2) * cfg['environment']['length_ratio_coeff']
+                    score4 = (abs(ik_results[j, 4]) - 3.2) * cfg['environment']['angle_score_coeff'] * 0.5
+                    scores[j] = score1 + score2 + score3 + score4
                 else:
-                    qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+                    scores[j] = 10000.
+            best_index = np.argmin(scores)
+            qpos_reset_r[i, :6] = ik_results[best_index]
+        else:
+            best_index = np.argmin(projection_lengths)
+            qpos_reset_r[i, :6] = ik_results[best_index]
 
-                if math.isnan(qpos_reset_r[i, 0]):
-                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                    break
-                else:
-                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                    #     qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                    break
+
 
     # check self collision
     env.reset_state(qpos_reset_r,
@@ -446,9 +398,9 @@ for update in range(1):
     contains_one = np.any(one_check == 1, axis=1)
     true_indices = np.where(contains_one)[0]
     for true_idx in true_indices:
-        qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
-        obj_pose_reset[true_idx, 0] = 0.15
-        obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
+        qpos_reset_r[true_idx, :6] = [angle + np.pi / 2 - 0.3, -1.57, 1.57, 0., 1.57, -1.57]
+        obj_pose_reset[true_idx, 0] = 0.1
+        obj_pose_reset[true_idx, 1] = -0.5
         # current_obj_idx = true_idx // 3
         # current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
         # false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
@@ -457,11 +409,11 @@ for update in range(1):
         #     qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
         #     obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
         # else:
-        #     qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
+        #     qpos_reset_r[true_idx, :6] = [angle + np.pi / 2 - 0.3, -1.57, 1.57, 0., 1.57, -1.57]
         #     obj_pose_reset[true_idx, 0] = 0.15
         #     obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
 
-    print("complete initial pose generation")
+    print("complete initial pose generation", file=sys.stdout)
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -531,10 +483,10 @@ for update in range(1):
     # lifted = (global_state[:, 107] - obj_pose_reset[:, 2] > 0.1) * (
     #             np.linalg.norm(global_state[:, 112:115] - global_state[:, 105:108], axis=1) < 0.2)
     lifted = global_state[:, 107] - obj_pose_reset[:, 2] > 0.1
-    print("current success rate", np.sum(lifted) / num_envs)
+    print("current success rate", np.sum(lifted) / num_envs, file=sys.stdout)
 
     success_rate = (update * success_rate + np.sum(lifted) / num_envs) / (update + 1)
-    print("average success rate", success_rate)
+    print("average success rate", success_rate, file=sys.stdout)
 
 # direct_save = "/mnt/ssd/data3/hui/anydex_results/"
 direct_save = home_path + f'/rsc/anydex_results/'
@@ -548,12 +500,12 @@ try:
         pre_result = np.load(direct_save + f"group{args.group_name}_m_results_{iter_num - 1}.npy", allow_pickle=True).item()
     elif mode == 2:
         pre_result = np.load(direct_save + f"group{args.group_name}_l_results_{iter_num - 1}.npy", allow_pickle=True).item()
-    print("load previous result")
+    print("load previous result", file=sys.stdout)
 except:
     pre_result = {}
     pre_result["success_rate"] = 0
     pre_result["obj_num"] = 0
-    print("no previous result")
+    print("no previous result", file=sys.stdout)
 pre_success_rate = pre_result["success_rate"]
 pre_obj_num = pre_result["obj_num"]
 
@@ -573,22 +525,22 @@ elif mode == 2:
     np.save(direct_save + f"group{args.group_name}_l_results_{iter_num}.npy", result)
 
 
-print("iter num", iter_num)
+print("iter num", iter_num, file=sys.stdout)
 if mode != -1:
-    print("group", args.group_name)
+    print("group", args.group_name, file=sys.stdout)
 if mode == -1:
     # print("mode", "shapenet")
-    print("mode", "temp")
+    print("mode", "temp", file=sys.stdout)
 elif mode == 0:
-    print("mode", "small")
+    print("mode", "small", file=sys.stdout)
 elif mode == 1:
-    print("mode", "medium")
+    print("mode", "medium", file=sys.stdout)
 elif mode == 2:
-    print("mode", "large")
-print("current averate success rate", result["success_rate"])
-print("current obj num", result["obj_num"])
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-print(" ")
+    print("mode", "large", file=sys.stdout)
+print("current averate success rate", result["success_rate"], file=sys.stdout)
+print("current obj num", result["obj_num"], file=sys.stdout)
+print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", file=sys.stdout)
+print(" ", file=sys.stdout)
 
 
 

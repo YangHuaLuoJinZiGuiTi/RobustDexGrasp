@@ -5,7 +5,7 @@ from raisimGymTorch.env.bin import allegro_student_biased as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
 from raisimGymTorch.env.bin.allegro_student_biased import NormalSampler
-from raisimGymTorch.helper.initial_pose_final import get_initial_pose_faive, get_initial_pose_faive_random, get_initial_pose_allegro_new, get_initial_pose_allegro_arm_rand, get_initial_pose_allegro_arm_rand_test, get_initial_pose_allegro_arm_partial_safe
+from raisimGymTorch.helper.initial_pose_final import sample_rot_mats
 from scipy.spatial.transform import Rotation as R
 from random import choice
 
@@ -27,6 +27,8 @@ import joblib
 import random
 import wandb
 import torch
+import sys
+sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+
 
 
 exp_name = "arm_rand_student"
@@ -69,11 +71,16 @@ weight_saved = './../arm_rand/2024-11-04-16-42-02/full_50000_r.pt'
 # weight_path_student = '2025-01-11-13-50-06/full_4500_r.pt'
 # weight_path_student = '2025-01-11-13-51-35/full_6000_r.pt'
 # weight_path_student = '2025-01-12-18-12-37/full_5000_r.pt'
-weight_path_student = '2025-01-15-10-48-01/full_3500_r.pt'
+# weight_path_student = '2025-01-15-10-48-01/full_3500_r.pt'
 # weight_path_student = '2025-01-15-10-50-43/full_4000_r.pt'
 # weight_path_student = '2025-01-15-10-51-51/full_4000_r.pt'
+# weight_path_student = '2025-01-18-15-13-50/full_4500_r.pt'
 
 # weight_path_student = '2025-01-12-17-56-20/full_3000_r.pt'
+
+
+# weight_path_student = '2025-03-14-19-22-14/full_5000_r.pt'
+weight_path_student = '2025-03-14-19-24-40/full_5000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -94,8 +101,8 @@ args = parser.parse_args()
 weight_path = args.weight
 cfg_grasp = args.cfg
 
-print(f"Configuration file: \"{args.cfg}\"")
-print(f"Experiment name: \"{args.exp_name}\"")
+print(f"Configuration file: \"{args.cfg}\"", file=sys.stdout)
+print(f"Experiment name: \"{args.exp_name}\"", file=sys.stdout)
 
 # task specification
 task_name = args.exp_name
@@ -129,12 +136,22 @@ cfg['environment']['visualize'] = False
 # cat_name = 'ycb_urdf_sim'
 # cat_name = 'ycb_urdf_all'
 # cat_name = 'ycb_urdf_light'
-# cat_name = 'ycb_urdf_sim_light'
-cat_name = 'large_scale_light_stable'
-# cat_name = 'surdf_group27_m'
+# cat_name = 'real_obj'
+# cat_name = 'affordance_level'
+# cat_name = 'large_scale_light_stable'
+# cat_name = 'shapenet-30obj'
+cat_name = 'new_training_set_eval'
+
+if cat_name == 'shapenet-30obj':
+    stable = True
+else:
+    stable = False
+
+repeat_per_obj = 2
+
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
-print(directory_path)
+print(directory_path, file=sys.stdout)
 
 items = os.listdir(directory_path)
 
@@ -145,29 +162,22 @@ obj_list = []
 obj_path_list = []
 obj_ori_list = folder_names
 
-if cat_name == 'large_scale_light_stable':
-    obj_ori_list = obj_ori_list[:50]
+# if cat_name == 'large_scale_light_stable':
+#     obj_ori_list = obj_ori_list[:50]
 
 # Environment definition
 
-if cat_name != 'large_scale_light_stable':
-    num_envs = len(obj_ori_list) * 3
-else:
-    num_envs = len(obj_ori_list)
-activations = nn.LeakyReLU
-cfg['environment']['num_envs'] = num_envs
-print('num envs', num_envs)
-
-if cat_name != 'large_scale_light_stable':
-    for i in range(3):
-        for item in obj_ori_list:
-            obj_list.append(item)
-else:
+num_envs = len(obj_ori_list) * repeat_per_obj
+for i in range(repeat_per_obj):
     for item in obj_ori_list:
         obj_list.append(item)
+        
+activations = nn.LeakyReLU
+cfg['environment']['num_envs'] = num_envs
+print('num envs', num_envs, file=sys.stdout)
 
 if not cfg['environment']['randomization_eval']:
-    print("no randomization")
+    print("no randomization", file=sys.stdout)
     cfg['environment']['hardware']['randomize_friction'] = "0.8"
     cfg['environment']['hardware']['randomize_gains_hand_p'] = 0.
     cfg['environment']['hardware']['randomize_gains_hand_d'] = 0.
@@ -178,12 +188,12 @@ if not cfg['environment']['randomization_eval']:
     cfg['environment']['hardware']['randomize_frame_position'] = 0.
     cfg['environment']['hardware']['randomize_frame_orientation'] = 0.
 else:
-    print("randomization")
+    print("randomization", file=sys.stdout)
 
 env = VecEnv(obj_list, mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
 
-print("initialization finished")
+print("initialization finished", file=sys.stdout)
 
 for obj_item in obj_list:
     obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
@@ -193,8 +203,8 @@ env.load_multi_articulated(obj_path_list)
 ob_dim_r = 153
 # act_dim = env.num_acts
 act_dim = 22
-print('ob dim', ob_dim_r)
-print('act dim', act_dim)
+print('ob dim', ob_dim_r, file=sys.stdout)
+print('act dim', act_dim, file=sys.stdout)
 
 tobeEncode_dim = 44
 t_steps = 10
@@ -224,7 +234,7 @@ test_dir = True
 saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir + "/" + task_name,
                            save_items=[], test_dir=test_dir)
 
-print(f"load weight from {saver.data_dir.split('eval')[0] + weight_path_student}")
+print(f"load weight from {saver.data_dir.split('eval')[0] + weight_path_student}", file=sys.stdout)
 
 checkpoint_student = torch.load(saver.data_dir.split('eval')[0] + weight_path_student, map_location=torch.device('cpu'))
 actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architecture_state_dict'])
@@ -232,19 +242,28 @@ actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribut
 prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
 
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
-stable_states = np.zeros((num_envs, 7), dtype='float32')
+if stable:
+    stable_states = np.zeros((num_envs, 7), dtype='float32')
 for i in range(num_envs):
     txt_file_path = os.path.join(directory_path, obj_list[i]) + "/lowest_point_new.txt"
     with open(txt_file_path, 'r') as txt_file:
         lowest_points[i] = float(txt_file.read())
-    if cat_name == 'large_scale_light_stable':
-        stable_state_path = home_path + f"/rsc/stable_states/{cat_name}/{obj_list[i]}.npy"
-        stable_states[i] = np.load(stable_state_path)
+    if stable:
+        stable_state_path = home_path + f"/rsc/{cat_name}/{obj_list[i]}/{obj_list[i]}.npy"
+        stable_states[i] = np.load(stable_state_path)[-1, :7]
+        if obj_list[i] == '2024-09-16_5_Plate_gold_69':
+            stable_states[i, 2:] = [0.788, -0.00839127, 0.690102, 0.0161601, 0.723483]
 
 success_rate = 0.0
 
+# 创建一个字典来跟踪每个物体的失败次数和总尝试次数
+object_failure_stats = {}
+for obj_name in obj_list:
+    if obj_name not in object_failure_stats:
+        object_failure_stats[obj_name] = {"failures": 0, "attempts": 0}
+
 for update in range(5):
-    np.random.seed(int(time.time()))
+    # np.random.seed(int(time.time()))
     start = time.time()
 
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
@@ -256,18 +275,12 @@ for update in range(5):
     qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
 
 
-    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
-    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
-
-    view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
-    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
-    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
 
     hand_center_sample_w = np.zeros((1, 3))
-    hand_center_sample_w[0, 0] = 0.669872 - 0.55
-    hand_center_sample_w[0, 1] = 0.141735 - 0.75152
-    hand_center_sample_w[0, 2] = 1.5  # 1.11052
+    hand_center_sample_w[0, 0] = cfg['environment']['camera_position'][0]
+    hand_center_sample_w[0, 1] = cfg['environment']['camera_position'][1]
+    hand_center_sample_w[0, 2] = cfg['environment']['camera_position'][2]
+
 
     wrist_bias = np.zeros((1, 3))
     wrist_bias[0, 0] = -0.0091
@@ -286,24 +299,61 @@ for update in range(5):
     ik.setJointWeights(joint_weights)
     ik.setJointLimits(-3.14, 3.14)
 
+
+    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
+    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
+
+    view_point_world = np.zeros((200, 3))
+    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
+    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
+    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
+
+    sample_num = cfg['environment']['sample_num']
+
     for i in range(num_envs):
         # print(i, obj_list[i])
         # get_meaningful_ik = False
         # while not get_meaningful_ik:
         # sample object states (not relavent for hardware deployment)
-        sample_x = 0.15
-        sample_y = 0.2 - 0.75152
+        # sample_x = 0.15
+        # sample_y = 0.2 - 0.75152
+        # while True:
+        #     angle = np.random.uniform(0, 2 * np.pi)
+        #     distance = np.random.uniform(0.45, 0.75)
+        #     sample_x = distance * np.cos(angle)
+        #     sample_y = distance * np.sin(angle)
+        #     if sample_y < 0.3 - 0.75152:
+        #         # print(sample_x, sample_y, distance)
+        #         break
+        # obj_pose_reset[i, 0] = sample_x
+        # obj_pose_reset[i, 1] = sample_y
+        # if cat_name == 'large_scale_light_stable':
+        #     obj_pose_reset[i, 2:7] = stable_states[i, 2:7]
+        #     obj_pose_reset[i, 2] += 0.005
+        #     quats = stable_states[i, 3:7]
+        # else:
+        #     obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
+        #     obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
+
+        #     axis_angles = np.zeros((1, 3))
+        #     axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
+        #     quats = rotations.axisangle2quat(axis_angles)
+        #     obj_pose_reset[i, 3:7] = quats
+        # 均匀采样
+        # sample_x = np.random.uniform(-0.35, 0.35)
+        # sample_y = np.random.uniform(-0.8, -0.35)
+        # angle = np.arctan2(sample_y, sample_x)
         while True:
-            angle = np.random.uniform(0, 2 * np.pi)
+            angle = np.random.uniform(-0.7 * np.pi, -0.3 * np.pi)
             distance = np.random.uniform(0.45, 0.75)
             sample_x = distance * np.cos(angle)
             sample_y = distance * np.sin(angle)
-            if sample_y < 0.3 - 0.75152:
-                # print(sample_x, sample_y, distance)
+            if sample_x < 0.25 and sample_x > -0.25:
                 break
+
         obj_pose_reset[i, 0] = sample_x
         obj_pose_reset[i, 1] = sample_y
-        if cat_name == 'large_scale_light_stable':
+        if stable:
             obj_pose_reset[i, 2:7] = stable_states[i, 2:7]
             obj_pose_reset[i, 2] += 0.005
             quats = stable_states[i, 3:7]
@@ -336,136 +386,70 @@ for update in range(5):
         visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
 
         # get the x_dir of the grasping frame
-        obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
+        obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200, 3), axis=0)
 
-        no_feasible_ik = False
         top_grasp = cfg['environment']['top']
-        # inverse_grasp = False
-        while True:
-            if not no_feasible_ik:
-                # get the x_dir of the grasping frame
-                if top_grasp:
-                    hand_dir_x_w = np.zeros((1, 3))
-                    hand_dir_x_w[0, 2] = 1
-                else:
-                    hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
-                    hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
+        # get the x_dir of the grasping frame
+        if top_grasp:
+            hand_dir_x_w = np.zeros((1, 3))
+            hand_dir_x_w[0, 2] = 1
+        else:
+            hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
+            hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
-                # get position and orientation of the wrist
-                pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=False)
-                if rot is None:
-                    if top_grasp:
-                        # if inverse_grasp:
-                        #     no_feasible_ik = True
-                        # else:
-                        #     inverse_grasp = True
-                        no_feasible_ik = True
-                    else:
-                        top_grasp = True
-                    continue
-                wrist_in_world = rot
-                qpos_reset_r[i, :3] = pos[0, :]
+        # get position and orientation of the wrist
+        pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
 
-                # from grasping frame pos to wrist pos
-                wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
-                pos_in_ur5 = np.zeros((3, 1))
-                pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0. + wrist_bias_in_world[0, 0]
-                pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0. + wrist_bias_in_world[0, 1]
-                pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
-                pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
+        rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
 
-                wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
+        feasible_ik_flag = np.zeros((sample_num), dtype='bool')
+        ik_results = np.zeros((sample_num, 6), dtype='float32')
+        for j in range(sample_num):
+            rot_mat = rot_mats[j]
+            wrist_in_world = rot_mat
+            wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
 
-                gd = np.eye(4)
-                gd[:3, :3] = wrist_mat_in_ur5
-                gd[0, 3] = pos_in_ur5_new[0, 0]
-                gd[1, 3] = pos_in_ur5_new[1, 0]
-                gd[2, 3] = pos_in_ur5_new[2, 0]
+            pos_in_ur5 = np.zeros((3, 1))
+            pos_in_ur5[0, 0] = pos[0, 0] - 0. + wrist_bias_in_world[0, 0]
+            pos_in_ur5[1, 0] = pos[0, 1] - 0. + wrist_bias_in_world[0, 1]
+            pos_in_ur5[2, 0] = pos[0, 2] - 0.771 + wrist_bias_in_world[0, 2]
+            pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
 
-                if ik.findClosestIK(gd, theta0) is None:
-                    if top_grasp:
-                        # if inverse_grasp:
-                        #     no_feasible_ik = True
-                        # else:
-                        #     inverse_grasp = True
-                        no_feasible_ik = True
-                    else:
-                        top_grasp = True
-                    continue
-                else:
-                    qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+            wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
 
-                if math.isnan(qpos_reset_r[i, 0]):
-                    if top_grasp:
-                        # if inverse_grasp:
-                        #     no_feasible_ik = True
-                        # else:
-                        #     inverse_grasp = True
-                        no_feasible_ik = True
-                    else:
-                        top_grasp = True
-                    continue
-                else:
-                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                    #     if top_grasp:
-                    #         # if inverse_grasp:
-                    #         #     no_feasible_ik = True
-                    #         # else:
-                    #         #     inverse_grasp = True
-                    #         no_feasible_ik = True
-                    #     else:
-                    #         top_grasp = True
-                    #     continue
-                    # else:
-                    break
+            gd = np.eye(4)
+            gd[:3, :3] = wrist_mat_in_ur5
+            gd[0, 3] = pos_in_ur5_new[0, 0]
+            gd[1, 3] = pos_in_ur5_new[1, 0]
+            gd[2, 3] = pos_in_ur5_new[2, 0]
+
+            ik_result = ik.findClosestIK(gd, theta0)
+            if ik_result is None or np.isnan(ik_result).any():
+                feasible_ik_flag[j] = False
+                continue
             else:
-                # get the x_dir of the grasping frame
-                hand_dir_x_w = np.zeros((1, 3))
-                hand_dir_x_w[0, 2] = 1
+                ik_results[j, :] = ik_result
+                feasible_ik_flag[j] = True
 
-                z_dir_in_world = -obj_aff_center_in_w.copy().reshape(1, 3)
-                z_dir_in_world[:, 2] = 0.
-                z_dir_in_world = z_dir_in_world / np.linalg.norm(z_dir_in_world, axis=1, keepdims=True)
-
-                # get position and orientation of the wrist
-                pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
-                rot = get_initial_pose_allegro_arm_partial_safe(visible_points_w[i], hand_dir_x_w, np.eye(3), top=True, z_dir_cmd=z_dir_in_world)
-                if rot is None:
-                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                    break
-                wrist_in_world = rot
-                qpos_reset_r[i, :3] = pos[0, :]
-
-                # from grasping frame pos to wrist pos
-                wrist_bias_in_world = np.matmul(wrist_in_world, wrist_bias.T).T
-                pos_in_ur5 = np.zeros((3, 1))
-                pos_in_ur5[0, 0] = qpos_reset_r[i, 0] - 0. + wrist_bias_in_world[0, 0]
-                pos_in_ur5[1, 0] = qpos_reset_r[i, 1] - 0. + wrist_bias_in_world[0, 1]
-                pos_in_ur5[2, 0] = qpos_reset_r[i, 2] - 0.771 + wrist_bias_in_world[0, 2]
-                pos_in_ur5_new = np.matmul(ur5_to_world.T, pos_in_ur5)
-
-                wrist_mat_in_ur5 = np.matmul(ur5_to_world.T, wrist_in_world)
-
-                gd = np.eye(4)
-                gd[:3, :3] = wrist_mat_in_ur5
-                gd[0, 3] = pos_in_ur5_new[0, 0]
-                gd[1, 3] = pos_in_ur5_new[1, 0]
-                gd[2, 3] = pos_in_ur5_new[2, 0]
-
-                if ik.findClosestIK(gd, theta0) is None:
-                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                    break
+        feasible_indices = np.where(feasible_ik_flag)[0]
+        scores = np.ones(sample_num, dtype='float32')
+        scores = scores * 10000.
+        if min(projection_lengths) < 0.18:
+            for j in feasible_indices:
+                if projection_lengths[j] < 0.18:
+                    score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
+                    score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']
+                    score3 = ((projection_lengths[j] / min(projection_lengths)) ** 2) * cfg['environment']['length_ratio_coeff']
+                    score4 = (abs(ik_results[j, 4]) - 3.2) * cfg['environment']['angle_score_coeff'] * 0.5
+                    scores[j] = score1 + score2 + score3 + score4
                 else:
-                    qpos_reset_r[i, :6] = ik.findClosestIK(gd, theta0)
+                    scores[j] = 10000.
+            best_index = np.argmin(scores)
+            qpos_reset_r[i, :6] = ik_results[best_index]
+        else:
+            best_index = np.argmin(projection_lengths)
+            qpos_reset_r[i, :6] = ik_results[best_index]
 
-                if math.isnan(qpos_reset_r[i, 0]):
-                    qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                    break
-                else:
-                    # if qpos_reset_r[i, 4] < -1.57 or qpos_reset_r[i, 4] > 2:
-                    #     qpos_reset_r[i, :6] = [angle + np.pi/2, -1.57, 1.57, 0., 1.57, -1.57]
-                    break
 
     # check self collision
     env.reset_state(qpos_reset_r,
@@ -482,24 +466,19 @@ for update in range(5):
     contains_one = np.any(one_check == 1, axis=1)
     true_indices = np.where(contains_one)[0]
     for true_idx in true_indices:
-        if cat_name == 'large_scale_light_stable':
-            qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
-            obj_pose_reset[true_idx, 0] = 0.15
-            obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
+        current_obj_idx = true_idx // repeat_per_obj
+        current_obj_env_indices = []
+        for i in range(repeat_per_obj):
+            current_obj_env_indices.append(current_obj_idx * repeat_per_obj + i)
+        false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
+        if len(false_indices)>0:
+            chosen_index = np.random.choice(false_indices)
+            qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
+            obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
         else:
-            current_obj_idx = true_idx // 3
-            current_obj_env_indices = [current_obj_idx * 3, current_obj_idx * 3 + 1, current_obj_idx * 3 + 2]
-            false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
-            if len(false_indices) > 0:
-                chosen_index = np.random.choice(false_indices)
-                qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
-                obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
-            else:
-                qpos_reset_r[true_idx, :6] = [angle + np.pi / 2, -1.57, 1.57, 0., 1.57, -1.57]
-                obj_pose_reset[true_idx, 0] = 0.15
-                obj_pose_reset[true_idx, 1] = 0.2 - 0.75152
-
-    print("initial pose generated")
+            qpos_reset_r[true_idx, :6] = [angle+np.pi/2-0.3, -1.57, 1.57, 0., 1.57, -1.57]
+            obj_pose_reset[true_idx, 0] = 0.1
+            obj_pose_reset[true_idx, 1] = -0.5
 
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
@@ -582,10 +561,50 @@ for update in range(5):
     # lifted = (global_state[:, 107] - obj_pose_reset[:, 2] > 0.1) * (
     #             np.linalg.norm(global_state[:, 112:115] - global_state[:, 105:108], axis=1) < 0.2)
     lifted = global_state[:, 107] - obj_pose_reset[:, 2] > 0.1
-    print("current success rate", np.sum(lifted) / num_envs)
+    print("current success rate", np.sum(lifted) / num_envs, file=sys.stdout)
 
     success_rate = (update * success_rate + np.sum(lifted) / num_envs) / (update + 1)
-    print("average success rate", success_rate)
+    print("average success rate", success_rate, file=sys.stdout)
+
+    # 更新每个物体的失败统计
+    for i in range(num_envs):
+        obj_name = obj_list[i]  # 直接使用物体名称
+        object_failure_stats[obj_name]["attempts"] += 1
+        if not lifted[i]:
+            object_failure_stats[obj_name]["failures"] += 1
+
+    # Print the names of failed objects
+    failed_indices = np.where(lifted == 0)[0]
+    if len(failed_indices) > 0:
+        print("Failed objects:", file=sys.stdout)
+        for idx in failed_indices:
+            print(f"  - {obj_list[idx]}", file=sys.stdout)
+    else:
+        print("All objects were successfully grasped!", file=sys.stdout)
+
+
+# 在所有评估结束后，打印每个物体的失败统计
+print("\n===== Object Failure Statistics =====", file=sys.stdout)
+print(f"{'Object Name':<30} {'Failures':<10} {'Attempts':<10} {'Failure Rate (%)':<20}", file=sys.stdout)
+print("-" * 70, file=sys.stdout)
+
+# 按失败率从高到低排序
+sorted_stats = sorted(object_failure_stats.items(), 
+                     key=lambda x: x[1]["failures"] / x[1]["attempts"] if x[1]["attempts"] > 0 else 0, 
+                     reverse=True)
+
+for obj_name, stats in sorted_stats:
+    failure_rate = (stats["failures"] / stats["attempts"] * 100) if stats["attempts"] > 0 else 0
+    print(f"{obj_name:<30} {stats['failures']:<10} {stats['attempts']:<10} {failure_rate:.2f}%", file=sys.stdout)
+
+# 计算总尝试次数和总失败次数
+total_attempts = sum(stats["attempts"] for stats in object_failure_stats.values())
+total_failures = sum(stats["failures"] for stats in object_failure_stats.values())
+total_success_rate = ((total_attempts - total_failures) / total_attempts * 100) if total_attempts > 0 else 0
+
+print("\nTotal success rate: {:.2f}%".format(total_success_rate), file=sys.stdout)
+
+
 
 
 

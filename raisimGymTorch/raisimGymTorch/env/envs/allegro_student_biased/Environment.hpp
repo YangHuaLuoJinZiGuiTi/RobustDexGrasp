@@ -112,6 +112,7 @@ namespace raisim {
             wrist_euler_in_obj_init.setZero();
             wrist_euler_init.setZero();
             wrist_mat_r_init.setZero();
+            wrist_euler_previous.setZero();
             wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
             afford_center.setZero();
             obj_base_pos.setZero();
@@ -154,7 +155,9 @@ namespace raisim {
             for(int i=1; i < 5; i++){
                 finger_weights_contact(3*i) *= 3;
             }
+            finger_weights_contact(0) = 0;
             finger_weights_contact.segment(10,3) *= 2;
+            finger_weights_contact(num_contacts-1) *= 2;
             finger_weights_contact /= finger_weights_contact.sum();
             finger_weights_contact *= num_contacts;
 
@@ -389,7 +392,7 @@ namespace raisim {
                 obj_quat.setZero();
                 Obj_qvel.setZero(); Obj_linvel.setZero();
                 wrist_mat_r_init.setZero();
-
+                wrist_euler_previous.setZero();
                 updateObservation();
             }
         }
@@ -491,6 +494,7 @@ namespace raisim {
            raisim::RotmatToEuler(wrist_mat_r_in_obj_init, wrist_euler_in_obj_init);
            raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
            wrist_mat_r_init = wrist_mat_r;
+           wrist_euler_previous.setZero();
 
             updateObservation();
         }
@@ -860,6 +864,19 @@ namespace raisim {
 
             raisim::Vec<3> wrist_euler_current;
             raisim::RotmatToEuler(wrist_mat_r, wrist_euler_current);
+
+            if (wrist_euler_previous.norm() > 0.01){
+                for (int i = 0; i < 3; i++) {
+                    if (wrist_euler_current[i] - wrist_euler_previous[i] > M_PI) {
+                        wrist_euler_current[i] -= 2 * M_PI;
+                } else if (wrist_euler_current[i] - wrist_euler_previous[i] < -M_PI) {
+                        wrist_euler_current[i] += 2 * M_PI;
+                    }
+                }
+            }
+
+            wrist_euler_previous = wrist_euler_current;
+
             Eigen::Vector3d euler_diff;
 
             raisim::Vec<3> euler_diff_raisim;
@@ -887,8 +904,9 @@ namespace raisim {
 //                            target_center_dif_world,
                             hand_center_w,
                             euler_diff,
-                            0,0,0;
-//                            wrist_euler_current.e();
+                            // 0,0,0;
+                        //    wrist_euler_init.e();
+                           wrist_euler_current.e();
 //                            target_center,
 //                            euler_diff;
             obs_history.push_back(obDouble_r_);
@@ -1135,6 +1153,7 @@ namespace raisim {
         raisim::Vec<3> base_pos;
         raisim::Mat<3,3> base_mat;
         raisim::Mat<3,3> wrist_mat_r_init;
+        raisim::Vec<3> wrist_euler_previous;
 
         std::map<int,int> contactMapping_r_;
         std::map<int,int> contactMapping_l_;
