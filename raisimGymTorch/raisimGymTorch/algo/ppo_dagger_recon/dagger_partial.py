@@ -235,7 +235,7 @@ class Dagger:
                     teacher_action = self.expert_policy.architecture(critic_obs_batch)
                 loss_action = self.loss_fn(student_action, teacher_action) * 0.1
 
-                loss = ppo_loss * self.ppo_ratio + (loss_prop + loss_action) * (1 - self.ppo_ratio)
+                loss = ppo_loss * self.ppo_ratio + loss_prop + (loss_action) * (1 - self.ppo_ratio)
 
 
                 # Gradient step
@@ -253,7 +253,6 @@ class Dagger:
 
             ave_prop_mse = prop_mse / loss_counter
             ave_action_mse = action_mse / loss_counter
-
         return ave_prop_mse, ave_action_mse
         # self.scheduler.step()
 
