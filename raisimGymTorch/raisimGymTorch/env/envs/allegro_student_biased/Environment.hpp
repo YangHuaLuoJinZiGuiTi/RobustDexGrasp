@@ -756,12 +756,12 @@ namespace raisim {
                 if (contact_af.skip() || contact_af.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
                 if (contact_af.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
                 if (contact_list_obj[contact_af.getPairContactIndexInPairObject()].getlocalBodyIndex() != affordance_id) continue;
+                if (contact_af.getImpulse().norm() < 0.01) continue;
 
                 int idx = contactMapping_r_[contact_af.getlocalBodyIndex()];
                 contacts_r_af[idx] = 1;
-                raisim::Vec<3> impulseW;
-                raisim::matTransposevecmul(contact_af.getContactFrame(), contact_af.getImpulse(), impulseW);
-                impulseW /= world_->getTimeStep();
+                Eigen::VectorXd impulseW = (contact_af.getContactFrame().e().transpose() * contact_af.getImpulse().e())/ world_->getTimeStep();
+                if (!contact_af.isObjectA()) impulseW = -impulseW;
                 force_xy_r_af[idx*2] += impulseW[0];
                 force_xy_r_af[idx*2+1] += impulseW[1];
                 force_z_r_af[idx] += impulseW[2];
@@ -774,11 +774,11 @@ namespace raisim {
                 if (contact_non_af.skip() || contact_non_af.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
                 if (contact_non_af.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
                 if (contact_list_obj[contact_non_af.getPairContactIndexInPairObject()].getlocalBodyIndex() != non_affordance_id) continue;
+                if (contact_non_af.getImpulse().norm() < 0.01) continue;
                 int idx = contactMapping_r_[contact_non_af.getlocalBodyIndex()];
                 contacts_r_non_af[idx] = 1;
-                raisim::Vec<3> impulseW;
-                raisim::matTransposevecmul(contact_non_af.getContactFrame(), contact_non_af.getImpulse(), impulseW);
-                impulseW /= world_->getTimeStep();
+                Eigen::VectorXd impulseW = (contact_non_af.getContactFrame().e().transpose() * contact_non_af.getImpulse().e())/ world_->getTimeStep();
+                if (!contact_non_af.isObjectA()) impulseW = -impulseW;
                 force_xy_r_non_af[idx*2] += impulseW[0];
                 force_xy_r_non_af[idx*2+1] += impulseW[1];
                 force_z_r_non_af[idx] += impulseW[2];
@@ -789,11 +789,11 @@ namespace raisim {
 
             for(auto& contact_table: mano_r_->getContacts()) {
                 if (contact_table.skip() || contact_table.getPairObjectIndex() != box->getIndexInWorld()) continue;
+                if (contact_table.getImpulse().norm() < 0.01) continue;
                 int idx = contactMapping_r_[contact_table.getlocalBodyIndex()];
                 contacts_r_table[idx] = 1;
-                raisim::Vec<3> impulseW;
-                raisim::matTransposevecmul(contact_table.getContactFrame(), contact_table.getImpulse(), impulseW);
-                impulseW /= world_->getTimeStep();
+                Eigen::VectorXd impulseW = (contact_table.getContactFrame().e().transpose() * contact_table.getImpulse().e())/ world_->getTimeStep();
+                if (!contact_table.isObjectA()) impulseW = -impulseW;
                 force_xy_r_table[idx*2] += impulseW[0];
                 force_xy_r_table[idx*2+1] += impulseW[1];
                 force_z_r_table[idx] += impulseW[2];
@@ -804,11 +804,11 @@ namespace raisim {
 
             for(auto& contact_arm: mano_r_->getContacts()) {
                 if ((contact_arm.skip() || contact_arm.getPairObjectIndex() != arctic->getIndexInWorld()) && (contact_arm.skip() || contact_arm.getPairObjectIndex() != box->getIndexInWorld())) continue;
+                if (contact_arm.getImpulse().norm() < 0.01) continue;
                 int idx = contactMapping_arm_[contact_arm.getlocalBodyIndex()];
                 contacts_arm_table[idx] = 1;
-                raisim::Vec<3> impulseW;
-                raisim::matTransposevecmul(contact_arm.getContactFrame(), contact_arm.getImpulse(), impulseW);
-                impulseW /= world_->getTimeStep();
+                Eigen::VectorXd impulseW = (contact_arm.getContactFrame().e().transpose() * contact_arm.getImpulse().e())/ world_->getTimeStep();
+                if (!contact_arm.isObjectA()) impulseW = -impulseW;
                 force_xy_arm_table[idx*2] += impulseW[0];
                 force_xy_arm_table[idx*2+1] += impulseW[1];
                 force_z_arm_table[idx] += impulseW[2];
