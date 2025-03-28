@@ -33,7 +33,7 @@ import csv
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'new_policies_0318/2025-03-17-11-19-19/full_3500_r.pt'
+weight_path_student = 'new/2025-03-20-18-47-17/full_4500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -94,7 +94,7 @@ obj_item = cfg['environment']['hardware']['pointcloud_real']['obj_mesh']
 # cat_name = 'mixed_unseen_test'
 # cat_name = 'mixed_unseen_category_test'
 # cat_name = 'mixed_train'
-cat_name = 'new_training_set'
+# cat_name = 'test'
 # cat_name = 'affordance_level'
 cat_name = cfg['environment']['load_set']
 directory_path = home_path + f"/rsc/{cat_name}/"
@@ -136,7 +136,7 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps']
-lift_steps = 15
+lift_steps = 5
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
@@ -244,10 +244,24 @@ while True:
         print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
     elif sample_pc_mode == 'auto':
         obj_pos_mean, obj_pointcloud = rs.GetPointCloud()
-        obj_h_half = ((obj_pos_mean[0][2] - 0.771) / 2.0)
-        if obj_h_half > 0.1:
-            obj_h_half = 0.1
-        obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][2] - 0.0, 0.707, 0, 0.707, 0])
+
+        # 按z轴（第三列）对点云进行排序
+        sorted_point_cloud = obj_pointcloud[obj_pointcloud[:, 2].argsort()]
+        z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
+        max_z = np.max(obj_pointcloud[:,2])
+        print(f"========== max z = {max_z}, mean z = {z_weighted_mean}")
+        while max_z - z_weighted_mean > 0.08:
+            # 确定z轴的10%分位数作为阈值
+            z_threshold = np.percentile(sorted_point_cloud[:, 2], 5)
+
+            # 保留z大于或等于阈值的点
+            sorted_point_cloud = sorted_point_cloud[sorted_point_cloud[:, 2] >= z_threshold]
+            
+            # 计算剩余点云的xyz均值
+            z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
+
+            print(f"==========mean = {obj_pos_mean[0][2]}, update new weight mean = {z_weighted_mean}")
+        obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][1], 0.707, 0, 0.707, 0])
     elif sample_pc_mode == 'mesh':
         pass
 
@@ -273,7 +287,6 @@ while True:
                     sample_y = distance * np.sin(angle)
                     if sample_x < 0.25 and sample_x > -0.25:
                         break
-                
                 obj_pose_reset[i, 0] = sample_x
                 obj_pose_reset[i, 1] = sample_y
                 obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
@@ -409,10 +422,10 @@ while True:
     #qpos_reset_r[0, :6]  = [-0.12826417, -1.2702502, 1.4753474, -0.20509712,   1.5790964, -1.5707964] # 009_gelatin_box 中间侧放
 
     # safety check
-    if obj_pose_reset[0, 0] < -0.4 or obj_pose_reset[0, 0] > 0.4 or obj_pose_reset[0, 1] < -0.83 or obj_pose_reset[0, 1] > -0.4 or obj_pose_reset[0, 2] > 0.98:
-        print("--------------object pose check error !!! ")
-        #continue
-
+    check_dis = obj_pose_reset[0, 0]*obj_pose_reset[0, 0] + obj_pose_reset[0, 1]*obj_pose_reset[0, 1]
+    if obj_pose_reset[0, 0] < -0.25 or obj_pose_reset[0, 0] > 0.25 or check_dis < 0.45*0.45 or check_dis > 0.75*0.75 or obj_pose_reset[0, 2] > 1.0:
+        print(f"--------------object pose check error !!! {obj_pose_reset}")
+        exit(0)
     print(f" ================== obj  pose = {obj_pose_reset} ===============")
     print(f" ================== hand pose = {qpos_reset_r} ================")
     

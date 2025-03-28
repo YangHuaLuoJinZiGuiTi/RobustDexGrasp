@@ -562,7 +562,8 @@ namespace raisim {
             if (lift_up) {
                 final_arm << 0.0, -1.57, 1.57, 0., 1.57, -1.57; // lift on top
             } else {
-                final_arm << 1.0, -1.57, 1.57, 0., 1.57, -1.57; // put in desk
+                final_arm << 1.0, -1.57, 1.57, 0., 1.57, -1.57; // move a little
+                // final_arm << -1.7, -1.91, 2.07588, 0.05, 1.83, -1.57; // put in box
             }
             final_hand << 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2;
             if (release_hand) {
@@ -619,10 +620,10 @@ namespace raisim {
                     max_step_distance_arm = abs(pTarget_clipped_r[i] - gc_r_[i]);
                 }
             }
-            if (max_step_distance_arm > 0.05) {
-                arm_delay_cnt = round(max_step_distance_arm / 0.045) + 1.0;
-                if (arm_delay_cnt > 3.0) {
-                    arm_delay_cnt = 3.0;
+            if (max_step_distance_arm > 0.04) {
+                arm_delay_cnt = round(max_step_distance_arm / 0.035) + 1.0;
+                if (arm_delay_cnt > 4.0) {
+                    arm_delay_cnt = 4.0;
                 }
                 if (arm_delay_cnt > 1.0) {
                     std::cout << "max_step_distance_arm = " << max_step_distance_arm << ", will delay times = " << arm_delay_cnt << std::endl;
