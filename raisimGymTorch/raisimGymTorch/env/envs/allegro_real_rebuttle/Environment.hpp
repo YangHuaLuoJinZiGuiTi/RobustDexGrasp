@@ -613,15 +613,29 @@ namespace raisim {
             /// Apply N control steps
             double delay_cnt = 1.0;
 #if 1 // devide into small step or not
+
+            Eigen::VectorXd vec = pTarget_clipped_r.head(6) - gc_r_.head(6);
+            // std::vector<int> indices(vec.size());
+            // for (int i = 0; i < vec.size(); ++i) {
+            //     indices[i] = i;
+            // }
+            // std::sort(indices.begin(), indices.end(), [&vec](int a, int b) {
+            //     return std::abs(vec(a)) > std::abs(vec(b));
+            // });        
+            // std::cout << "sort: ";
+            // for (int i = 0; i < vec.size(); ++i) {
+            //     std::cout << vec(indices[i]) << "(" << indices[i] << ")" << ", ";
+            // }
+  
             double max_step_distance_arm = 0.0, max_step_distance_hand = 0.0;
             double arm_delay_cnt = 1.0, hand_delay_cnt = 1.0;
-            for (int i = 0; i < 6; i++) {
-                if (max_step_distance_arm < abs(pTarget_clipped_r[i] - gc_r_[i])) {
-                    max_step_distance_arm = abs(pTarget_clipped_r[i] - gc_r_[i]);
-                }
+
+            max_step_distance_arm = abs(vec(1));
+            if (max_step_distance_arm < abs(vec(2))) {
+                max_step_distance_arm = abs(vec(2));
             }
-            if (max_step_distance_arm > 0.04) {
-                arm_delay_cnt = round(max_step_distance_arm / 0.035) + 1.0;
+            if (max_step_distance_arm > 0.035) {
+                arm_delay_cnt = round(max_step_distance_arm / 0.025) + 1.0;
                 if (arm_delay_cnt > 4.0) {
                     arm_delay_cnt = 4.0;
                 }
@@ -643,7 +657,6 @@ namespace raisim {
             //         std::cout << "max_step_distance_hand = " << max_step_distance_arm << ", will delay times = " << hand_delay_cnt << std::endl;
             //     }
             // }
-
             if (arm_delay_cnt > hand_delay_cnt) delay_cnt = arm_delay_cnt;
             else delay_cnt = hand_delay_cnt;
 #endif

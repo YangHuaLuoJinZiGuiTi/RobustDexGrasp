@@ -33,7 +33,7 @@ import csv
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'new/2025-03-20-18-47-17/full_4500_r.pt'
+weight_path_student = 'limitforce_terminal/full_3000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -384,9 +384,9 @@ while True:
         feasible_indices = np.where(feasible_ik_flag)[0]
         scores = np.ones(sample_num, dtype='float32')
         scores = scores * 10000.
-        if min(projection_lengths) < 0.18:
+        if min(projection_lengths) < 0.15:
             for j in feasible_indices:
-                if projection_lengths[j] < 0.18:
+                if projection_lengths[j] < 0.15:
                     score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
                     score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']
                     score3 = ((projection_lengths[j] / min(projection_lengths)) ** 2) * cfg['environment']['length_ratio_coeff']
@@ -414,6 +414,9 @@ while True:
         print("===================== will reset arm0 ======================== ")
         qpos_reset_r[0, 0] -= 2*np.pi
 
+    print(f" ================== obj  pose = {obj_pose_reset} ===============")
+    print(f" ================== hand pose = {qpos_reset_r} ================")
+
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
     env.set_sample_point_visual(vis_point, obj_pose_reset)
 
@@ -421,13 +424,22 @@ while True:
     #qpos_reset_r[0, :6]  = [-0.12826417, -1.2702502, 1.4753474, -0.20509712,   1.5790964, -1.5707964] # 009_gelatin_box 中间正放
     #qpos_reset_r[0, :6]  = [-0.12826417, -1.2702502, 1.4753474, -0.20509712,   1.5790964, -1.5707964] # 009_gelatin_box 中间侧放
 
+    if qpos_reset_r[0, 4] < -0.4 or qpos_reset_r[0, 4] > 3.14159:
+        print("===================== danger arm joint 4 ======================== ")
+        exit(0)
+    if qpos_reset_r[0, 4] < 0.25 or qpos_reset_r[0, 4] > 2.9:
+        grasp_steps = 45
+        n_steps_r = grasp_steps + lift_steps
+        print("===================== will add grasp step ======================== ")
+    else:
+        grasp_steps = cfg['environment']['grasp_steps']
+        n_steps_r = grasp_steps + lift_steps
+    
     # safety check
     check_dis = obj_pose_reset[0, 0]*obj_pose_reset[0, 0] + obj_pose_reset[0, 1]*obj_pose_reset[0, 1]
     if obj_pose_reset[0, 0] < -0.25 or obj_pose_reset[0, 0] > 0.25 or check_dis < 0.45*0.45 or check_dis > 0.75*0.75 or obj_pose_reset[0, 2] > 1.0:
         print(f"--------------object pose check error !!! {obj_pose_reset}")
         exit(0)
-    print(f" ================== obj  pose = {obj_pose_reset} ===============")
-    print(f" ================== hand pose = {qpos_reset_r} ================")
     
     for sim_flag in [False]: # True, False
 
