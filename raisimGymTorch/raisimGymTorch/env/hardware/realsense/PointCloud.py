@@ -3,9 +3,8 @@ import argparse
 import numpy as np
 import time
 from scipy.spatial import KDTree
-import threading
-
-import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation as R
+import cv2
 
 import os
 import open3d as o3d
@@ -22,7 +21,7 @@ class Realsense:
             self.filter_time = 20
             self.downsample = 4
 
-        self.mini_height = 0.02
+        self.mini_height = 0.012
         self.debug = False
         self.width = 640
         self.hight = 480
@@ -187,6 +186,9 @@ class Realsense:
         
         # tf matrix
         Tbase2cam = np.loadtxt(self.camK_path + "/base2cam.txt", delimiter=',')
+        test = R.from_matrix(Tbase2cam[:3, :3])
+        ang=test.as_euler('xyz', degrees=True)
+        print(f"------------------------------------{ang}")
         # https://support.intelrealsense.com/hc/en-us/community/posts/4405875311123-About-make-sure-FOV-specification-of-D435i 
         # tf from RGB to left-IR camera
         Tcamrgb2depth = np.array([[  1., 0., 0., 0.],
@@ -239,8 +241,29 @@ class Realsense:
                 self.rgb_K = np.array([[color_intrin.fx, 0., color_intrin.ppx], [0., color_intrin.fy, color_intrin.ppy], [0, 0, 1.]])
                 self.depth_K = np.array([[depth_intrin.fx, 0., depth_intrin.ppx], [0., depth_intrin.fy, depth_intrin.ppy], [0, 0, 1.]])
                 break
+            
+    def get_rgbd_frame(self):
+        while True:  
+            frames = self.pipeline.wait_for_frames()
+            aligned_frames = self.align.process(frames)
+            depth_frame = aligned_frames.get_depth_frame()
+            rgb_frame = aligned_frames.get_color_frame()
+            if not depth_frame or not rgb_frame:
+                continue
+                
+            # Convert image to numpy array
+            depth_image = np.asanyarray(depth_frame.get_data())/1e3
+            color_image = np.asanyarray(rgb_frame.get_data())
+            depth_image_scaled = (depth_image * self.depth_scale * 1000).astype(np.float32)
+            H, W = color_image.shape[:2]
+            color = cv2.resize(color_image, (W,H), interpolation=cv2.INTER_NEAREST)
+            depth = cv2.resize(depth_image_scaled, (W,H), interpolation=cv2.INTER_NEAREST)
+            depth[(depth<0.2) | (depth>=np.inf)] = 0
+            
+            return color, depth
 
-    def GetPointCloud(self):
+
+    def GetPointCloud(self, mask = None):
         log_time1 = time.time()
         wait_cnt = 0
         pointcloud_xyz_list = []
@@ -254,6 +277,10 @@ class Realsense:
             wait_cnt += 1
 
             depth_image = np.asanyarray(depth_frame.get_data())
+            if mask is not None:
+                masked_image = np.zeros_like(depth_image)
+                masked_image[mask] = depth_image[mask]
+                depth_image = masked_image
             downsampled_depth_image = depth_image[::self.downsample, ::self.downsample]
             depth_image_scaled = (downsampled_depth_image * self.depth_scale).astype(np.float32)
             pointcloud_xyz_list.append(depth_image_scaled)
@@ -309,9 +336,9 @@ class Realsense:
 def main() -> None:
     print("test ...")
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--calculate_flag", help="check the table", type=bool, default=False)
+    parser.add_argument("-c", "--calculate_flag", help="check the table", type=bool, default=True)
     args = parser.parse_args()
-    test = Realsense("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", 200, args.calculate_flag)
+    test = Realsense("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", 200, args.calculate_flag) # 0_datasets_allegro_hand_topview 0_datasets_allegro_hand
     pose, pc = test.GetPointCloud()
 
 if __name__ == "__main__":
