@@ -241,7 +241,35 @@ class Realsense:
                 self.rgb_K = np.array([[color_intrin.fx, 0., color_intrin.ppx], [0., color_intrin.fy, color_intrin.ppy], [0, 0, 1.]])
                 self.depth_K = np.array([[depth_intrin.fx, 0., depth_intrin.ppx], [0., depth_intrin.fy, depth_intrin.ppy], [0, 0, 1.]])
                 break
-            
+    
+    def get_point_from_image(self, color_frame):
+        points = []
+        def select_points(event, x, y, flags, param):
+            if event == cv2.EVENT_LBUTTONDOWN:
+                points.append((x, y))
+                cv2.circle(image_display, (x, y), 3, (0, 255, 0), -1)
+                cv2.imshow("Image", image_display)
+
+        # Convert image to numpy array
+        image = color_frame
+        image_display = image.copy()
+
+        cv2.namedWindow("Image")
+        cv2.setMouseCallback("Image", select_points)
+
+        print("Click on the image to select points. Press Enter when done.")
+
+        while True:
+            cv2.imshow("Image", image_display)
+            key = cv2.waitKey(1) & 0xFF
+            if key == 13:  # Enter key
+                break
+
+        print("------------------get point: " + str(points))
+        cv2.destroyAllWindows()
+
+        return points
+
     def get_rgbd_frame(self):
         while True:  
             frames = self.pipeline.wait_for_frames()

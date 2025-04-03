@@ -56,21 +56,12 @@ class sam_predict:
             plt.show() 
         
         self.generator.set_image(in_img)
-
-        #点
-        if input_box is not None:
-            masks, scores, logits = self.generator.predict(
-                point_coords=input_point,
-                point_labels=input_label,
-                box=input_box[None, :],
-                multimask_output=False,
-            )
-        else:
-            masks, scores, logits = self.generator.predict(
-                point_coords=input_point,
-                point_labels=input_label,
-                multimask_output=False,
-            )
+        masks, scores, logits = self.generator.predict(
+            point_coords=input_point,
+            point_labels=input_label,
+            box=input_box[None, :],
+            multimask_output=False,
+        )
 
         # method to find the best result (IOU , area% , size)
         if self.log is True:
@@ -89,10 +80,10 @@ class sam_predict:
 def main() -> None:
     sam = sam_predict()
 
-    input_point = np.array([[280,247]])  # 为要分割的指定点
+    input_point = np.array([[470,185]])  # 为要分割的指定点
     input_label = np.array([1])  # 为分割对象的性质（背景|前景）
     #为单个框
-    input_box = np.array([155, 185, 396, 303])
+    input_box = np.array([426, 124, 521, 226])
 
     #加载待处理图片
     image = cv2.imread('/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/test/vlm_planning/test.png')
