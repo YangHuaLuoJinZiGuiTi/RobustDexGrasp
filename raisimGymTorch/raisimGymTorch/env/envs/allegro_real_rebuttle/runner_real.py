@@ -250,9 +250,9 @@ while True:
         z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
         max_z = np.max(obj_pointcloud[:,2])
         print(f"========== max z = {max_z}, mean z = {z_weighted_mean}")
-        while max_z - z_weighted_mean > 0.08:
-            # 确定z轴的10%分位数作为阈值
-            z_threshold = np.percentile(sorted_point_cloud[:, 2], 5)
+        while max_z - z_weighted_mean > 0.05:
+            # 确定z轴的15%分位数作为阈值
+            z_threshold = np.percentile(sorted_point_cloud[:, 2], 15)
 
             # 保留z大于或等于阈值的点
             sorted_point_cloud = sorted_point_cloud[sorted_point_cloud[:, 2] >= z_threshold]
@@ -414,9 +414,6 @@ while True:
         print("===================== will reset arm0 ======================== ")
         qpos_reset_r[0, 0] -= 2*np.pi
 
-    print(f" ================== obj  pose = {obj_pose_reset} ===============")
-    print(f" ================== hand pose = {qpos_reset_r} ================")
-
     vis_point = visible_points_w.reshape(200*3, -1).astype('float32')
     env.set_sample_point_visual(vis_point, obj_pose_reset)
 
@@ -424,17 +421,28 @@ while True:
     #qpos_reset_r[0, :6]  = [-0.12826417, -1.2702502, 1.4753474, -0.20509712,   1.5790964, -1.5707964] # 009_gelatin_box 中间正放
     #qpos_reset_r[0, :6]  = [-0.12826417, -1.2702502, 1.4753474, -0.20509712,   1.5790964, -1.5707964] # 009_gelatin_box 中间侧放
 
-    if qpos_reset_r[0, 4] < -0.4 or qpos_reset_r[0, 4] > 3.14159:
-        print("===================== danger arm joint 4 ======================== ")
+    if qpos_reset_r[0, 4] < -2.5:
+        print("===================== change joint 4 position ======================== ")
+        qpos_reset_r[0, 4] = 3.0
+        
+    if qpos_reset_r[0, 0] < -1.0 or qpos_reset_r[0, 0] > 1.0:
+        print(f"===================== danger arm joint 0: {qpos_reset_r}  ======================== ")
         exit(0)
-    if qpos_reset_r[0, 4] < 0.25 or qpos_reset_r[0, 4] > 2.9:
-        grasp_steps = 45
+        
+    if qpos_reset_r[0, 4] < -0.5 or qpos_reset_r[0, 4] > 3.14159:
+        print(f"===================== danger arm joint 4: {qpos_reset_r}  ======================== ")
+        exit(0)
+    if qpos_reset_r[0, 4] < 0.4 or qpos_reset_r[0, 4] > 2.75:
+        grasp_steps = 40
         n_steps_r = grasp_steps + lift_steps
         print("===================== will add grasp step ======================== ")
     else:
         grasp_steps = cfg['environment']['grasp_steps']
         n_steps_r = grasp_steps + lift_steps
     
+    print(f" ================== obj  pose = {obj_pose_reset} ===============")
+    print(f" ================== hand pose = {qpos_reset_r} ================")
+
     # safety check
     check_dis = obj_pose_reset[0, 0]*obj_pose_reset[0, 0] + obj_pose_reset[0, 1]*obj_pose_reset[0, 1]
     if obj_pose_reset[0, 0] < -0.25 or obj_pose_reset[0, 0] > 0.25 or check_dis < 0.45*0.45 or check_dis > 0.75*0.75 or obj_pose_reset[0, 2] > 1.0:

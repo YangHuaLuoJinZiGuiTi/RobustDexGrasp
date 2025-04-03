@@ -634,10 +634,10 @@ namespace raisim {
             if (max_step_distance_arm < abs(vec(2))) {
                 max_step_distance_arm = abs(vec(2));
             }
-            if (max_step_distance_arm > 0.035) {
+            if (max_step_distance_arm > 0.03) {
                 arm_delay_cnt = round(max_step_distance_arm / 0.025) + 1.0;
-                if (arm_delay_cnt > 4.0) {
-                    arm_delay_cnt = 4.0;
+                if (arm_delay_cnt > 5.0) {
+                    arm_delay_cnt = 5.0;
                 }
                 if (arm_delay_cnt > 1.0) {
                     std::cout << "max_step_distance_arm = " << max_step_distance_arm << ", will delay times = " << arm_delay_cnt << std::endl;
