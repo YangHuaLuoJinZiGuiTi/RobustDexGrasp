@@ -23,7 +23,10 @@ import argparse
 from raisimGymTorch.helper import rotations
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, transformRobotParameter
 import torch
+import cv2
 
+from raisimGymTorch.env.hardware.planning.vlm_planner import vlm_planner
+from raisimGymTorch.env.hardware.sam.sam_predict import sam_predict
 from raisimGymTorch.env.hardware.realsense.PointCloud import Realsense
 from raisimGymTorch.env.hardware.FoundationPose.interactive import FoundationData
 from raisimGymTorch.env.hardware.FoundationPose.RGBDPointCloud import GetPointCloud
@@ -33,7 +36,8 @@ import csv
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-weight_path_student = 'limitforce_terminal/full_3000_r.pt'
+#weight_path_student = 'last/full_1500_r.pt'
+weight_path_student = 'hui_reset_pose/2025-03-20-18-47-17/full_5500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -163,7 +167,9 @@ prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_stat
 if sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
     data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
 elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
-    pass
+    rgbd = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
+    vlm = vlm_planner()
+    sam = sam_predict()
 elif sample_pc_mode == 'auto':
     rs = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
 elif sample_pc_mode == 'mesh':
@@ -238,7 +244,15 @@ while True:
             print("end")
             exit(0)
     elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
-        obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], sample_pc_mode)
+        rgb_frame, depth_frame = rgbd.get_rgbd_frame()
+        rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
+        input_point = np.array(rgbd.get_point_from_image(rgb_frame))
+        input_label = np.array([1])  # 为分割对象的性质（背景|前景）
+        bbox = rgbd.get_point_from_image(rgb_frame)
+        input_box = np.array([bbox[0][0],bbox[0][1],bbox[1][0],bbox[1][1]])
+        mask = sam.calculate_mask(rgb_frame, input_point, input_label, input_box)
+        obj_pos_mean, obj_pointcloud = rgbd.GetPointCloud(mask)
+        
         obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
         obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], 0.77, 0.707, 0, 0.707, 0])
         print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
@@ -533,6 +547,7 @@ while True:
         
         ## for demo show
         # print("will move ..... ")
+        # env.final_reset_state(action_r, False, sim_flag, True)
         # env.final_reset_state(action_r, False, sim_flag, False)
         # env.final_reset_state(action_r, True, sim_flag, False)
         # print("finsh all")
