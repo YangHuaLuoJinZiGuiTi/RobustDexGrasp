@@ -440,10 +440,13 @@ public:
         Eigen::VectorXd pgain(platform_gc_dim_), dgain(platform_gc_dim_);
         arm_->getPdgains(pgain, dgain, arm_dim_);
         hand_->getPdgains(pgain, dgain, hand_dim_);
-        pgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_p_ * pgain.head(arm_dim_);
-        dgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_d_ * dgain.head(arm_dim_);
-        pgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_p_ * pgain.tail(hand_dim_);
-        dgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_d_ * dgain.tail(hand_dim_);
+
+        if (randomize_gains_arm_p_ > 0.0) {
+            pgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_p_ * pgain.head(arm_dim_);
+            dgain.head(arm_dim_) += Eigen::VectorXd::Random(arm_dim_) * randomize_gains_arm_d_ * dgain.head(arm_dim_);
+            pgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_p_ * pgain.tail(hand_dim_);
+            dgain.tail(hand_dim_) += Eigen::VectorXd::Random(hand_dim_) * randomize_gains_hand_d_ * dgain.tail(hand_dim_);
+        }
         arm_hand_platform_->setPdGains(pgain, dgain);
     }
 
@@ -712,9 +715,9 @@ private:
         #ifdef BUILD_ALLEGRO_REAL
         {"allegro_real", [](){ return createAllegroReal(); }},
         #endif
-        {"leap_sim", [](){ return createLeapSim(); }},
+        {"leaphand_sim", [](){ return createLeapSim(); }},
         #ifdef BUILD_LEAP_REAL
-        {"leap_real", [](){ return createLeapReal(); }},
+        {"leaphand_real", [](){ return createLeapReal(); }},
         #endif
     };
 
