@@ -1,109 +1,129 @@
 seed: 1
 
 environment:
-
   hardware:
-    kinematic_type: "pinocchio"
+    kinematic_type: "simfk"
     arm_type: "ur5"                
-    hand_type: "leap"
-    real_world_mode: True          # add suffix "_real" or "_sim" for arm_type and hand_type
+    hand_type: "allegro"
+    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
     flying_hand_mode: False
-    save_state_mode: True
-    save_state_path: "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/joint.csv"
-    camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview"
-    rsc_model: "ur5_leap"
-    sim_model: "ur5_leap_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
-    fk_model: "ur5_leap_fk"          # FK model in           rsc/${rsc_model}/${fk_model}.urdf
-    ik_model: "ur5"                     # IK model in           rsc/${rsc_model}/${ik_model}.urdf
-                                        # IK collision model in rsc/${rsc_model}/${ik_model}.srdf
+    save_state_mode: False
+    rsc_model: "ur5_allegro"
+#    sim_model: "ur5_allegro_low_effort"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+#    sim_model: "ur5_allegro_low_effort_mass"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+#    sim_model: "ur5_allegro_ori"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+    sim_model: "ur5_allegro_low_effort_mass_new_damping"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+
     vis_group_id: "0"                   # collision_id in raisim
     vis_mask_id:  "0,1,2,63"            # collision_mask_id in raisim, 2 is table, 63 is all
+#    arm_pd_file: "UR5Identification.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
+    arm_pd_file: "UR5Identification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification.txt
+#    hand_pd_file: "AllegroIdentification.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+#    hand_pd_file: "AllegroIdentification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+#    hand_pd_file: "AllegroIdentification_hardware_pd.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+#    hand_pd_file: "AllegroOfficial_new.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+#    hand_pd_file: "AllegroIdentification_id5hz_small_p.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+#    hand_pd_file: "AllegroOfficial.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+    hand_pd_file: "Allegrotemp.txt" # path in ./raisimGymTorch/env/hardware/hand/AllegroIdentification.txt
+    init_finger_pose: [0.2, 0.6, 0.2, 0.5, 0.2, 0.6, 0.2, 0.5, 0.2, 0.6, 0.2, 0.5, 1.3, 0.0, -0.1, 0.2]
+    table_friction: 0.2
 
-    real_velocity_dt_s: 0.1
-  
-    arm_real:
-      ip: "192.168.56.101"
-      freq_hz: 500.0
-      move_vel: 1.0
-      move_acc: 1.0
-      servoJ_ahead_time: 0.08 # range [0.03,0.2] smoothens the trajectory with this lookahead time
-      servoJ_gain: 2000 # for following target position, range [100,2000]
+    # add the noise from [-value, +value] for randomization and 0.0(as default) will not randomize
+    randomize_friction: "0.5,0.6,0.7,0.8,0.9"
+    # ratio for PD gain randomization
+    randomize_gains_hand_p: 0.1
+    randomize_gains_hand_d: 0.1
+    randomize_gains_arm_p: 0.05
+    randomize_gains_arm_d: 0.05
+    # value for randomization
+    randomize_gc_hand: 0.02
+    randomize_gc_arm: 0.005
+    randomize_frame_position: 0.01
+    randomize_frame_orientation: 0.02
 
-    hand_real:
-      freq_hz: 200.0
+
+  randomization_eval: False
+  biased: False
+  grasp_steps: 70
+  top: False
+  non_uniform_sampling: True  # 控制是否使用非均匀采样，True为使用非均匀采样，False为使用均匀采样
+  eval_during_training: False
+#  camera_position: [0.25, -0.55152, 1.5]
+  camera_position: [0.035, -0.58, 1.531]
+  curriculum: False
+  sample_num: 10
+  length_score_coeff: 5
+  length_ratio_coeff: 0.
+  angle_score_coeff: 1
 
   render: True
   eval_every_n: 500
   update_every_n: 20
-  num_threads: 32
-  simulation_dt: 0.0025
-  control_dt: 0.01
+  num_threads: 16
+  simulation_dt: 0.01
+  control_dt: 0.2
   max_time: 4.0
   root_guided: True
   visualize: False
   unseen: True
   new_category: False
   load_set: "mixed_train"
-#  hand_model_r: "ur5_leap.urdf"
-  hand_model_r: "ur5_leap_undeci.urdf"
-
   finger_action_std: 0.015
-  rot_action_std: 0.01
+  rot_action_std: 0.005
   reward:
+    max_force_reward:
+      coeff: -10.0
+
     affordance_reward:
       coeff: 0.5
-#    not_affordance_reward:
-#      coeff: -0.0
     affordance_contact_reward:
       coeff: 1.5
-#    not_affordance_contact_reward:
-#      coeff: -0.0
     affordance_impulse_reward:
-      coeff: 0.5
-#    not_affordance_impulse_reward:
-#      coeff: -0.0
+      coeff: 1.0
 
 
     table_reward:
-      coeff: -0.01
+      coeff: -0.03
     table_contact_reward:
       coeff: -1.0
     table_impulse_reward:
       coeff: -0.5
 
     arm_height_reward:
-#      coeff: -0.03
-      coeff: -0.02
+      coeff: -0.05
     arm_contact_reward:
-#      coeff: -3.0
       coeff: -0.1
     arm_impulse_reward:
-#      coeff: -1.0
       coeff: -0.1
-
-    direction_reward:
-      coeff: -0.1
-    center_reward:
+    arm_collision_reward:
       coeff: -1.0
-    obj_displacement_reward:
-      coeff: -1.0
-
+      
+    arm_action_reward:
+      coeff: -0.0
+#      coeff: -0.5
+    hand_action_reward:
+      coeff: -0.0
+#      coeff: -0.5
 
     wrist_vel_reward_:
-      coeff: -0.001
-    #      coeff: -0.0
+      coeff: -1.0
     wrist_qvel_reward_:
-      coeff: -0.0001
-    #      coeff: -0.0
-
+      coeff: -0.1
     obj_vel_reward_:
-      coeff: -1.5
+      coeff: -15.0
     obj_qvel_reward_:
-      coeff: -0.01
+      coeff: -0.2
+    obj_displacement_reward:
+      coeff: -5.0
+    arm_joint_vel_reward_:
+      coeff: -1.0
 
 
 
-
+    direction_reward:
+      coeff: -0.0
+    center_reward:
+      coeff: -0.0
     anatomy_reward:
       coeff: -0.0
     torque:

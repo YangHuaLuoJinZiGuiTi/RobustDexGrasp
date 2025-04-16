@@ -28,7 +28,7 @@ exp_name = "leaphand_teacher"
 
 
 # Selected model weights for evaluation
-weight_saved = 'test/full_12500_r.pt'
+weight_saved = 'test/full_500_r.pt'
 
 
 # Command line argument parsing
@@ -108,7 +108,7 @@ obj_ori_list = folder_names
 
 # Randomly select one object from the list for evaluation
 obj_item = choice(obj_ori_list)
-obj_item = '011_banana'
+obj_item = '003_cracker_box'
 
 # Initialize vectorized environment with the selected object
 env = VecEnv([obj_item], hand.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
@@ -125,7 +125,7 @@ act_dim = 22    # Action dimension (joint controls)
 
 # ===== Training Parameters =====
 grasp_steps = cfg['environment']['grasp_steps']  # Number of steps for grasping phase
-lift_steps = 30  # Number of steps for lifting phase
+lift_steps = 80  # Number of steps for lifting phase
 n_steps_r = grasp_steps + lift_steps  # Total steps per episode
 total_steps_r = n_steps_r * env.num_envs  # Total steps across all environments
 
@@ -249,9 +249,8 @@ for update in range(args.num_iterations):
             axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
             if sample_x < 0.25 and sample_x > -0.25:
                 break
-            
-        sample_x, sample_y, angle, axis_angles[0, 2] = -0.24720438174777215, -0.5439294979872372, -1.9973685107261998, -1.89116486584267
-        #print(f"{sample_x}, {sample_y}, {angle}, {axis_angles[0, 2]}")
+
+        print(f"{sample_x}, {sample_y}, {angle}, {axis_angles[0, 2]}")
         
         # Set object position
         obj_pose_reset[i, 0] = sample_x
@@ -320,11 +319,7 @@ for update in range(args.num_iterations):
         # Initialize arrays to store IK results and feasibility flags
         feasible_ik_flag = np.zeros((sample_num), dtype='bool')
         ik_results = np.zeros((sample_num, 6), dtype='float32')
-        
-        eefpose = np.zeros((sample_num, 3), dtype='float32')
-        eefrot = np.zeros((sample_num, 9), dtype='float32')
-        
-        debugpose = np.zeros((1, 24), 'float32')
+
         # Try different hand orientations and find feasible IK solutions
         for j in range(sample_num):
             Ttarget = np.eye(4)

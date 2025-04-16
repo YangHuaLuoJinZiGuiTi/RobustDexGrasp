@@ -306,7 +306,7 @@ for update in range(args.num_iterations):
                                 [ 0., 0.,  1., -0.771],
                                 [ 0., 0.,  0., 1.]])
 
-    theta0 = [0.0, -1.57, 1.57, -1.57, -1.57, 0]
+    theta0 = [0.0, -1.57, 1.57, -1.57, -1.57, -1.57]
     joint_weights = [1, 1, 1, 1, 1, 1]
 
     ik = InverseKinematicsUR5()
