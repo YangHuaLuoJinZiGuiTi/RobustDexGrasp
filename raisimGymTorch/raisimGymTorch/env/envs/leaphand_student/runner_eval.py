@@ -284,8 +284,8 @@ for update in range(args.num_iterations):
     #                         [ 0., 0., 0., 1.]])
     # leap hand
     Ttarget2eef = np.array([[ 0., 0., 1., -0.095],
-                            [ 0., -1., 0., 0.],
-                            [ 1., 0., 0., 0.],
+                            [ -1., 0., 0., 0.],
+                            [ 0, -1., 0., 0.],
                             [ 0., 0., 0., 1.]])
     # Transformation matrix from UR5 robot frame to world frame
     Teefraisim2ik = np.array([[ 0., 1., 0., 0.],
@@ -294,7 +294,7 @@ for update in range(args.num_iterations):
                                 [ 0., 0.,  0., 1.]])
 
     # Initial joint angles for UR5 robot arm
-    theta0 = [0.0, -1.57, 1.57, -1.57, -1.57, -1.57]
+    theta0 = [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]
     # Joint weights for inverse kinematics
     joint_weights = [1, 1, 1, 1, 1, 1]
 

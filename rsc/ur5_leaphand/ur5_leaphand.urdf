@@ -326,27 +326,25 @@
     <child link="base"/>
   </joint>
   <!-- Frame coincident with all-zeros TCP on UR controller -->
-  <link name="tool0_tmp"/>
-  <joint name="wrist_3_link-tool0_fixed_joint" type="fixed">
-    <origin rpy="-1.57079632679 0 0" xyz="0 0.05 0"/>
-    <parent link="wrist_3_link"/>
-    <child link="tool0_tmp"/>
-  </joint>
-  
-  <!-- sam as allegro to train -->
   <link name="tool0"/>
-  <joint name="Flange2hand_fixed_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 0"/>
-    <parent link="tool0_tmp"/>
+  <joint name="wrist_3_link-tool0_fixed_joint" type="fixed">
+    <origin rpy="-1.57079632679 0 0" xyz="0 0.0823 0"/>
+    <parent link="wrist_3_link"/>
     <child link="tool0"/>
   </joint>
 
 
-  <!-- joint with leap hand and UR5 -->
-
-  <joint name="tool0-leaphand_fixed_joint" type="fixed">
-    <origin rpy="3.14159265359 0 0" xyz="0.057 -0.039 0.046"/>
+  <!-- adapt to leaphand and allegro hand -->
+  <link name="Flange_base_link"/>
+  <joint name="tool02Flange_fixed_joint" type="fixed">
+    <origin rpy="-3.14159265 0 -1.57079632679" xyz="-0.03 -0.065 0.025"/>   <!-- xyz="0.0 0 0.01"-->
     <parent link="tool0"/>
+    <child link="Flange_base_link"/>
+  </joint>
+
+  <joint name="Flange2hand_fixed_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0"/>      <!-- xyz="0.0091 0 0.013313"-->
+    <parent link="Flange_base_link"/>
     <child link="palm_lower"/>
   </joint>
 

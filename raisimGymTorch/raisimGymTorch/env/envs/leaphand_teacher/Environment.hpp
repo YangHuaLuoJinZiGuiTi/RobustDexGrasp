@@ -83,13 +83,10 @@ namespace raisim {
             base_pos[2] = -0.;
             mano_r_->setBasePos(base_pos);
 
-            // right hand
             hand_center.setZero();
-            hand_center[0] = 0.0; // *2  0.107592      *1  0.0924603
-            hand_center[1] = 0.0; //    -0.000996807       0.00117149
-            hand_center[2] = 0.13; //    0.08785           0.10541
-            // left hand
-            // hand_center[2] = 0.1;
+            hand_center[0] = 0.0;
+            hand_center[1] = -0.05;
+            hand_center[2] = 0.135;
 
 
             /// get actuation dimensions
