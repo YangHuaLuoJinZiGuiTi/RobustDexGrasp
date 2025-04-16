@@ -223,7 +223,7 @@
   <joint name="ee_fixed_joint" type="fixed">
     <parent link="wrist_3_link"/>
     <child link="ee_link"/>
-    <origin rpy="0.0 0.0 1.57079632679" xyz="0.0 0.0823 0.0"/>
+    <origin rpy="0.0 0.0 1.57079632679" xyz="0.0 0.02 0.0"/>
   </joint>
   <link name="ee_link">
     <collision>
@@ -320,15 +320,20 @@
     <child link="base"/>
   </joint>
   <!-- Frame coincident with all-zeros TCP on UR controller -->
-  <link name="tool0"/>
+  <link name="tool0_tmp"/>
   <joint name="wrist_3_link-tool0_fixed_joint" type="fixed">
-    <origin rpy="-1.57079632679 0 0" xyz="0 0.0823 0"/>
+    <origin rpy="-1.57079632679 0 0" xyz="0 0.05 0"/>
     <parent link="wrist_3_link"/>
+    <child link="tool0_tmp"/>
+  </joint>
+  
+  <!-- sam as allegro to train -->
+  <link name="tool0"/>
+  <joint name="Flange2hand_fixed_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="tool0_tmp"/>
     <child link="tool0"/>
   </joint>
-
-
-
 
 
   <!-- joint with leap hand and UR5 -->
