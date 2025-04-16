@@ -364,7 +364,7 @@
 <collision>
 <origin xyz="-0.095574224938392599027 -0.11704001150113751972 0.02077960705260517571" rpy="1.57079632679489678 1.1239611599647231752e-28 3.1415926535897908956" />
 <geometry>
-<mesh filename="leap_left_meshes/palm_lower_left.obj"/>
+<mesh filename="leap_left_meshes/palm_lower_left_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -385,10 +385,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="-0.028 0.038 -0.002" rpy="0 0 0" />
+<geometry>
+<box size="0.026 0.038 0.023"/>
+</geometry>
+<!--
 <origin xyz="0.008406902261174501248 0.0077662438597169980437 0.014657354985032899908" rpy="1.6375789613220999807e-15 -1.0045650589924324925e-30 -1.7121057196142940206e-44" />
 <geometry>
 <mesh filename="leap_left_meshes/mcp_joint.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -408,10 +414,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="0.01 0.0 -0.012" rpy="0 0 0" />
+<geometry>
+<box size="0.048 0.028 0.018"/>
+</geometry>
+<!--
 <origin xyz="0.0096433630922713314826 0.00029999999999999471534 0.00078403401041737472155" rpy="-1.570796326794896558 -1.570796326794896336 0" />
 <geometry>
 <mesh filename="leap_left_meshes/pip.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -431,10 +443,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="0.01 -0.035 -0.002" rpy="0 0 0" />
+<geometry>
+<box size="0.032 0.018 0.022"/>
+</geometry>
+<!--
 <origin xyz="0.021133352895225002849 -0.0084321191467048722812 0.0097850881620952234741" rpy="-3.141592653589793116 4.5075111242164408299e-32 4.4395481053923607589e-32" />
 <geometry>
 <mesh filename="leap_left_meshes/dip.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -456,7 +474,7 @@
 <collision>
 <origin xyz="0.013286424108533503169 -0.00611423838654200167 0.014499999999999513278" rpy="3.141592653589793116 1.1993117970061734707e-33 4.4395481053923607589e-32" />
 <geometry>
-<mesh filename="leap_left_meshes/fingertip.obj"/>
+<mesh filename="leap_left_meshes/fingertip_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -522,10 +540,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="-0.028 0.038 -0.002" rpy="0 0 0" />
+<geometry>
+<box size="0.026 0.038 0.023"/>
+</geometry>
+<!--
 <origin xyz="0.008406902261174501248 0.0077662438597169841659 0.014657354985032906847" rpy="1.6375789613220997835e-15 -1.0045650589925207743e-30 -1.2404717968013979433e-44" />
 <geometry>
 <mesh filename="leap_left_meshes/mcp_joint.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -545,10 +569,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="0.01 0.0 -0.012" rpy="0 0 0" />
+<geometry>
+<box size="0.048 0.028 0.018"/>
+</geometry>
+<!--
 <origin xyz="0.0096433630922713314826 0.00029999999999998777644 0.00078403401041737472155" rpy="-1.570796326794896558 -1.570796326794896336 0" />
 <geometry>
 <mesh filename="leap_left_meshes/pip.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -568,10 +598,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="0.01 -0.035 -0.002" rpy="0 0 0" />
+<geometry>
+<box size="0.032 0.018 0.022"/>
+</geometry>
+<!--
 <origin xyz="0.021133352895225002849 -0.0084321191467048722812 0.0097850881620952373519" rpy="-3.141592653589793116 2.1146933785271955805e-32 1.4408183216511868558e-31" />
 <geometry>
 <mesh filename="leap_left_meshes/dip.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -593,7 +629,7 @@
 <collision>
 <origin xyz="0.013286424108533503169 -0.0061142383865419982006 0.014499999999999492462" rpy="3.141592653589793116 -4.3179597882835943107e-33 1.4408183216511868558e-31" />
 <geometry>
-<mesh filename="leap_left_meshes/fingertip.obj"/>
+<mesh filename="leap_left_meshes/fingertip_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -659,10 +695,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="-0.028 0.038 -0.002" rpy="0 0 0" />
+<geometry>
+<box size="0.026 0.038 0.023"/>
+</geometry>
+<!--
 <origin xyz="0.008406902261174501248 0.0077662438597169980437 0.014657354985032912051" rpy="1.6375789613220999807e-15 -1.0045650589924056927e-30 -1.6748666234615871922e-44" />
 <geometry>
 <mesh filename="leap_left_meshes/mcp_joint.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -682,10 +724,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="0.01 0.0 -0.012" rpy="0 0 0" />
+<geometry>
+<box size="0.048 0.028 0.018"/>
+</geometry>
+<!--
 <origin xyz="0.0096433630922713314826 0.00029999999999999124589 0.00078403401041737472155" rpy="-1.570796326794896558 -1.570796326794896336 0" />
 <geometry>
 <mesh filename="leap_left_meshes/pip.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -705,10 +753,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="0.01 -0.035 -0.002" rpy="0 0 0" />
+<geometry>
+<box size="0.032 0.018 0.022"/>
+</geometry>
+<!--
 <origin xyz="0.021133352895225006318 -0.0084321191467048688117 0.0097850881620952408213" rpy="-3.141592653589793116 -1.4095651113919093005e-33 1.5565411607615035382e-32" />
 <geometry>
 <mesh filename="leap_left_meshes/dip.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -730,7 +784,7 @@
 <collision>
 <origin xyz="0.013286424108533499699 -0.00611423838654200167 0.014499999999999495931" rpy="3.141592653589793116 8.6170716950575402125e-33 1.5565411607615035382e-32" />
 <geometry>
-<mesh filename="leap_left_meshes/fingertip.obj"/>
+<mesh filename="leap_left_meshes/fingertip_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -795,10 +849,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="0.0 0.0 -0.012" rpy="0 0 0" />
+<geometry>
+<box size="0.03 0.02 0.015"/>
+</geometry>
+<!--
 <origin xyz="0.043932212010113096123 0.0068107072931437306895 0.021460907869434775463" rpy="1.570796326794896558 -7.3390819752428127848e-33 -2.4651903288114908395e-32" />
 <geometry>
 <mesh filename="leap_left_meshes/pip.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -818,10 +878,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="0.00 0.0 -0.0" rpy="0 0 0" />
+<geometry>
+<box size="0.002 0.002 0.002"/>
+</geometry>
+<!--
 <origin xyz="0.011961920770611200737 -5.3169274538689137444e-16 -0.015852648956664189273" rpy="1.570796326794896558 1.6544612350564779759e-32 0" />
 <geometry>
 <mesh filename="leap_left_meshes/thumb_pip.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -841,10 +907,16 @@
 </material>
 </visual>
 <collision>
+<origin xyz="0.0 0.0125 0.002" rpy="0 0 0" />
+<geometry>
+<box size="0.02 0.033 0.02"/>
+</geometry>
+<!--
 <origin xyz="0.043968715707239161561 0.057952952973709212503 -0.0086286764493694757122" rpy="1.9428902930940096476e-16 3.2751579226442204717e-15 -2.172448977268026949e-31" />
 <geometry>
 <mesh filename="leap_left_meshes/thumb_dip.obj"/>
 </geometry>
+-->
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -866,7 +938,7 @@
 <collision>
 <origin xyz="0.062559538462667402259 0.078459682911396960714 0.048992911807332208129" rpy="2.586996940753466404e-33 -3.3306690738754701143e-16 4.6050499879454267902e-33" />
 <geometry>
-<mesh filename="leap_left_meshes/thumb_fingertip.obj"/>
+<mesh filename="leap_left_meshes/thumb_fingertip_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
