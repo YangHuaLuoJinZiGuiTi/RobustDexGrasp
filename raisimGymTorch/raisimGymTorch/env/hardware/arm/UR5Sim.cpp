@@ -74,11 +74,11 @@ public:
         }
 
         raisim::Mat<3,3> eef_rot;
-        platform_->getFrameOrientation("Flange2hand_fixed_joint", eef_rot);
+        platform_->getFrameOrientation("tool02Flange_fixed_joint", eef_rot);
         raisim::Vec<3> eef_eul;
         raisim::RotmatToEuler(eef_rot, eef_eul);
         raisim::Vec<3> eef_pos;
-        platform_->getFramePosition("Flange2hand_fixed_joint", eef_pos);
+        platform_->getFramePosition("tool02Flange_fixed_joint", eef_pos);
         eef_pos[0] -= 0.55; 
         eef_pos[1] -= 0.75152; 
         eef_pos[2] -= 0.771; 
@@ -86,8 +86,8 @@ public:
         end_effector_pose_.tail(3) = eef_eul.e();
 
         raisim::Vec<3> eef_vel, eef_angle_vel;
-        platform_->getFrameVelocity("Flange2hand_fixed_joint", eef_vel);
-        platform_->getFrameAngularVelocity("Flange2hand_fixed_joint", eef_angle_vel);
+        platform_->getFrameVelocity("tool02Flange_fixed_joint", eef_vel);
+        platform_->getFrameAngularVelocity("tool02Flange_fixed_joint", eef_angle_vel);
         end_effector_velocity_ = eef_vel.e();
         end_effector_angle_velocity_ = eef_angle_vel.e();
     }

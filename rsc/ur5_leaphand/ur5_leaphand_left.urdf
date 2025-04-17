@@ -337,13 +337,13 @@
   <!-- adapt to leaphand and allegro hand -->
   <link name="Flange_base_link"/>
   <joint name="tool02Flange_fixed_joint" type="fixed">
-    <origin rpy="-3.14159265 0 -1.57079632679" xyz="-0.06 -0.135 0.05"/>   <!-- xyz="0.0 0 0.01"-->
+    <origin rpy="0 0 0" xyz="0 0 0"/>    <!-- xyz="0.0 0 0.01"-->
     <parent link="tool0"/>
     <child link="Flange_base_link"/>
   </joint>
 
   <joint name="Flange2hand_fixed_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 0"/>      <!-- xyz="0.0091 0 0.013313"-->
+    <origin rpy="-3.14159265 0 -1.57079632679" xyz="-0.06 -0.135 0.05"/>      <!-- xyz="0.0091 0 0.013313"-->
     <parent link="Flange_base_link"/>
     <child link="palm_lower_left"/>
   </joint>
