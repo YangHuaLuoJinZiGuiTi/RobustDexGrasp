@@ -602,9 +602,15 @@ for update in range(args.num_iterations):
                     obj_pose_reset,
                     )
 
+    Tinit_obj = np.zeros((num_envs, 4, 4), dtype='float32')
+    for i in range(num_envs):
+        Tinit_obj[i,:3,:3] = rotations.quat2mat(obj_pose_reset[i, 3:7]).reshape(3, 3)
+        Tinit_obj[i,:3,3] = obj_pose_reset[i, :3]
+        Tinit_obj[i,3,3] = 1
+
     obs_new_r, dis_info = env.observe_vision_new()
     env.update_target(target_center)
-    aff_vec_new, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+    aff_vec_new, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device), torch.from_numpy(Tinit_obj).to(device))
     rewards_r_sum = env.get_reward_info_r()
     for i in range(len(rewards_r_sum)):
         rewards_r_sum[i]['affordance_reward'] = 0
@@ -646,7 +652,7 @@ for update in range(args.num_iterations):
 
         obs_new_r, dis_info = env.observe_vision_new()
         obs_new_r = obs_new_r[:].astype('float32')
-        aff_vec_new, _ = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        aff_vec_new, _ = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device), torch.from_numpy(Tinit_obj).to(device))
 
         if biased:
             obj_pos_bias_current = np.zeros((num_envs, 3), dtype='float32')
