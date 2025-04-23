@@ -474,8 +474,8 @@ for update in range(args.num_iterations):
     Tinit_obj = np.zeros((num_envs, 4, 4), dtype='float32')
     for i in range(num_envs):
         Tinit_obj[i,:3,:3] = rotations.quat2mat(obj_pose_reset[i, 3:7]).reshape(3, 3)
-        Tinit_obj[i,:3,3] = obj_pose_reset[i, :3]
-        Tinit_obj[i,3,3] = 1
+    Tinit_obj[:,:3,3] = obj_pose_reset[:, :3]
+    Tinit_obj[:,3,3] = 1
 
     obs_new_r, dis_info = env.observe_vision_new()
     # show_point = dis_info[:, 17:68].astype('float32').copy()

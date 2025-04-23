@@ -487,9 +487,15 @@ for update in range(5):
                     obj_pose_reset,
                     )
 
+    Tinit_obj = np.zeros((num_envs, 4, 4), dtype='float32')
+    for i in range(num_envs):
+        Tinit_obj[i,:3,:3] = rotations.quat2mat(obj_pose_reset[i, 3:7]).reshape(3, 3)
+    Tinit_obj[:,:3,3] = obj_pose_reset[:, :3]
+    Tinit_obj[:,3,3] = 1
+
     obs_new_r, dis_info = env.observe_vision_new()
     # show_point = dis_info[:, 17:68].astype('float32').copy()
-    aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+    aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device), torch.from_numpy(Tinit_obj).to(device))
     # env.set_joint_sensor_visual(show_point)
     env.update_target(target_center)
 
@@ -539,7 +545,7 @@ for update in range(5):
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
         obs_new_r, dis_info = env.observe_vision_new()
-        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device), torch.from_numpy(Tinit_obj).to(device))
         # show_point = dis_info[:, 17:68].astype('float32').copy()
         # env.set_joint_sensor_visual(show_point)
 

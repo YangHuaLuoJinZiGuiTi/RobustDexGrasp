@@ -60,9 +60,8 @@ namespace raisim {
 
             /// add table
             box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "table", raisim::COLLISION(1)));
-            box->setPosition(-0.5, -0.75152, 0.3855);
+            box->setPosition(0.2, -0.75152, 0.3855);
             box->setAppearance("0.0 0.0 0.0 0.0");
-            box->setBodyType(raisim::BodyType::KINEMATIC);
 
             /// set PD control mode
             mano_r_->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
@@ -374,7 +373,7 @@ namespace raisim {
                 //obj_pos_init: reset pose of object
 
                 box->clearExternalForcesAndTorques();
-                box->setPosition(-0.5, -0.75152, 0.3855);
+                box->setPosition(0.2, -0.75152, 0.3855);
                 box->setOrientation(1,0,0,0);
                 box->setVelocity(0,0,0,0,0,0);
 
@@ -430,14 +429,9 @@ namespace raisim {
             pTarget_clipped_r.setZero(gcDim_); pTarget_prev_r.setZero(gcDim_);
 
             /// reset table position (only required in case for inference)
-            box->setPosition(-0.5, -0.75152, 0.3855);
+            box->setPosition(0.2, -0.75152, 0.3855);
             box->setOrientation(1,0,0,0);
-            if (random_velocity) {
-                double rand_vel = rand()/double(RAND_MAX) * 0.04; // 0.0 ~ 0.04 
-                box->setVelocity(rand_vel,0,0,0,0,0);
-            } else {
-                box->setVelocity(0,0,0,0,0,0);
-            }
+            box->setVelocity(0,0,0,0,0,0);
 
             Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
             objPgain.setZero();
@@ -1182,7 +1176,6 @@ namespace raisim {
         bool first_reset_=true;
         float rewards_sum_[2];
         bool has_non_aff = false;
-        bool random_velocity = true;
 //        double hand_mass = 0.0;
 
 //        std::string body_parts_r_[21] = {"right_wrist_0rz",
