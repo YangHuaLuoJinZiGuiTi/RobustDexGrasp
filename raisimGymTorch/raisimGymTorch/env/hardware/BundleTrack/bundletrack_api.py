@@ -6,15 +6,12 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-from Utils import *
-from tool import *
-code_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(f'{code_dir}/BundleTrack/build')
-import my_cpp
-from gui import *
-from BundleTrack.scripts.data_reader import *
-from Utils import *
-from loftr_wrapper import LoftrRunner
+from raisimGymTorch.env.hardware.BundleTrack.Utils import *
+from raisimGymTorch.env.hardware.BundleTrack.tool import *
+from raisimGymTorch.env.hardware.BundleTrack.BundleTrack.build import my_cpp
+from raisimGymTorch.env.hardware.BundleTrack.BundleTrack.scripts.data_reader import *
+from raisimGymTorch.env.hardware.BundleTrack.Utils import *
+from raisimGymTorch.env.hardware.BundleTrack.loftr_wrapper import LoftrRunner
 
 
 class BundleTrackAPI:

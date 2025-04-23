@@ -9,11 +9,9 @@
 
 import os,zmq,pdb,sys,time,torchvision
 code_dir = os.path.dirname(os.path.realpath(__file__))
-import argparse
-import cv2
-import torch,imageio
-from BundleTrack.LoFTR.src.loftr import *
-from Utils import *
+import torch
+from raisimGymTorch.env.hardware.BundleTrack.BundleTrack.LoFTR.src.loftr import *
+from raisimGymTorch.env.hardware.BundleTrack.Utils import *
 
 
 class LoftrRunner:

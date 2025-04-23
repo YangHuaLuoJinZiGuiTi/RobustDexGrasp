@@ -10,8 +10,8 @@
 import joblib,json,gzip,pickle
 from sklearn.cluster import DBSCAN
 import shutil,re,imageio,pdb,os,sys
-from Utils import *
-from BundleTrack.scripts.data_reader import *
+from raisimGymTorch.env.hardware.BundleTrack.Utils import *
+from raisimGymTorch.env.hardware.BundleTrack.BundleTrack.scripts.data_reader import *
 import pandas as pd
 
 
