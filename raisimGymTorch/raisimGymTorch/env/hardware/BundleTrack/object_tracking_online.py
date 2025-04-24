@@ -16,9 +16,56 @@ logging.getLogger().setLevel(logging.ERROR)
 
 import multiprocessing
 import ctypes
+from filterpy.kalman import KalmanFilter
+import csv
+from PySide6.QtWidgets import QApplication
+import matplotlib
+matplotlib.use('Qt5Agg')
+
+class KalmanFilter3D:
+    def __init__(self):
+        self.kf = KalmanFilter(dim_x=6, dim_z=3)
+        # 状态转移矩阵 (假设位置和速度)
+        self.kf.F = np.array([[1, 0, 0, 1, 0, 0],
+                        [0, 1, 0, 0, 1, 0],
+                        [0, 0, 1, 0, 0, 1],
+                        [0, 0, 0, 1, 0, 0],
+                        [0, 0, 0, 0, 1, 0],
+                        [0, 0, 0, 0, 0, 1]])
+        # 观测矩阵
+        self.kf.H = np.array([[1, 0, 0, 0, 0, 0],
+                        [0, 1, 0, 0, 0, 0],
+                        [0, 0, 1, 0, 0, 0]])
+        # 观测噪声协方差矩阵，0.02m的噪声
+        self.kf.R = np.eye(3) * 0.02**2
+        # 过程噪声协方差矩阵，越大越波动响应速度越快？ 1e-3就基本跟随了， 1e-6就基本平滑了
+        self.kf.Q = np.eye(6) * 1e-6
+        # 初始状态协方差矩阵，初始状态不确定性
+        self.kf.P *= 5
+        # 检测移动
+        self.data_buf = np.zeros((4, 3), dtype=np.float32)
+        
+    def move_detect(self, xyzpos):
+        self.data_buf[0:3, :] = self.data_buf[1:4, :]
+        self.data_buf[3, :] = xyzpos
+        
+        mean = np.mean(self.data_buf[0:3, :], axis=0)
+        dif = mean - xyzpos
+        dis = dif[0]*dif[0] + dif[1]*dif[1]
+        if dis > 0.015*0.015:
+            self.kf.Q = np.eye(6) * 1e-3# moving
+        else:
+            self.kf.Q = np.eye(6) * 1e-6# stop
+
+    def filter(self, xyzpos, dt):
+        self.move_detect(xyzpos)
+        self.kf.F[0, 3] = self.kf.F[1, 4] = self.kf.F[2, 5] = dt
+        self.kf.predict()
+        self.kf.update(xyzpos)
+        return self.kf.x[:3]
 
 def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
-    array = np.frombuffer(shared_obj_pose_w.get_obj(), dtype=np.float32).reshape((4, 4))
+    pos_array = np.frombuffer(shared_obj_pose_w.get_obj(), dtype=np.float32).reshape((4, 4))
 
     debug = False 
     if out_folder is not None:
@@ -58,14 +105,21 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
     to_origin = np.eye(4)
     extents = np.array([0.10, 0.06, 0.02])
     show_bbox = np.stack([-extents/2, extents/2], axis=0).reshape(2,3)
-    diff = 0.0
+    diff_t = np.zeros(3)
+    now_t = np.zeros(4)
+    last_t = -1.0
     cnt = 0
-    
+
+    filter_xyz = KalmanFilter3D()
+    # csvfile = open(f"/home/ubuntu/filter.csv","w")
+    # writer = csv.writer(csvfile)
+    # writer.writerows([['kalmanfx', 'x', 'kalmanfy', 'y', 'kalmanfz', 'z']])
+
     print("init finish all !!!")
     shared_init_flag.value = True
 
     while True:
-        start = time.time()
+        now_t[0] = time.time()
 
         np_rgb, np_depth = camera.get_img()
         color = cv2.resize(np_rgb, (W,H), interpolation=cv2.INTER_NEAREST)
@@ -73,6 +127,8 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
 
         mask = segmenter.tack_obj(color)
 
+        now_t[1] = time.time()
+        diff_t[0] = diff_t[0] + now_t[1] - now_t[0]
         have_mask = np.any(mask) 
         if have_mask == False:
             continue
@@ -84,17 +140,37 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
         # cost 0.1 >>> 0.4s for each frame
         pose = tracker.run(color, depth, K, str(cnt), mask=mask, occ_mask=None, pose_in_model=np.eye(4))
 
-        diff = diff + time.time() - start
-        cnt = cnt + 1
-        if cnt % 1 == 0:
-            print(f"1 times cost = {(diff / 1.0)}")
-            diff = 0.0
-
-        Tbase = Tbase2cam @ pose
-        Tsimbase = Tsim2real @ Tbase
-        Tsimworld = Tsimbase @ Tsimbase
+        now_t[2] = time.time()
+        diff_t[1] = diff_t[1] + now_t[2] - now_t[1]
         
-        array[:] = Tsimworld[:]
+        Tframe = np.ones((1,4))  # (N, 4)
+        Tframe[0,:3] = pose[:3, 3]
+        T_base = Tframe @ Tbase2cam.T
+        T_simbase = T_base @ Tsim2real.T
+        T_simworld = T_simbase @ Tsimbase.T
+        
+        if last_t < 0.0:
+            dt = 0.2
+        else:
+            dt = now_t[2] - last_t
+        last_t = now_t[2]
+        new_xyz = filter_xyz.filter(T_simworld[0, :3], dt)
+        now_t[3] = time.time()
+        diff_t[2] = diff_t[2] + now_t[3] - now_t[2]
+
+        pos_array[:3,3] = new_xyz[:3,0]
+        cnt = cnt + 1
+        if cnt % 10 == 0:
+            print(f"10 times cost = {(diff_t / 10.0)}, all = {dt}")
+            diff_t = np.zeros(3)
+        # listset = [new_xyz[0][0], pose[0,3], new_xyz[1][0], pose[1,3], new_xyz[2][0], pose[2,3]]
+        # writer.writerows([listset])
+        # csvfile.flush()
+
+        # Tbase = Tbase2cam @ pose
+        # Tsimbase = Tsim2real @ Tbase
+        # Tsimworld = Tsimbase @ Tsimbase
+        
 
         if debug is True:
             pose = pose@np.linalg.inv(to_origin)
@@ -125,13 +201,16 @@ class obj_track:
                 if self.shared_init_flag.value is True:
                     break
             time.sleep(1)
+        
+        time.sleep(3)
+        print("init all finish ~~~~~!!!!!")
 
     def get_pose(self):
         with self.shared_obj_pose_w.get_lock():
             return np.frombuffer(self.shared_obj_pose_w.get_obj(), dtype=np.float32).reshape((4, 4))
 
 def main():
-    track = obj_track("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/BundleTrack/output")
+    track = obj_track("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", None) # "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/BundleTrack/output"
     print("init finish !!!!")
     while True:
         pose = track.get_pose()
