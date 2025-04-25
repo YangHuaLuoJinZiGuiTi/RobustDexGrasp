@@ -304,6 +304,7 @@ class Realsense:
         config.enable_stream(rs.stream.depth, self.width, self.hight, rs.format.z16, self.rate)
         config.enable_stream(rs.stream.color, self.width, self.hight, rs.format.rgb8, self.rate)
         profile = self.pipeline.start(config)
+        profile.get_device().hardware_reset()
         depth_sensor = profile.get_device().first_depth_sensor()
         self.depth_scale = depth_sensor.get_depth_scale()
         align_to = rs.stream.color

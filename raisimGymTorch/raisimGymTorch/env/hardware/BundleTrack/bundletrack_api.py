@@ -12,13 +12,12 @@ from raisimGymTorch.env.hardware.BundleTrack.BundleTrack.build import my_cpp
 from raisimGymTorch.env.hardware.BundleTrack.BundleTrack.scripts.data_reader import *
 from raisimGymTorch.env.hardware.BundleTrack.Utils import *
 from raisimGymTorch.env.hardware.BundleTrack.loftr_wrapper import LoftrRunner
-
+import time
 
 class BundleTrackAPI:
     def __init__(self, cfg_track_dir=None, translation=None, sc_factor=None):
         with open(cfg_track_dir,'r') as ff:
             self.cfg_track = yaml.load(ff)
-        self.debug_dir = self.cfg_track["debug_dir"]
         self.SPDLOG = self.cfg_track["SPDLOG"]
         self.translation = None
         self.sc_factor = None
@@ -31,6 +30,28 @@ class BundleTrackAPI:
         self.loftr = LoftrRunner()
         self.cnt = -1
         self.K = None
+        self.time_cnt_now = np.zeros(10)
+        self.time_cnt_all = np.zeros(10)
+        self.time_cnt = 0
+        self.time_cnt_log_hz = 10
+    
+    def timec_cnt_log(self, idx:int):
+        if idx > 0:
+            self.time_cnt_now[idx] = time.time()
+            self.time_cnt_all[idx] = self.time_cnt_all[idx] + self.time_cnt_now[idx] - self.time_cnt_now[idx - 1]
+        else:
+            now = time.time()
+            if self.time_cnt_now[idx] < 1e-5:
+                self.time_cnt_now[idx] = now
+            self.time_cnt_all[idx] = self.time_cnt_all[idx] + now - self.time_cnt_now[idx]
+            self.time_cnt_now[idx] = now
+    def time_log(self):
+        self.time_cnt += 1
+        if self.time_cnt == self.time_cnt_log_hz:
+            t = self.time_cnt_all / float(self.time_cnt_log_hz)
+            print(f'tdiff = {t[1]:.3f}, {t[2]:.3f}, {t[3]:.3f}, {t[4]:.3f}, {t[5]:.3f}, {t[6]:.3f}, {t[7]:.3f}, all:{self.time_cnt_all[0] / float(self.time_cnt_log_hz - 1):.3f}')
+            self.time_cnt = 0
+            self.time_cnt_all = np.zeros(10)
 
     def make_frame(self, color, depth, K, id_str, mask=None, occ_mask=None, pose_in_model=np.eye(4)):
         H,W = color.shape[:2]
@@ -83,7 +104,6 @@ class BundleTrackAPI:
 
     def process_new_frame(self, frame):
         self.bundler._newframe = frame
-        os.makedirs(self.debug_dir, exist_ok=True)
 
         if frame._id>0:
             ref_frame = self.bundler._frames[list(self.bundler._frames.keys())[-1]]
@@ -99,7 +119,7 @@ class BundleTrackAPI:
 
         n_fg = (np.array(frame._fg_mask)>0).sum()
         if n_fg<100:
-            logging.info(f"Frame {frame._id_str} cloud is empty, marked FAIL, roi={n_fg}")
+            logging.error(f"Frame {frame._id_str} cloud is empty, marked FAIL, roi={n_fg}")
             frame._status = my_cpp.Frame.FAIL;
             self.bundler.forgetFrame(frame)
             return
@@ -110,7 +130,7 @@ class BundleTrackAPI:
         n_valid = frame.countValidPoints()
         n_valid_first = self.bundler._firstframe.countValidPoints()
         if n_valid<n_valid_first/40.0:
-            logging.info(f"frame _cloud_down points#: {n_valid} too small compared to first frame points# {n_valid_first}, mark as FAIL")
+            logging.error(f"frame _cloud_down points#: {n_valid} too small compared to first frame points# {n_valid_first}, mark as FAIL")
             frame._status = my_cpp.Frame.FAIL
             self.bundler.forgetFrame(frame)
             return

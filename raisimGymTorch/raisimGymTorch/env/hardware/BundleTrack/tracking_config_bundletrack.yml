@@ -1,7 +1,6 @@
 data_dir: /mnt/9a72c439-d0a7-45e8-8d20-d7a235d02763/DATASET/HO3D_v3/evaluation/SM1
 model_name: textured_simple
 model_dir: ''
-debug_dir: ./output/
 init_pose_dir: ''
 SPDLOG: 0
 port: '5555'
@@ -35,7 +34,7 @@ bundle:
   num_iter_outter: 7
   num_iter_inner: 5
   window_size: 5  #exclude keyframes, include new frame
-  max_BA_frames: 10
+  max_BA_frames: 3
   subset_selection_method: normal_orientation_nearest
   depth_association_radius: 5  # 0: findDenseCorr; 1: findDenseCorrNearestNeighbor3D
   non_neighbor_max_rot: 90

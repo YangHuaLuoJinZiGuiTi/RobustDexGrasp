@@ -41,43 +41,49 @@ class KalmanFilter3D:
         self.kf.H[4, 4] = 1  # RY
         self.kf.H[5, 5] = 1  # RZ
 
-        # 观测噪声协方差矩阵，0.02m的噪声, 0.1rad噪声
-        self.kf.R = np.eye(6) * 0.02**2
-        self.kf.R[3,3] = 0.1**2
-        self.kf.R[4,4] = 0.1**2
-        self.kf.R[5,5] = 0.1**2
+        # 观测噪声协方差矩阵，0.0015m的噪声, 0.01rad噪声
+        self.kf.R = np.eye(6) * 0.0015**2
+        self.kf.R[3,3] = 0.01**2
+        self.kf.R[4,4] = 0.01**2
+        self.kf.R[5,5] = 0.01**2
         # 过程噪声协方差矩阵，越大越波动响应速度越快 pose: 1e-3就基本跟随了， 1e-6就基本平滑了, rot:1e-7, 1e-2
-        self.kf.Q = np.eye(12) * 1e-6
+        self.kf.Q = np.eye(12) * 1e-10
         for i, j in [(3,3), (4,4), (5,5), (9, 9), (10, 10), (11, 11)]:
-            self.kf.Q[i, j] = 1e-7
+            self.kf.Q[i, j] = 1e-10
         # 初始状态协方差矩阵，初始状态不确定性
-        self.kf.P *= 5
+        self.kf.P *= 10
         # 检测移动
-        self.data_buf = np.zeros((4, 6), dtype=np.float32)
+        self.win_size = 5
+        self.data_buf = np.zeros((self.win_size, 6), dtype=np.float32)
+        self.move_flag = False
+        self.abs_dis = 0.0
         
     def move_detect(self, pose):
         # move [1,2,3] to [0,1,2] and set [3]
-        self.data_buf[0:3, :] = self.data_buf[1:4, :]
-        self.data_buf[3, :] = pose
-        mean = np.mean(self.data_buf[0:3, :], axis=0)
+        self.data_buf[0:self.win_size-1, :] = self.data_buf[1:self.win_size, :]
+        self.data_buf[self.win_size-1, :] = pose
+        mean = np.mean(self.data_buf[0:self.win_size-1, :], axis=0)
         
         dif = mean - pose
         dis = dif[0]*dif[0] + dif[1]*dif[1]
+        self.abs_dis = dis
         # check safety: x+y>0.1, rx,ry,rz>0.8rad
         
         
         
-        # check moving: x+y>0.015, rx,ry,rz>0.2rad 
-        if dis > 0.015*0.015 or dif[3] > 0.2 or dif[4] > 0.2 or dif[5] > 0.2:
+        # check moving: x+y>0.015, rx,ry,rz>0.2rad  0.05m/s, 5HZ, 
+        if dis > 0.005*0.005 or dif[3] > 0.05 or dif[4] > 0.05 or dif[5] > 0.05:
             # moving
-            self.kf.Q = np.eye(12) * 1e-3
+            self.move_flag = True
+            self.kf.Q = np.eye(12) * 5e-5
             for i, j in [(3,3), (4,4), (5,5), (9, 9), (10, 10), (11, 11)]:
-                self.kf.Q[i, j] = 1e-2
+                self.kf.Q[i, j] = 1e-5
         else:
             # stop
-            self.kf.Q = np.eye(12) * 1e-6
+            self.move_flag = False
+            self.kf.Q = np.eye(12) * 1e-10
             for i, j in [(3,3), (4,4), (5,5), (9, 9), (10, 10), (11, 11)]:
-                self.kf.Q[i, j] = 1e-7
+                self.kf.Q[i, j] = 1e-10
 
     def filter(self, pose, dt):
         self.move_detect(pose)
@@ -87,7 +93,7 @@ class KalmanFilter3D:
         self.kf.update(pose)
         return self.kf.x[:6]
 
-def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
+def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder, log_csv):
     pos_array = np.frombuffer(shared_obj_pose_w.get_obj(), dtype=np.float32).reshape((4, 4))
 
     debug = False 
@@ -135,13 +141,15 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
     cnt = 0
 
     filter_xyz = KalmanFilter3D()
-    csvfile = open(f"/home/ubuntu/filter.csv","w")
-    writer = csv.writer(csvfile)
-    writer.writerows([['kx', 'x', 'ky', 'y', 'kz', 'z', 'rkx', 'rx', 'rky', 'ry', 'rkz', 'rz', 'dt']])
+    if log_csv is True:
+        csvfile = open(f"/home/ubuntu/filter.csv","w")
+        writer = csv.writer(csvfile)
+        writer.writerows([['kx', 'x', 'ky', 'y', 'kz', 'z', 'rkx', 'rx', 'rky', 'ry', 'rkz', 'rz', 'dt', 'move', 'dis', 'occlusion']])
 
     print("init finish all !!!")
     shared_init_flag.value = True
 
+    last_pos = None
     while True:
         now_t[0] = time.time()
 
@@ -163,10 +171,15 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
         mask = cv2.erode(mask.astype(np.uint8), kernel)
 
         # cost 0.1 >>> 0.4s for each frame
+        occlusion_flag = False
         pose = tracker.run(color, depth, K, str(cnt), mask=mask, occ_mask=None, pose_in_model=np.eye(4))
+        if last_pos is None:
+            last_pos = pose
         if mask_area < init_mask_area * 0.6:
             print("occlusion severely")
-            continue
+            occlusion_flag = True
+            pose = last_pos
+        last_pos = pose
 
         now_t[2] = time.time()
         diff_t[1] = diff_t[1] + now_t[2] - now_t[1]
@@ -188,10 +201,11 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
         last_t = now_t[2]
         new_xyz_rxryrz = filter_xyz.filter(xyz_rxryrz, dt)
         
-        listset = [new_xyz_rxryrz[0][0], xyz_rxryrz[0], new_xyz_rxryrz[1][0], xyz_rxryrz[1], new_xyz_rxryrz[2][0], xyz_rxryrz[2],
-                   new_xyz_rxryrz[3][0], xyz_rxryrz[3], new_xyz_rxryrz[4][0], xyz_rxryrz[4], new_xyz_rxryrz[5][0], xyz_rxryrz[5], dt]
-        writer.writerows([listset])
-        csvfile.flush()
+        if log_csv is True:
+            listset = [new_xyz_rxryrz[0][0], xyz_rxryrz[0], new_xyz_rxryrz[1][0], xyz_rxryrz[1], new_xyz_rxryrz[2][0], xyz_rxryrz[2],
+                    new_xyz_rxryrz[3][0], xyz_rxryrz[3], new_xyz_rxryrz[4][0], xyz_rxryrz[4], new_xyz_rxryrz[5][0], xyz_rxryrz[5], dt, filter_xyz.move_flag*0.1, filter_xyz.abs_dis, occlusion_flag*0.1]
+            writer.writerows([listset])
+            csvfile.flush()
 
         now_t[3] = time.time()
         diff_t[2] = diff_t[2] + now_t[3] - now_t[2]
@@ -218,7 +232,7 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
 
 
 class obj_track:
-    def __init__(self, camK_path, out_folder = None):
+    def __init__(self, camK_path, out_folder = None, log_csv = False):
         multiprocessing.set_start_method('spawn', force=True)
         self.manager = multiprocessing.Manager()
         self.shared_dict = self.manager.dict()
@@ -227,7 +241,7 @@ class obj_track:
         self.shared_obj_pose_w = multiprocessing.Array(ctypes.c_float, obj_pose_w.flatten())
         self.shared_init_flag = multiprocessing.Value(ctypes.c_bool, False)
 
-        self.process = multiprocessing.get_context('spawn').Process(target=thread, args=(self.shared_obj_pose_w, self.shared_init_flag, camK_path, out_folder))
+        self.process = multiprocessing.get_context('spawn').Process(target=thread, args=(self.shared_obj_pose_w, self.shared_init_flag, camK_path, out_folder, log_csv))
         
         self.process.start()
 
@@ -245,7 +259,7 @@ class obj_track:
             return np.frombuffer(self.shared_obj_pose_w.get_obj(), dtype=np.float32).reshape((4, 4))
 
 def main():
-    track = obj_track("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", None) # "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/BundleTrack/output"
+    track = obj_track("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", None, True) # "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/BundleTrack/output"
     print("init finish !!!!")
     while True:
         pose = track.get_pose()
