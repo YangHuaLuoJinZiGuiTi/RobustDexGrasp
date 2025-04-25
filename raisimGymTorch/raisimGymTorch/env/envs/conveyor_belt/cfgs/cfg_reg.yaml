@@ -6,7 +6,7 @@ environment:
     kinematic_type: "pinocchio"
     arm_type: "ur5"                
     hand_type: "allegro"
-    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
+    real_world_mode: True          # add suffix "_real" or "_sim" for arm_type and hand_type
     flying_hand_mode: False
     save_state_mode: False
     test_log: False
@@ -47,7 +47,7 @@ environment:
 
   long_steps: False
   biased: False
-  grasp_steps: 10
+  grasp_steps: 55
   top: True
   non_uniform_sampling: False  # 控制是否使用非均匀采样，True为使用非均匀采样，False为使用均匀采样
   eval_during_training: False

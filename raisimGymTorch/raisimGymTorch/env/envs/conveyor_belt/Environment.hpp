@@ -636,8 +636,8 @@ namespace raisim {
             if (max_step_distance_arm < abs(vec(2))) {
                 max_step_distance_arm = abs(vec(2));
             }
-            if (max_step_distance_arm > 0.03) {
-                arm_delay_cnt = round(max_step_distance_arm / 0.025) + 1.0;
+            if (max_step_distance_arm > 0.028) {
+                arm_delay_cnt = round(max_step_distance_arm / 0.028) + 1.0;
                 if (arm_delay_cnt > 5.0) {
                     arm_delay_cnt = 5.0;
                 }
@@ -735,6 +735,7 @@ namespace raisim {
 
                 mano_r_->updateObservation(false, sim_flag);
                 mano_r_->getState(gc_r_, gv_r_, sim_flag);
+                break;
             }
             mano_r_->set_log_data(pTarget_clipped_r, tmp_gc_r_);
 

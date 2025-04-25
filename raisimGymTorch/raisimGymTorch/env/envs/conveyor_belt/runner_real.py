@@ -46,7 +46,7 @@ def main():
 
     weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
     #weight_path_student = 'last/full_1500_r.pt'
-    weight_path_student = 'new/full_5500_r.pt'
+    weight_path_student = 'belt/full_1500_r.pt'
 
     # configuration
     parser = argparse.ArgumentParser()
@@ -149,7 +149,7 @@ def main():
     # Training
     reward_clip = -2.0
     grasp_steps = cfg['environment']['grasp_steps']
-    lift_steps = 10000
+    lift_steps = 8
     n_steps_r = grasp_steps + lift_steps
     total_steps_r = n_steps_r * env.num_envs
 
@@ -476,6 +476,11 @@ def main():
         
         for sim_flag in [False]: # True, False
 
+            Tinit_obj = np.zeros((num_envs, 4, 4), dtype='float32')
+            for i in range(num_envs):
+                Tinit_obj[i, :] = track.get_pose()
+            Ttrack_obj = track.get_pose()
+
             print(f"--------------------------- test in {sim_flag} flag ---------------------- ")
             env.reset_state(qpos_reset_r,
                             qpos_reset_l,
@@ -485,11 +490,6 @@ def main():
                             sim_flag
                             )
 
-            Tinit_obj = np.zeros((num_envs, 4, 4), dtype='float32')
-            for i in range(num_envs):
-                Tinit_obj[i, :] = track.get_pose()
-            
-            Ttrack_obj = track.get_pose()
             obs_new_r, aff_vec = env.observe_student_deploy(torch.from_numpy(visible_points_w).to(device))
             #obs_new_r, dis_info = env.observe_vision_new()
             aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device), torch.from_numpy(Tinit_obj).to(device), Ttrack_obj)
@@ -547,7 +547,7 @@ def main():
                 aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device), torch.from_numpy(Tinit_obj).to(device), Ttrack_obj)
                 env.set_joint_sensor_visual(show_point)
                 end = time.time()
-                print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
+                #print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
                 step = step + 1
             print("end")
             #csvfile.close()
@@ -556,39 +556,17 @@ def main():
             lift_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
             lift_topright = np.zeros((num_envs, 6), dtype='float32')
             lift_topright[0, :] = [1.0, -1.57, 1.57, 0., 1.57, -1.57]
-            # 象棋
-            print("will move ..... ")
+            lift_topleft = np.zeros((num_envs, 6), dtype='float32')
+            lift_topleft[0, :] = [-1.53, -1.74, 2.041, -0.209, 1.884, -1.535]
+            # demo
+            print("will move top ..... ")
             env.final_reset_state(action_r, False, sim_flag, lift_top)
-            print("will move 2 ..... ")
-            tararm = np.zeros((num_envs, 6), dtype='float32')
-            target_pos_deg = [-10.51, -73.79, 106.9, -33, 98.52, -90.13] # 锅盖 / 白菜
-            #target_pos_deg = [-29.2, -77.73, 105.74, -27.99, 74.20, -89.99] # 包子
-            target_pos_rad = [math.radians(angle) for angle in target_pos_deg]
-            tararm[0, :] = target_pos_rad
-            env.final_reset_state(action_r, False, sim_flag, tararm)
+            print("will move left ..... ")
+            env.final_reset_state(action_r, False, sim_flag, lift_topleft)
             print("will release ..... ")
-            env.final_reset_state(action_r, True, sim_flag, tararm)
-            print("back to right ..... ")
-            env.final_reset_state(action_r, True, sim_flag, lift_topright)
+            env.final_reset_state(action_r, True, sim_flag, lift_topleft)
             print("finsh all")
-            exit(0)
-            
-            ## for test
-            # print("will move ..... ")
-            # env.final_reset_state(action_r, False, sim_flag, lift_top)
-            # print("will release ..... ")
-            # env.final_reset_state(action_r, True, sim_flag, lift_top)
-            # print("will move left ..... ")
-            # env.final_reset_state(action_r, True, sim_flag, lift_topright)
-            # print("finsh all")
-            
-            ## for demo show
-            # print("will move ..... ")
-            # env.final_reset_state(action_r, False, sim_flag, True)
-            # env.final_reset_state(action_r, False, sim_flag, False)
-            # env.final_reset_state(action_r, True, sim_flag, False)
-            # print("finsh all")
-            
+
 if __name__ == "__main__":
     multiprocessing.freeze_support()
     main()

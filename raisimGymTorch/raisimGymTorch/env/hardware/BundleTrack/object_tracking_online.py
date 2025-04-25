@@ -8,6 +8,7 @@
 
 import cv2,os,logging,time,sys
 import numpy as np
+from raisimGymTorch.helper import rotations
 from raisimGymTorch.env.hardware.BundleTrack.bundletrack_api import BundleTrackAPI
 from raisimGymTorch.env.hardware.BundleTrack.segment_tracking_cv import mask_predict
 from raisimGymTorch.env.hardware.BundleTrack.Utils import draw_posed_3d_box
@@ -24,45 +25,67 @@ matplotlib.use('Qt5Agg')
 
 class KalmanFilter3D:
     def __init__(self):
-        self.kf = KalmanFilter(dim_x=6, dim_z=3)
-        # 状态转移矩阵 (假设位置和速度)
-        self.kf.F = np.array([[1, 0, 0, 1, 0, 0],
-                        [0, 1, 0, 0, 1, 0],
-                        [0, 0, 1, 0, 0, 1],
-                        [0, 0, 0, 1, 0, 0],
-                        [0, 0, 0, 0, 1, 0],
-                        [0, 0, 0, 0, 0, 1]])
-        # 观测矩阵
-        self.kf.H = np.array([[1, 0, 0, 0, 0, 0],
-                        [0, 1, 0, 0, 0, 0],
-                        [0, 0, 1, 0, 0, 0]])
-        # 观测噪声协方差矩阵，0.02m的噪声
-        self.kf.R = np.eye(3) * 0.02**2
-        # 过程噪声协方差矩阵，越大越波动响应速度越快？ 1e-3就基本跟随了， 1e-6就基本平滑了
-        self.kf.Q = np.eye(6) * 1e-6
+        self.kf = KalmanFilter(dim_x=12, dim_z=6)
+        # status transition matrix: x,y,z,vx,vy,vz, rx,ry,rz,wx,wy,wz
+        self.kf.F = np.eye(12)
+        # Position to velocity, Angle to angular velocity
+        for i, j in [(0, 6), (1, 7), (2, 8), (3, 9), (4, 10), (5, 11)]:
+            self.kf.F[i, j] = 1  # This will be updated with dt later
+
+        # status observation matrix:
+        self.kf.H = np.zeros((6, 12))
+        self.kf.H[0, 0] = 1  # x
+        self.kf.H[1, 1] = 1  # y
+        self.kf.H[2, 2] = 1  # z
+        self.kf.H[3, 3] = 1  # RX
+        self.kf.H[4, 4] = 1  # RY
+        self.kf.H[5, 5] = 1  # RZ
+
+        # 观测噪声协方差矩阵，0.02m的噪声, 0.1rad噪声
+        self.kf.R = np.eye(6) * 0.02**2
+        self.kf.R[3,3] = 0.1**2
+        self.kf.R[4,4] = 0.1**2
+        self.kf.R[5,5] = 0.1**2
+        # 过程噪声协方差矩阵，越大越波动响应速度越快 pose: 1e-3就基本跟随了， 1e-6就基本平滑了, rot:1e-7, 1e-2
+        self.kf.Q = np.eye(12) * 1e-6
+        for i, j in [(3,3), (4,4), (5,5), (9, 9), (10, 10), (11, 11)]:
+            self.kf.Q[i, j] = 1e-7
         # 初始状态协方差矩阵，初始状态不确定性
         self.kf.P *= 5
         # 检测移动
-        self.data_buf = np.zeros((4, 3), dtype=np.float32)
+        self.data_buf = np.zeros((4, 6), dtype=np.float32)
         
-    def move_detect(self, xyzpos):
+    def move_detect(self, pose):
+        # move [1,2,3] to [0,1,2] and set [3]
         self.data_buf[0:3, :] = self.data_buf[1:4, :]
-        self.data_buf[3, :] = xyzpos
-        
+        self.data_buf[3, :] = pose
         mean = np.mean(self.data_buf[0:3, :], axis=0)
-        dif = mean - xyzpos
+        
+        dif = mean - pose
         dis = dif[0]*dif[0] + dif[1]*dif[1]
-        if dis > 0.015*0.015:
-            self.kf.Q = np.eye(6) * 1e-3# moving
+        # check safety: x+y>0.1, rx,ry,rz>0.8rad
+        
+        
+        
+        # check moving: x+y>0.015, rx,ry,rz>0.2rad 
+        if dis > 0.015*0.015 or dif[3] > 0.2 or dif[4] > 0.2 or dif[5] > 0.2:
+            # moving
+            self.kf.Q = np.eye(12) * 1e-3
+            for i, j in [(3,3), (4,4), (5,5), (9, 9), (10, 10), (11, 11)]:
+                self.kf.Q[i, j] = 1e-2
         else:
-            self.kf.Q = np.eye(6) * 1e-6# stop
+            # stop
+            self.kf.Q = np.eye(12) * 1e-6
+            for i, j in [(3,3), (4,4), (5,5), (9, 9), (10, 10), (11, 11)]:
+                self.kf.Q[i, j] = 1e-7
 
-    def filter(self, xyzpos, dt):
-        self.move_detect(xyzpos)
-        self.kf.F[0, 3] = self.kf.F[1, 4] = self.kf.F[2, 5] = dt
+    def filter(self, pose, dt):
+        self.move_detect(pose)
+        for i, j in [(0, 6), (1, 7), (2, 8), (3, 9), (4, 10), (5, 11)]:
+            self.kf.F[i, j] = dt
         self.kf.predict()
-        self.kf.update(xyzpos)
-        return self.kf.x[:3]
+        self.kf.update(pose)
+        return self.kf.x[:6]
 
 def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
     pos_array = np.frombuffer(shared_obj_pose_w.get_obj(), dtype=np.float32).reshape((4, 4))
@@ -101,6 +124,7 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
     bbox = segmenter.get_point_from_image(color)
     input_box = np.array([bbox[0][0],bbox[0][1],bbox[1][0],bbox[1][1]])
     mask = segmenter.reset_all(color, input_point, input_label, input_box)
+    init_mask_area = np.count_nonzero(mask)
 
     to_origin = np.eye(4)
     extents = np.array([0.10, 0.06, 0.02])
@@ -111,9 +135,9 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
     cnt = 0
 
     filter_xyz = KalmanFilter3D()
-    # csvfile = open(f"/home/ubuntu/filter.csv","w")
-    # writer = csv.writer(csvfile)
-    # writer.writerows([['kalmanfx', 'x', 'kalmanfy', 'y', 'kalmanfz', 'z']])
+    csvfile = open(f"/home/ubuntu/filter.csv","w")
+    writer = csv.writer(csvfile)
+    writer.writerows([['kx', 'x', 'ky', 'y', 'kz', 'z', 'rkx', 'rx', 'rky', 'ry', 'rkz', 'rz', 'dt']])
 
     print("init finish all !!!")
     shared_init_flag.value = True
@@ -126,6 +150,7 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
         depth = cv2.resize(np_depth, (W,H), interpolation=cv2.INTER_NEAREST)
 
         mask = segmenter.tack_obj(color)
+        mask_area = np.count_nonzero(mask)
 
         now_t[1] = time.time()
         diff_t[0] = diff_t[0] + now_t[1] - now_t[0]
@@ -139,6 +164,9 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
 
         # cost 0.1 >>> 0.4s for each frame
         pose = tracker.run(color, depth, K, str(cnt), mask=mask, occ_mask=None, pose_in_model=np.eye(4))
+        if mask_area < init_mask_area * 0.6:
+            print("occlusion severely")
+            continue
 
         now_t[2] = time.time()
         diff_t[1] = diff_t[1] + now_t[2] - now_t[1]
@@ -149,23 +177,30 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder):
         T_simbase = T_base @ Tsim2real.T
         T_simworld = T_simbase @ Tsimbase.T
         
+        xyz_rxryrz = np.zeros(6)
+        xyz_rxryrz[:3] = T_simworld[0, :3]
+        xyz_rxryrz[3:6] = rotations.mat2euler(pose[:3,:3])
+        
         if last_t < 0.0:
             dt = 0.2
         else:
             dt = now_t[2] - last_t
         last_t = now_t[2]
-        new_xyz = filter_xyz.filter(T_simworld[0, :3], dt)
+        new_xyz_rxryrz = filter_xyz.filter(xyz_rxryrz, dt)
+        
+        listset = [new_xyz_rxryrz[0][0], xyz_rxryrz[0], new_xyz_rxryrz[1][0], xyz_rxryrz[1], new_xyz_rxryrz[2][0], xyz_rxryrz[2],
+                   new_xyz_rxryrz[3][0], xyz_rxryrz[3], new_xyz_rxryrz[4][0], xyz_rxryrz[4], new_xyz_rxryrz[5][0], xyz_rxryrz[5], dt]
+        writer.writerows([listset])
+        csvfile.flush()
+
         now_t[3] = time.time()
         diff_t[2] = diff_t[2] + now_t[3] - now_t[2]
 
-        pos_array[:3,3] = new_xyz[:3,0]
+        pos_array[:3,3] = new_xyz_rxryrz[:3,0]
         cnt = cnt + 1
         if cnt % 10 == 0:
             print(f"10 times cost = {(diff_t / 10.0)}, all = {dt}")
             diff_t = np.zeros(3)
-        # listset = [new_xyz[0][0], pose[0,3], new_xyz[1][0], pose[1,3], new_xyz[2][0], pose[2,3]]
-        # writer.writerows([listset])
-        # csvfile.flush()
 
         # Tbase = Tbase2cam @ pose
         # Tsimbase = Tsim2real @ Tbase
