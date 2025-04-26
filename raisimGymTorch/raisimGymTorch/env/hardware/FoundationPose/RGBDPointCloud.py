@@ -121,6 +121,7 @@ def create_mask_from_rgb_sensor():
 
     # Configure depth and color streams
     pipeline = rs.pipeline()
+    
     config = rs.config()
     # with open("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview/deviceid.txt",'r') as f:
     #     id=f.read().splitlines()[0]
@@ -128,6 +129,7 @@ def create_mask_from_rgb_sensor():
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 
     # Start streaming
+    pipeline.stop()
     pipeline.start(config)
 
     try:
@@ -275,4 +277,109 @@ def GetPointCloud(camK_path, use_sam):
 
     pipeline.stop()
     return tsim2realpc[:, :3]
+
+
+class GetPointCloudClass:
+    def __init__(self, camK_path):
+        # tf matrix
+        self.Tbase2cam = np.loadtxt(camK_path + "/base2cam.txt", delimiter=',')
+        Treal2sim = np.array([[  0., 1., 0., 0.],
+                            [-1., 0., 0., 0.],
+                            [ 0., 0., 1., 0.],
+                            [ 0., 0., 0., 1.]])
+        self.Tsim2real = np.linalg.inv(Treal2sim)
+        self.Tsimbase = np.array([[   1., 0., 0., 0.],
+                            [ 0., 1., 0., 0.],
+                            [ 0., 0., 1., 0.771],
+                            [ 0., 0., 0., 1.]])
+        
+        # https://support.intelrealsense.com/hc/en-us/community/posts/4405875311123-About-make-sure-FOV-specification-of-D435i 
+        # tf from RGB to left-IR camera
+        self.Tcamrgb2depth = np.array([[  1., 0., 0., 0.],
+                            [0., 1., 0., 0.],
+                            [ 0., 0., 1., 0.],
+                            [ 0., 0., 0., 1.]])
+
+        # realsense get depth
+        self.pipeline = rs.pipeline()
+        config = rs.config()
+        # with open(camK_path + "/deviceid.txt",'r') as f:
+        #     id=f.read().splitlines()[0]
+        #     config.enable_device(id)
+        config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+        config.enable_stream(rs.stream.color, 640, 480, rs.format.rgb8, 30)
+        profile = self.pipeline.start(config)
+        depth_sensor = profile.get_device().first_depth_sensor()
+        self.depth_scale = depth_sensor.get_depth_scale()
+        align_to = rs.stream.color
+        self.align = rs.align(align_to)
+        self.cam_K = np.loadtxt(camK_path + "/camK_640x480.txt", delimiter=',')
+        
+        self.reset()
+
+    def reset(self):
+        self.wait_cnt = 0
+        self.check_indice = None
+        self.mask = None
+        self.valid = None
+        self.check_array = []
+    
+    def GetPointCloud(self):
+        while True:
+            self.wait_cnt += 1
+            frames = self.pipeline.wait_for_frames()
+            aligned_frames = self.align.process(frames)
+            aligned_depth_frame = aligned_frames.get_depth_frame()
+            color_frame = aligned_frames.get_color_frame()
+            if not aligned_depth_frame or not color_frame or self.wait_cnt < 20:
+                continue
+            depth_image = np.asanyarray(aligned_depth_frame.get_data())/1e3
+            color_image = np.asanyarray(color_frame.get_data())
+            depth_image_scaled = (depth_image * self.depth_scale * 1000).astype(np.float32)
+
+            H, W = color_image.shape[:2]
+            color = cv2.resize(color_image, (W,H), interpolation=cv2.INTER_NEAREST)
+            depth = cv2.resize(depth_image_scaled, (W,H), interpolation=cv2.INTER_NEAREST)
+            depth[(depth<0.1) | (depth>=np.inf)] = 0
+
+            # realsense get rgb mask
+            if self.mask is None:
+                self.mask = create_mask_from_align_sensor(color)
+
+            if len(self.mask.shape)==3:
+                for c in range(3):
+                    if self.mask[...,c].sum()>0:
+                        self.mask = self.mask[...,c]
+                        break
+            self.mask = cv2.resize(self.mask, (W,H), interpolation=cv2.INTER_NEAREST).astype(bool).astype(np.uint8)
+            
+            mask_pcd, self.valid, self.check_indice = get_obj_point_cloud(self.cam_K, depth, self.mask, 400, self.valid, self.check_indice)
+            self.check_array.append(mask_pcd)
+            if self.wait_cnt > 45:
+                self.check_array = np.array(self.check_array) # (502, 200, 3)
+                mask_pcd = np.mean(self.check_array, axis=0) # (200, 3)
+            else:
+                continue
+            
+            if False:
+                import open3d as o3d
+                points1 = mask_pcd.reshape(-1, 3).astype(np.float32)
+                cloud = o3d.geometry.PointCloud()
+                cloud.points = o3d.utility.Vector3dVector(points1)
+                o3d.visualization.draw_geometries([cloud])
+
+            filtered_point_cloud = remove_outliers(mask_pcd, k=15, threshold=3.0)
+            selected_indices = np.random.choice(filtered_point_cloud.shape[0], 200, replace=False)
+            mask_pcd_new = filtered_point_cloud[selected_indices]
+
+            mask_pcd_homogeneous = np.hstack((mask_pcd_new, np.ones((mask_pcd_new.shape[0], 1))))  # (200, 4)
+            mask_pcd_homogeneous_depth = mask_pcd_homogeneous @ self.Tcamrgb2depth.T
+            tbase2pcd = mask_pcd_homogeneous_depth @ self.Tbase2cam.T
+            tsim_base2pc = tbase2pcd @ self.Tsim2real.T
+            tsim2realpc = tsim_base2pc @ self.Tsimbase.T
+            
+            break
+        
+        self.reset()
+        return tsim2realpc[:, :3]
 
