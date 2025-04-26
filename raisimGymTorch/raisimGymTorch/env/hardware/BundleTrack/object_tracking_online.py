@@ -57,22 +57,35 @@ class KalmanFilter3D:
         self.data_buf = np.zeros((self.win_size, 6), dtype=np.float32)
         self.move_flag = False
         self.abs_dis = 0.0
+        self.init_pose = None
+        self.safety_flag = True
+        self.last_pose = None
         
     def move_detect(self, pose):
+        # check safety: 
+        if self.init_pose is None:
+            self.init_pose = pose
+        else:
+            self.safety_flag = True
+            delta_pose = abs(self.init_pose - pose)
+            #if delta_pose[2] > 0.025 or delta_pose[3] > 0.15 or delta_pose[4] > 0.1 or delta_pose[5] > 0.1: # topview
+            if delta_pose[2] > 0.025 or delta_pose[3] > 0.45 or delta_pose[4] > 0.4 or delta_pose[5] > 0.3:
+                self.safety_flag = False
+                print(f"not a safety pose: delta_pose={delta_pose}")
+                return
+
         # move [1,2,3] to [0,1,2] and set [3]
         self.data_buf[0:self.win_size-1, :] = self.data_buf[1:self.win_size, :]
         self.data_buf[self.win_size-1, :] = pose
         mean = np.mean(self.data_buf[0:self.win_size-1, :], axis=0)
-        
+
         dif = mean - pose
         dis = dif[0]*dif[0] + dif[1]*dif[1]
         self.abs_dis = dis
-        # check safety: x+y>0.1, rx,ry,rz>0.8rad
-        
-        
         
         # check moving: x+y>0.015, rx,ry,rz>0.2rad  0.05m/s, 5HZ, 
-        if dis > 0.005*0.005 or dif[3] > 0.05 or dif[4] > 0.05 or dif[5] > 0.05:
+        #if dis > 0.005*0.005 or dif[3] > 0.05 or dif[4] > 0.05 or dif[5] > 0.05: # topview
+        if dis > 0.005*0.005 or dif[3] > 0.15 or dif[4] > 0.15 or dif[5] > 0.15:
             # moving
             self.move_flag = True
             self.kf.Q = np.eye(12) * 5e-5
@@ -87,10 +100,13 @@ class KalmanFilter3D:
 
     def filter(self, pose, dt):
         self.move_detect(pose)
+        if self.safety_flag is False:
+            return self.last_pose
         for i, j in [(0, 6), (1, 7), (2, 8), (3, 9), (4, 10), (5, 11)]:
             self.kf.F[i, j] = dt
         self.kf.predict()
         self.kf.update(pose)
+        self.last_pose = self.kf.x[:6]
         return self.kf.x[:6]
 
 def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder, log_csv):
@@ -144,7 +160,7 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder, log_csv):
     if log_csv is True:
         csvfile = open(f"/home/ubuntu/filter.csv","w")
         writer = csv.writer(csvfile)
-        writer.writerows([['kx', 'x', 'ky', 'y', 'kz', 'z', 'rkx', 'rx', 'rky', 'ry', 'rkz', 'rz', 'dt', 'move', 'dis', 'occlusion']])
+        writer.writerows([['kx', 'x', 'ky', 'y', 'kz', 'z', 'rkx', 'rx', 'rky', 'ry', 'rkz', 'rz', 'dt', 'move', 'dis', 'occlusion', 'safety']])
 
     print("init finish all !!!")
     shared_init_flag.value = True
@@ -175,9 +191,10 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder, log_csv):
         pose = tracker.run(color, depth, K, str(cnt), mask=mask, occ_mask=None, pose_in_model=np.eye(4))
         if last_pos is None:
             last_pos = pose
-        if mask_area < init_mask_area * 0.6:
-            print("occlusion severely")
+        if mask_area < init_mask_area * 0.4:
+            print(f"occlusion severely: {mask_area / init_mask_area}")
             occlusion_flag = True
+            #continue
             pose = last_pos
         last_pos = pose
 
@@ -203,7 +220,7 @@ def thread(shared_obj_pose_w, shared_init_flag, camK_path, out_folder, log_csv):
         
         if log_csv is True:
             listset = [new_xyz_rxryrz[0][0], xyz_rxryrz[0], new_xyz_rxryrz[1][0], xyz_rxryrz[1], new_xyz_rxryrz[2][0], xyz_rxryrz[2],
-                    new_xyz_rxryrz[3][0], xyz_rxryrz[3], new_xyz_rxryrz[4][0], xyz_rxryrz[4], new_xyz_rxryrz[5][0], xyz_rxryrz[5], dt, filter_xyz.move_flag*0.1, filter_xyz.abs_dis, occlusion_flag*0.1]
+                    new_xyz_rxryrz[3][0], xyz_rxryrz[3], new_xyz_rxryrz[4][0], xyz_rxryrz[4], new_xyz_rxryrz[5][0], xyz_rxryrz[5], dt, filter_xyz.move_flag*0.1, filter_xyz.abs_dis, occlusion_flag*0.1, filter_xyz.safety_flag*0.1]
             writer.writerows([listset])
             csvfile.flush()
 
@@ -259,7 +276,7 @@ class obj_track:
             return np.frombuffer(self.shared_obj_pose_w.get_obj(), dtype=np.float32).reshape((4, 4))
 
 def main():
-    track = obj_track("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", None, True) # "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/BundleTrack/output"
+    track = obj_track("/home/ubuntu/hand/calculate/0_datasets_allegro_hand", "/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/BundleTrack/output", True) # 
     print("init finish !!!!")
     while True:
         pose = track.get_pose()

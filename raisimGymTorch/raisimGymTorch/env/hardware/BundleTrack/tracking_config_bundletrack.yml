@@ -33,8 +33,8 @@ visible_angle: 70   # Angle between normal and point to camera origin within XXX
 bundle:
   num_iter_outter: 7
   num_iter_inner: 5
-  window_size: 5  #exclude keyframes, include new frame
-  max_BA_frames: 3
+  window_size: 4  #exclude keyframes, include new frame
+  max_BA_frames: 2
   subset_selection_method: normal_orientation_nearest
   depth_association_radius: 5  # 0: findDenseCorr; 1: findDenseCorrNearestNeighbor3D
   non_neighbor_max_rot: 90
@@ -71,9 +71,9 @@ sift:
 feature_corres:
   mutual: true
   map_points: true
-  max_dist_no_neighbor: 0.02
+  max_dist_no_neighbor: 0.03
   max_normal_no_neighbor: 20
-  max_dist_neighbor: 0.02
+  max_dist_neighbor: 0.03
   max_normal_neighbor: 30
   suppression_patch_size: 5
   max_view_normal_angle: 180
@@ -89,7 +89,7 @@ ransac:
   desired_succ_rate: 0.99
   max_trans_neighbor: 0.04   #ransac model estimated pose shouldnt be too far
   max_rot_deg_neighbor: 20
-  max_trans_no_neighbor: 0.02
+  max_trans_no_neighbor: 0.03
   max_rot_no_neighbor: 10
   epipolar_thres: 1
   min_match_after_ransac: 5

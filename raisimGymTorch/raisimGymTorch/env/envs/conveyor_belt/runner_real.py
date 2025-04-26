@@ -46,7 +46,7 @@ def main():
 
     weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
     #weight_path_student = 'last/full_1500_r.pt'
-    weight_path_student = 'belt/full_1500_r.pt'
+    weight_path_student = 'moving_obj_policy_punish_arm_action/full_3000_r.pt'
 
     # configuration
     parser = argparse.ArgumentParser()
@@ -134,6 +134,17 @@ def main():
     env.load_multi_articulated(obj_path_list)
 
 
+    lift_top = np.zeros((num_envs, 6), dtype='float32')
+    lift_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
+    lift_topright = np.zeros((num_envs, 6), dtype='float32')
+    lift_topright[0, :] = [1.0, -1.57, 1.57, 0., 1.57, -1.57]
+    lift_topleft = np.zeros((num_envs, 6), dtype='float32')
+    lift_topleft[0, :] = [-1.53, -1.74, 2.041, -0.209, 1.884, -1.535]
+    
+    # resetaction = np.zeros((num_envs, 22), dtype='float32')
+    # env.final_reset_state(resetaction, True, False, lift_topleft)
+    # exit(0)
+
     ob_dim_r = 153
     # act_dim = env.num_acts
     act_dim = 22
@@ -176,9 +187,10 @@ def main():
     if sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
         data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
     elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
-        rgbd = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
-        vlm = vlm_planner()
-        sam = sam_predict()
+        pass
+        # rgbd = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
+        # vlm = vlm_planner()
+        # sam = sam_predict()
     elif sample_pc_mode == 'auto':
         rs = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
     elif sample_pc_mode == 'mesh':
@@ -253,17 +265,43 @@ def main():
                 print("end")
                 exit(0)
         elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
-            rgb_frame, depth_frame = rgbd.get_rgbd_frame()
-            rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
-            input_point = np.array(rgbd.get_point_from_image(rgb_frame))
-            input_label = np.array([1])  # 为分割对象的性质（背景|前景）
-            bbox = rgbd.get_point_from_image(rgb_frame)
-            input_box = np.array([bbox[0][0],bbox[0][1],bbox[1][0],bbox[1][1]])
-            mask = sam.calculate_mask(rgb_frame, input_point, input_label, input_box)
-            obj_pos_mean, obj_pointcloud = rgbd.GetPointCloud(mask)
-            
+            obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 'manual')
+            obj_pointcloud[:, 2] += 0.01
             obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
-            obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], 0.77, 0.707, 0, 0.707, 0])
+            obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
+        
+            # rgb_frame, depth_frame = rgbd.get_rgbd_frame()
+            # rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
+            # input_point = np.array(rgbd.get_point_from_image(rgb_frame))
+            # input_label = np.array([1])  # 为分割对象的性质（背景|前景）
+            # bbox = rgbd.get_point_from_image(rgb_frame)
+            # input_box = np.array([bbox[0][0],bbox[0][1],bbox[1][0],bbox[1][1]])
+            # mask = sam.calculate_mask(rgb_frame, input_point, input_label, input_box)
+            # obj_pos_mean, obj_pointcloud = rgbd.GetPointCloud(mask)
+            
+            # obj_pointcloud[:, 2] += 0.02
+            # obj_pos_mean[0][2] += 0.02
+            
+            # # 按z轴（第三列）对点云进行排序
+            # sorted_point_cloud = obj_pointcloud[obj_pointcloud[:, 2].argsort()]
+            # z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
+            # max_z = np.max(obj_pointcloud[:,2])
+            # print(f"========== max z = {max_z}, mean z = {z_weighted_mean}")
+            # while max_z - z_weighted_mean > 0.05:
+            #     # 确定z轴的15%分位数作为阈值
+            #     z_threshold = np.percentile(sorted_point_cloud[:, 2], 15)
+
+            #     # 保留z大于或等于阈值的点
+            #     sorted_point_cloud = sorted_point_cloud[sorted_point_cloud[:, 2] >= z_threshold]
+                
+            #     # 计算剩余点云的xyz均值
+            #     z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
+
+            #     print(f"==========mean = {obj_pos_mean[0][2]}, update new weight mean = {z_weighted_mean}")
+            # obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][2], 0.707, 0, 0.707, 0])
+            
+            # obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
+            # obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
             print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
         elif sample_pc_mode == 'auto':
             obj_pos_mean, obj_pointcloud = rs.GetPointCloud()
@@ -284,7 +322,7 @@ def main():
                 z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
 
                 print(f"==========mean = {obj_pos_mean[0][2]}, update new weight mean = {z_weighted_mean}")
-            obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][1], 0.707, 0, 0.707, 0])
+            obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][2], 0.707, 0, 0.707, 0])
         elif sample_pc_mode == 'mesh':
             pass
 
@@ -468,11 +506,11 @@ def main():
 
         # safety check
         check_dis = obj_pose_reset[0, 0]*obj_pose_reset[0, 0] + obj_pose_reset[0, 1]*obj_pose_reset[0, 1]
-        if obj_pose_reset[0, 0] < -0.25 or obj_pose_reset[0, 0] > 0.25 or check_dis < 0.45*0.45 or check_dis > 0.75*0.75 or obj_pose_reset[0, 2] > 1.0:
-            print(f"--------------object pose check error !!! {obj_pose_reset}")
+        if obj_pose_reset[0, 0] < -0.3 or obj_pose_reset[0, 0] > 0.3 or check_dis < 0.48*0.48 or check_dis > 0.75*0.75 or obj_pose_reset[0, 2] > 1.0:
+            print(f"--------------object pose check error !!! obj_pose_reset={obj_pose_reset}, check_dis={check_dis}")
             exit(0)
-            
-        track = obj_track("/home/ubuntu/hand/calculate/0_datasets_allegro_hand_topview", None)
+
+        track = obj_track(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], None, False)
         
         for sim_flag in [False]: # True, False
 
@@ -552,12 +590,6 @@ def main():
             print("end")
             #csvfile.close()
             
-            lift_top = np.zeros((num_envs, 6), dtype='float32')
-            lift_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
-            lift_topright = np.zeros((num_envs, 6), dtype='float32')
-            lift_topright[0, :] = [1.0, -1.57, 1.57, 0., 1.57, -1.57]
-            lift_topleft = np.zeros((num_envs, 6), dtype='float32')
-            lift_topleft[0, :] = [-1.53, -1.74, 2.041, -0.209, 1.884, -1.535]
             # demo
             print("will move top ..... ")
             env.final_reset_state(action_r, False, sim_flag, lift_top)

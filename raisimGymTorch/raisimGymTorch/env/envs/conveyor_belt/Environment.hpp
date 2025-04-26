@@ -636,8 +636,8 @@ namespace raisim {
             if (max_step_distance_arm < abs(vec(2))) {
                 max_step_distance_arm = abs(vec(2));
             }
-            if (max_step_distance_arm > 0.028) {
-                arm_delay_cnt = round(max_step_distance_arm / 0.028) + 1.0;
+            if (max_step_distance_arm > 0.04) {
+                arm_delay_cnt = round(max_step_distance_arm / 0.04) + 1.0;
                 if (arm_delay_cnt > 5.0) {
                     arm_delay_cnt = 5.0;
                 }
