@@ -405,7 +405,7 @@ class RaisimGymVecEnvTest:
         return obs_r, dis_info
 
 
-    def observe_student_aff(self, visible_points, Tinit_obj = None):
+    def observe_student_aff(self, visible_points, Tinit_obj = None, real_track_obj = None):
         self.wrapper.observe(self._observation_r, self._observation_l)
         self.wrapper.get_global_state(self._global_state)
 
@@ -418,11 +418,15 @@ class RaisimGymVecEnvTest:
 
         if Tinit_obj is not None:
             Tobs_obj = np.zeros((num_envs, 4, 4), dtype='float32')
-            for i in range(num_envs):
-                Tobs_obj[i,:3,:3] = rotations.euler2mat(global_state[:, 118:121]).reshape(3, 3)
-                Tobs_obj[i,:3,3] = global_state[:, 105:108]
-                Tobs_obj[i,3,3] = 1
-            Tobs_obj = torch.from_numpy(Tobs_obj).to('cuda')
+            if real_track_obj is not None:
+                for i in range(num_envs):
+                    Tobs_obj[i, :] = real_track_obj
+            else:
+                for i in range(num_envs):
+                    Tobs_obj[i,:3,:3] = rotations.euler2mat(global_state[i, 118:121]).reshape(3, 3)
+                Tobs_obj[:,:3,3] = global_state[:, 105:108]
+                Tobs_obj[:,3,3] = 1
+            Tobs_obj_cuda = torch.from_numpy(Tobs_obj).to('cuda')
 
             Tinit_obj_inv = torch.inverse(Tinit_obj)
             # 为每个点添加齐次坐标，扩展为 (N, 200, 4)
@@ -431,9 +435,15 @@ class RaisimGymVecEnvTest:
             # 计算局部坐标系中的点
             local_points_homogeneous = torch.bmm(visible_points_homogeneous, Tinit_obj_inv.transpose(1, 2))
             # 使用新的变换矩阵将局部点变换到新位置的世界坐标系
-            transformed_points_homogeneous = torch.bmm(local_points_homogeneous, Tobs_obj.transpose(1, 2))
+            transformed_points_homogeneous = torch.bmm(local_points_homogeneous, Tobs_obj_cuda.transpose(1, 2))
             # 去除齐次坐标
             visible_points = transformed_points_homogeneous[..., :3]
+            
+            vis_point = visible_points.reshape(200*3, -1).cpu().numpy().astype('float32')
+            obj_track_pose = np.zeros((num_envs, 8), dtype='float32')
+            obj_track_pose[0, :3] = Tobs_obj[:,:3,3]
+            obj_track_pose[0, 3:7] = rotations.mat2quat(Tobs_obj[i,:3,:3])
+            self.set_sample_point_visual(vis_point, obj_track_pose)
 
         af_dists = torch.cdist(joints, visible_points)
         min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
@@ -661,8 +671,8 @@ class RaisimGymVecEnvTest:
         else:
             self.wrapper.reset_state2(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
 
-    def final_reset_state(self, init_state_r, release_hand, sim_flag, lift_up):
-        self.wrapper.final_reset_state(init_state_r, release_hand, sim_flag, lift_up)
+    def final_reset_state(self, init_state_r, release_hand, sim_flag, set_arm):
+        self.wrapper.final_reset_state(init_state_r, release_hand, sim_flag, set_arm)
 
     def set_goals_r(self, obj_pos_r, ee_pos_r, pose_r, qpos_r):
         self.wrapper.set_goals_r(obj_pos_r, ee_pos_r, pose_r, qpos_r)

@@ -40,7 +40,7 @@ def tensorboard_launcher(directory_path):
 def load_param(weight_path, env, actor, critic, optimizer, data_dir, cfg):
     if weight_path == "":
         raise Exception("\nCan't find the pre-trained weight, please provide a pre-trained weight with --weight switch\n")
-    print("\nloading from the checkpoint:", weight_path+"\n")
+    #print("\nloading from the checkpoint:", weight_path+"\n")
 
     iteration_number = weight_path.rsplit('/', 1)[1].split('_', 1)[1].rsplit('.', 1)[0].split('_')[0]
     weight_dir = weight_path.rsplit('/', 1)[0] + '/'

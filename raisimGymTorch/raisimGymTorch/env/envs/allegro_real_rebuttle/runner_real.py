@@ -254,7 +254,7 @@ while True:
         obj_pos_mean, obj_pointcloud = rgbd.GetPointCloud(mask)
         
         obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
-        obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], 0.77, 0.707, 0, 0.707, 0])
+        obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
         print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
     elif sample_pc_mode == 'auto':
         obj_pos_mean, obj_pointcloud = rs.GetPointCloud()
@@ -535,19 +535,18 @@ while True:
             step = step + 1
         print("end")
         #csvfile.close()
-        
-        ## for test
-        # print("will move ..... ")
-        env.final_reset_state(action_r, False, sim_flag, True)
-        print("will release ..... ")
-        env.final_reset_state(action_r, True, sim_flag, True)
+                
+        lift_top = np.zeros((num_envs, 6), dtype='float32')
+        lift_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
+        lift_topright = np.zeros((num_envs, 6), dtype='float32')
+        lift_topright[0, :] = [1.0, -1.57, 1.57, 0., 1.57, -1.57]
+        lift_topleft = np.zeros((num_envs, 6), dtype='float32')
+        lift_topleft[0, :] = [-1.53, -1.74, 2.041, -0.209, 1.884, -1.535]
+        # demo
+        print("will move top ..... ")
+        env.final_reset_state(action_r, False, sim_flag, lift_top)
         print("will move left ..... ")
-        env.final_reset_state(action_r, True, sim_flag, False)
+        env.final_reset_state(action_r, False, sim_flag, lift_topleft)
+        print("will release ..... ")
+        env.final_reset_state(action_r, True, sim_flag, lift_topleft)
         print("finsh all")
-        
-        ## for demo show
-        # print("will move ..... ")
-        # env.final_reset_state(action_r, False, sim_flag, True)
-        # env.final_reset_state(action_r, False, sim_flag, False)
-        # env.final_reset_state(action_r, True, sim_flag, False)
-        # print("finsh all")

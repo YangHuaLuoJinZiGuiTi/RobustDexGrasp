@@ -557,14 +557,14 @@ namespace raisim {
         reset_state_all(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose, false);
         }
 
-        void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag, bool lift_up) final {
+        void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag, const Eigen::Ref<EigenVec>& set_arm) final {
             Eigen::VectorXd final_arm(6), final_hand(16);
-            if (lift_up) {
-                final_arm << 0.0, -1.57, 1.57, 0., 1.57, -1.57; // lift on top
-            } else {
-                final_arm << 1.0, -1.57, 1.57, 0., 1.57, -1.57; // move a little
-                // final_arm << -1.7, -1.91, 2.07588, 0.05, 1.83, -1.57; // put in box
-            }
+            // if (lift_up) {
+            //     final_arm << 0.0, -1.57, 1.57, 0., 1.57, -1.57; // lift on top
+            // } else {
+            //     final_arm << 1.0, -1.57, 1.57, 0., 1.57, -1.57; // move a little
+            //     //final_arm << -1.7, -1.91, 2.07588, 0.05, 1.83, -1.57; // put in box
+            // }
             final_hand << 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 0.3, 0.6, 0.3, 0.5, 1.3, 0.0, -0.1, 0.2;
             if (release_hand) {
                 pTarget_clipped_r.tail(16) = final_hand;
@@ -574,7 +574,7 @@ namespace raisim {
                 pTarget_r_ += actionMean_r_;
                 pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
             }
-            pTarget_clipped_r.head(6) = final_arm;
+            pTarget_clipped_r.head(6) = set_arm.cast<double>();
             //std::cout << "set lift target = " << pTarget_clipped_r.transpose() << std::endl;
             mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag, true);
         }
