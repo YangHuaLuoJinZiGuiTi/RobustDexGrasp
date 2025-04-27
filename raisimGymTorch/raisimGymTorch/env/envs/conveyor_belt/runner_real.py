@@ -139,10 +139,10 @@ def main():
     lift_topright = np.zeros((num_envs, 6), dtype='float32')
     lift_topright[0, :] = [1.0, -1.57, 1.57, 0., 1.57, -1.57]
     lift_topleft = np.zeros((num_envs, 6), dtype='float32')
-    lift_topleft[0, :] = [-1.53, -1.74, 2.041, -0.209, 1.884, -1.535]
+    lift_topleft[0, :] = [-2.3148, -1.9722, 2.1084, -0.2414, 1.0172, -1.5708]
     
     # resetaction = np.zeros((num_envs, 22), dtype='float32')
-    # env.final_reset_state(resetaction, True, False, lift_topleft)
+    # env.final_reset_state(resetaction, True, False, lift_top)
     # exit(0)
 
     ob_dim_r = 153
@@ -160,7 +160,7 @@ def main():
     # Training
     reward_clip = -2.0
     grasp_steps = cfg['environment']['grasp_steps']
-    lift_steps = 8
+    lift_steps = 4
     n_steps_r = grasp_steps + lift_steps
     total_steps_r = n_steps_r * env.num_envs
 
@@ -183,25 +183,6 @@ def main():
     actor_student_r.architecture.load_state_dict(checkpoint_student['actor_architecture_state_dict'])
     actor_student_r.distribution.load_state_dict(checkpoint_student['actor_distribution_state_dict'])
     prop_latent_encoder.load_state_dict(checkpoint_student['prop_latent_encoder_state_dict'])
-
-    if sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
-        data_producer = FoundationData(os.path.join(f"{directory_path}/{obj_item}/top_watertight_tiny.obj"), cfg['environment']['hardware']['pointcloud_real']['camera_K_path'])
-    elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
-        pass
-        # rgbd = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
-        # vlm = vlm_planner()
-        # sam = sam_predict()
-    elif sample_pc_mode == 'auto':
-        rs = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
-    elif sample_pc_mode == 'mesh':
-        lowest_points = np.zeros((num_envs, 1), dtype='float32')
-        for i in range(num_envs):
-            txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
-            with open(txt_file_path, 'r') as txt_file:
-                lowest_points[i] = float(txt_file.read())
-    else:
-        print(f"unknow sample pc mode input {sample_pc_mode}")
-        exit(0)
 
     while True:
         start = time.time()
@@ -248,83 +229,12 @@ def main():
 
         obj_init_xyz_qwxyz = None
         obj_pointcloud = None
-        if sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
-            try:
-                while True:
-                    time.sleep(1)
-                    obj_init_xyz_qwxyz = data_producer.get_data()
-                    if obj_init_xyz_qwxyz is not None:
-                        #print(f"init success!!! pose is \n {obj_init_xyz_qwxyz}" )
-                        time.sleep(0.5)
-                        obj_init_xyz_qwxyz = data_producer.get_data()
-                        obj_pointcloud = data_producer.get_pcd()
-                        print(f"after filter .... pose is \n {obj_init_xyz_qwxyz}" )
-                        break
-            except KeyboardInterrupt:
-                data_producer.end_thread()
-                print("end")
-                exit(0)
-        elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
+        if sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
             obj_pointcloud = GetPointCloud(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 'manual')
             obj_pointcloud[:, 2] += 0.01
             obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
             obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
-        
-            # rgb_frame, depth_frame = rgbd.get_rgbd_frame()
-            # rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
-            # input_point = np.array(rgbd.get_point_from_image(rgb_frame))
-            # input_label = np.array([1])  # 为分割对象的性质（背景|前景）
-            # bbox = rgbd.get_point_from_image(rgb_frame)
-            # input_box = np.array([bbox[0][0],bbox[0][1],bbox[1][0],bbox[1][1]])
-            # mask = sam.calculate_mask(rgb_frame, input_point, input_label, input_box)
-            # obj_pos_mean, obj_pointcloud = rgbd.GetPointCloud(mask)
-            
-            # obj_pointcloud[:, 2] += 0.02
-            # obj_pos_mean[0][2] += 0.02
-            
-            # # 按z轴（第三列）对点云进行排序
-            # sorted_point_cloud = obj_pointcloud[obj_pointcloud[:, 2].argsort()]
-            # z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
-            # max_z = np.max(obj_pointcloud[:,2])
-            # print(f"========== max z = {max_z}, mean z = {z_weighted_mean}")
-            # while max_z - z_weighted_mean > 0.05:
-            #     # 确定z轴的15%分位数作为阈值
-            #     z_threshold = np.percentile(sorted_point_cloud[:, 2], 15)
-
-            #     # 保留z大于或等于阈值的点
-            #     sorted_point_cloud = sorted_point_cloud[sorted_point_cloud[:, 2] >= z_threshold]
-                
-            #     # 计算剩余点云的xyz均值
-            #     z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
-
-            #     print(f"==========mean = {obj_pos_mean[0][2]}, update new weight mean = {z_weighted_mean}")
-            # obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][2], 0.707, 0, 0.707, 0])
-            
-            # obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
-            # obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
             print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
-        elif sample_pc_mode == 'auto':
-            obj_pos_mean, obj_pointcloud = rs.GetPointCloud()
-
-            # 按z轴（第三列）对点云进行排序
-            sorted_point_cloud = obj_pointcloud[obj_pointcloud[:, 2].argsort()]
-            z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
-            max_z = np.max(obj_pointcloud[:,2])
-            print(f"========== max z = {max_z}, mean z = {z_weighted_mean}")
-            while max_z - z_weighted_mean > 0.05:
-                # 确定z轴的15%分位数作为阈值
-                z_threshold = np.percentile(sorted_point_cloud[:, 2], 15)
-
-                # 保留z大于或等于阈值的点
-                sorted_point_cloud = sorted_point_cloud[sorted_point_cloud[:, 2] >= z_threshold]
-                
-                # 计算剩余点云的xyz均值
-                z_weighted_mean = np.average(sorted_point_cloud[:,2], weights=sorted_point_cloud[:,2]*10)
-
-                print(f"==========mean = {obj_pos_mean[0][2]}, update new weight mean = {z_weighted_mean}")
-            obj_init_xyz_qwxyz = np.array([obj_pos_mean[0][0], obj_pos_mean[0][1], obj_pos_mean[0][2], 0.707, 0, 0.707, 0])
-        elif sample_pc_mode == 'mesh':
-            pass
 
         for i in range(num_envs):
             # get_meaningful_ik = False
@@ -333,77 +243,14 @@ def main():
             if sample_pc_mode == 'manual' or sample_pc_mode == 'auto' or sample_pc_mode == 'sam':
                 obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # mean of pointcloud
                 visible_points_w[i, :] = obj_pointcloud # sample randomly from RGBD in mask
-                angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
-            elif sample_pc_mode == 'mesh' or sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
-                if sample_pc_mode == 'foundationpose' or sample_pc_mode == 'foundationpose_fullpc':
-                    obj_pose_reset[i, :7] = obj_init_xyz_qwxyz
-                    angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
-                    print("------obj reset pose = ", obj_pose_reset)
-                    print("------obj reset angle = ", angle)
-                else:
-                    while True:
-                        angle = np.random.uniform(-0.7 * np.pi, -0.3 * np.pi)
-                        distance = np.random.uniform(0.45, 0.75)
-                        sample_x = distance * np.cos(angle)
-                        sample_y = distance * np.sin(angle)
-                        if sample_x < 0.25 and sample_x > -0.25:
-                            break
-                    obj_pose_reset[i, 0] = sample_x
-                    obj_pose_reset[i, 1] = sample_y
-                    obj_pose_reset[i, 2] = 0.773 - lowest_points[i]
-                    obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]
-
-                    axis_angles = np.zeros((1, 3))
-                    axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
-                    obj_pose_reset[i, 3:7] = rotations.axisangle2quat(axis_angles)
-
-                print(f" ================================= sample obj pose: {obj_pose_reset}")
-
-                ################## set default xyz and quats ############### for debug          
-                # 一下精选   037_scissors 
-                #obj_pose_reset[i, :8] = [-0.24842523, -0.6717001, 0.780741, 0.10874034, 0., 0., -0.9940702, 0.] # 临界值
-                # -0.57723176 -0.9771907   1.1137106  -0.9462291  -0.67278194 -0.99736685 # 正常pose
-                # -0.5753135  -0.9651766   1.0831178  -0.88515085 -0.71819276 -1.0162001  # 异常pose
-                
-                
-                #obj_pose_reset[i, :8] = [0.22135608, -0.5619688, 0.8170985, 0.707, 0.,     0.707,  0., 0.] # 009_gelatin_box 边缘侧放
-                #obj_pose_reset[i, :8] = [0.01878602, -0.6946416, 0.8113495, 0.707, -0.707, 0.,     0., 0.] # 009_gelatin_box 中间正放
-                #obj_pose_reset[i, :8]  = [0.01878602, -0.6946416, 0.8273495, 0.707, 0.,     0.707,  0., 0.] # 009_gelatin_box 中间侧放
-
-                # get the partial point cloud
-                obj_mat_single = rotations.quat2mat(obj_pose_reset[i, 3:7]).reshape(3, 3)
-
-                view_point_obj_diff = view_point_world - obj_pose_reset[i, :3]
-                view_point_obj = np.matmul(obj_mat_single.T, view_point_obj_diff.T).T
-                obj_pcd = env.affordance_pcd[i].reshape(200, 3).cpu().numpy()
-                
-                if sample_pc_mode == 'foundationpose_fullpc':
-                    visible_points_w[i, :] = np.matmul(obj_mat_single, obj_pcd.T).T + obj_pose_reset[i, :3]
-                else:
-                    directions = obj_pcd - view_point_obj
-                    directions = directions / np.linalg.norm(directions, axis=-1, keepdims=True)
-                    locations, index_ray, index_tri = env.aff_mesh[i].ray.intersects_location(ray_origins=view_point_obj,
-                                                                                            ray_directions=directions,
-                                                                                            multiple_hits=False)
-                    if locations.shape != (200, 3):
-                        expanded_locations = np.zeros((200, 3))
-                        expanded_locations[:, :] = locations[0, :]
-                        expanded_locations[:locations.shape[0], :] = locations
-                        locations = expanded_locations
-                    visible_points_obj[i, :] = locations
-                    visible_points_w[i, :] = np.matmul(obj_mat_single, locations.T).T + obj_pose_reset[i, :3]
 
             # get the x_dir of the grasping frame
             obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200,3), axis=0)
-            
-            top_grasp = cfg['environment']['top']
+            obj_aff_center_in_w[0] = 0.0
             # get the x_dir of the grasping frame
-            if top_grasp:
-                hand_dir_x_w = np.zeros((1, 3))
-                hand_dir_x_w[0, 2] = 1
-            else:
-                hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
-                hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
+            # top_grasp:
+            hand_dir_x_w = np.zeros((1, 3))
+            hand_dir_x_w[0, 2] = 1
             pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
 
 
@@ -506,7 +353,7 @@ def main():
 
         # safety check
         check_dis = obj_pose_reset[0, 0]*obj_pose_reset[0, 0] + obj_pose_reset[0, 1]*obj_pose_reset[0, 1]
-        if obj_pose_reset[0, 0] < -0.3 or obj_pose_reset[0, 0] > 0.3 or check_dis < 0.48*0.48 or check_dis > 0.75*0.75 or obj_pose_reset[0, 2] > 1.0:
+        if obj_pose_reset[0, 0] < -0.45 or obj_pose_reset[0, 0] > 0.45 or check_dis < 0.40*0.40 or check_dis > 0.85*0.85 or obj_pose_reset[0, 2] > 1.0:
             print(f"--------------object pose check error !!! obj_pose_reset={obj_pose_reset}, check_dis={check_dis}")
             exit(0)
 
@@ -591,13 +438,16 @@ def main():
             #csvfile.close()
             
             # demo
-            print("will move top ..... ")
-            env.final_reset_state(action_r, False, sim_flag, lift_top)
+            #print("will move top ..... ")
+            #env.final_reset_state(action_r, False, sim_flag, lift_top)
             print("will move left ..... ")
             env.final_reset_state(action_r, False, sim_flag, lift_topleft)
             print("will release ..... ")
             env.final_reset_state(action_r, True, sim_flag, lift_topleft)
+            print("will reset pose")
+            env.final_reset_state(action_r, True, sim_flag, lift_top)
             print("finsh all")
+            exit(0)
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()

@@ -24,7 +24,7 @@ environment:
 
     pointcloud_real:
       camera_K_path: "/home/ubuntu/hand/calculate/0_datasets_allegro_hand" # 0_datasets_allegro_hand_topview or 0_datasets_allegro_hand
-      sample_pointcloud_mode: 'sam' # 'auto' or 'sam' or 'manual' or 'foundationpose' or 'mesh' or 'foundationpose_fullpc'
+      sample_pointcloud_mode: 'manual' # 'auto' or 'sam' or 'manual' or 'foundationpose' or 'mesh' or 'foundationpose_fullpc'
       obj_mesh: 'dummy' # 'random' or 'loopy_head_side' or '035_power_drill' or  'dummy'
 
     kinematic_real:
@@ -36,8 +36,8 @@ environment:
     arm_real:
       ip: "192.168.56.101"
       freq_hz: 500.0
-      move_vel: 0.5 #1.1
-      move_acc: 0.3 #1.0
+      move_vel: 0.8 #1.1
+      move_acc: 0.4 #1.0
       servoJ_ahead_time: 0.16 # range [0.03,0.2] smoothens the trajectory with this lookahead time 0.18 for sysID
       servoJ_gain: 500 # for following target position, range [100,2000] 400 for sysID
       real_velocity_dt_s: 0.1
@@ -54,7 +54,7 @@ environment:
   camera_position: [0.0272, -0.5886, 1.4117]
   curriculum: True
   sample_num: 15
-  length_score_coeff: 999
+  length_score_coeff: 5
   length_ratio_coeff: 0.
   angle_score_coeff: 1
 
