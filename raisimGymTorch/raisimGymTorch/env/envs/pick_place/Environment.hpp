@@ -557,6 +557,10 @@ namespace raisim {
         reset_state_all(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose, false);
         }
 
+        void move_line(double x, double y, double z) final {
+            mano_r_->move_line(x,y,z);
+        }
+
         void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag, const Eigen::Ref<EigenVec>& set_arm) final {
             Eigen::VectorXd final_arm(6), final_hand(16);
             // if (lift_up) {

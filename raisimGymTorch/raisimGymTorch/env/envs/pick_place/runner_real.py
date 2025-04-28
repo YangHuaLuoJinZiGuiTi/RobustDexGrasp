@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
-from raisimGymTorch.env.bin import allegro_real_rebuttle as mano
+from raisimGymTorch.env.bin import pick_place as mano
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
-from raisimGymTorch.env.bin.allegro_real_rebuttle import NormalSampler
+from raisimGymTorch.env.bin.pick_place import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import sample_rot_mats
 from scipy.spatial.transform import Rotation as R
 from random import choice
@@ -36,8 +36,8 @@ import csv
 exp_name = "arm_rand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
-#weight_path_student = 'last/full_1500_r.pt'
-weight_path_student = 'hui_reset_pose/2025-03-20-18-47-17/full_5500_r.pt'
+weight_path_student = 'last/full_1500_r.pt'
+#weight_path_student = 'hui_reset_pose/2025-03-20-18-47-17/full_5500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -120,6 +120,16 @@ env = VecEnv([obj_item], mano.RaisimGymEnv(home_path + "/rsc", dump(cfg['environ
              cfg['environment'], cat_name=cat_name)
 
 print("initialization finished")
+        
+lift_top = np.zeros((num_envs, 6), dtype='float32')
+lift_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
+lift_topright = np.zeros((num_envs, 6), dtype='float32')
+lift_topright[0, :] = [1.0, -1.57, 1.57, 0., 1.57, -1.57]
+lift_topleft = np.zeros((num_envs, 6), dtype='float32')
+lift_topleft[0, :] = [-0.733, -1.57, 1.57, 0., 1.57, -1.57]
+        
+# env.final_reset_state(np.zeros((num_envs, 22), dtype='float32'), True, False, lift_topleft)
+# exit(0)
 
 obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
@@ -140,7 +150,7 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps']
-lift_steps = 5
+lift_steps = 0
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
@@ -213,14 +223,18 @@ while True:
     obj_pointcloud = None
     if sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
         obj_pointcloud = getpc.GetPointCloud()
-        obj_pointcloud[:, 2] += 0.01
+        obj_pointcloud[:, 0] += 0.01 # 0.04 for飞行棋
+        obj_pointcloud[:, 2] -= 0.01 #0.01 for 飞行棋
         obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
         obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
 
         
         place_pc = getpc.GetPointCloud()
-        place_pc[:, 2] += 0.1
+        place_pc[:, 2] += 0.15 #0.15, 0.28 0.35
         plaec_pos_mean = np.mean(place_pc.reshape(200,3), axis=0)
+        
+        print(f"--------------obj pose={obj_pos_mean}")
+        print(f"--------------place pose={plaec_pos_mean}")
 
     for i in range(num_envs):
         # get_meaningful_ik = False
@@ -440,18 +454,22 @@ while True:
             step = step + 1
         print("end")
         #csvfile.close()  
-                
-        lift_top = np.zeros((num_envs, 6), dtype='float32')
-        lift_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
-        lift_topright = np.zeros((num_envs, 6), dtype='float32')
-        lift_topright[0, :] = [1.0, -1.57, 1.57, 0., 1.57, -1.57]
-        lift_topleft = np.zeros((num_envs, 6), dtype='float32')
-        lift_topleft[0, :] = [-1.53, -1.74, 2.041, -0.209, 1.884, -1.535]
+
         # demo
-        print("will move top ..... ")
-        env.final_reset_state(action_r, False, sim_flag, lift_top)
+        print("will move up ..... ")
+        env.move_line(0, 0, 0.2)
         print("will move place ..... ")
         env.final_reset_state(action_r, False, sim_flag, qpos_place_r)
         print("will release ..... ")
+        idx = [7,8,11,12,15,16,20,21]
+        action_r[0, idx] -= 20
+        env.final_reset_state(action_r, False, sim_flag, qpos_place_r)
+        action_r[0, idx] -= 20
+        env.final_reset_state(action_r, False, sim_flag, qpos_place_r)
+        
         env.final_reset_state(action_r, True, sim_flag, qpos_place_r)
+        print("will move up ..... ")
+        env.move_line(0, 0, 0.2)
         print("finsh all")
+        env.final_reset_state(action_r, True, sim_flag, lift_topleft)
+        exit(0)
