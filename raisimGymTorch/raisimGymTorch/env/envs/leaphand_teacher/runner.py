@@ -108,23 +108,6 @@ folder_names = [item for item in items if os.path.isdir(os.path.join(directory_p
 
 obj_path_list = []
 obj_ori_list = folder_names
-if cat_name == 'new_training_set' or cat_name == 'new_training_set_eval':
-    obj_ori_list.append('009_gelatin_box')
-    obj_ori_list.append('011_banana')
-    obj_ori_list.append('011_banana')
-    obj_ori_list.append('019_pitcher_base')
-    obj_ori_list.append('037_scissors')
-    obj_ori_list.append('052_extra_large_clamp')
-    obj_ori_list.append('big_tape')
-    obj_ori_list.append('big_tape')
-    obj_ori_list.append('big_tape')
-    obj_ori_list.append('big_tape')
-    obj_ori_list.append('hammer')
-    obj_ori_list.append('hammer')
-    obj_ori_list.append('loopy_head_side')
-    obj_ori_list.append('loopy_head_side')
-    obj_ori_list.append('small_block')
-    obj_ori_list.append('small_block')
 
 # label = {}
 
@@ -214,7 +197,9 @@ for i in range(4):
     finger_weights[:, 4 * i+4] *= 4.0
 finger_weights[:, 16] *= 2.0
 finger_weights /= finger_weights.sum(axis=1).reshape(-1, 1)
-finger_weights *= 17.0
+finger_weights[:, 0] = 0.0             # Zero weight for palm contact
+finger_weights *= 16.0                 # Scale up for stronger gradient signal
+
 affordance_reward_r = np.zeros((num_envs, 1))
 center_reward_r = np.zeros((num_envs, 1))
 table_reward_r = np.zeros((num_envs, 1))
@@ -282,6 +267,17 @@ for update in range(args.num_iterations):
 
     qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
 
+
+    # partial_obs = cfg['environment']['partial_pt_init_pose']
+    #
+    # if partial_obs:
+    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
+    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
+
+    view_point_world = np.zeros((200, 3))
+    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
+    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
+    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
     hand_center_sample_w = np.zeros((1, 3))
     # hand_center_sample_w[0, 0] = 0.669872 - 0.55
     # hand_center_sample_w[0, 1] = 0.141735 - 0.75152
@@ -314,17 +310,6 @@ for update in range(args.num_iterations):
     ik.setJointLimits(-3.14, 3.14)
 
     sample_num = cfg['environment']['sample_num']
-
-    # partial_obs = cfg['environment']['partial_pt_init_pose']
-    #
-    # if partial_obs:
-    visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')
-    visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')
-
-    view_point_world = np.zeros((200, 3))
-    view_point_world[:, 0] = cfg['environment']['camera_position'][0]
-    view_point_world[:, 1] = cfg['environment']['camera_position'][1]
-    view_point_world[:, 2] = cfg['environment']['camera_position'][2]
 
 
     for i in range(num_envs):
@@ -530,9 +515,8 @@ for update in range(args.num_iterations):
                 if projection_lengths[j] < 0.18:
                     score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
                     score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']
-                    score3 = ((projection_lengths[j] / min(projection_lengths)) ** 2) * cfg['environment']['length_ratio_coeff']
-                    score4 = (abs(ik_results[j, 4]) - 3.2) * cfg['environment']['angle_score_coeff'] * 0.5
-                    scores[j] = score1 + score2 + score3 + score4
+                    score3 = (abs(ik_results[j, 4]) - 3.2) * cfg['environment']['angle_score_coeff'] * 0.5
+                    scores[j] = score1 + score2 + score3
                 else:
                     scores[j] = 10000.
             best_index = np.argmin(scores)
@@ -589,12 +573,8 @@ for update in range(args.num_iterations):
     rewards_r_sum = env.get_reward_info_r()
     for i in range(len(rewards_r_sum)):
         rewards_r_sum[i]['affordance_reward'] = 0
-        # rewards_r_sum[i]['not_affordance_reward'] = 0
-        rewards_r_sum[i]['center_reward'] = 0
         rewards_r_sum[i]['table_reward'] = 0
         rewards_r_sum[i]['arm_height_reward'] = 0
-        rewards_r_sum[i]['arm_action_reward'] = 0
-        rewards_r_sum[i]['hand_action_reward'] = 0
         rewards_r_sum[i]['arm_collision_reward'] = 0
 
         for k in rewards_r_sum[i].keys():
@@ -643,39 +623,24 @@ for update in range(args.num_iterations):
 
         global_state = env.get_global_state()
 
-        abs_dis = np.linalg.norm(global_state[:, 115:118], axis=1)
-        # if distance > 0.1 then give center reward otherwise set to 0
-        center_loss = (abs_dis > 0.07) * (np.square(abs_dis - 0.07))
-
         rewards_r = env.get_reward_info_r()
         affordance_reward_r = - np.sum((dis_info[:, 1:17]) * finger_weights[:, 1:17], axis=1)
-        # table_reward_r = - np.sum(np.log(np.maximum(np.abs(obs_new_r[:, 70:87]), 0.01*np.ones_like(np.abs(obs_new_r[:, 70:87])))) * finger_weights * (np.abs(obs_new_r[:, 70:87]) < 0.03), axis=1)
-        # arm_height_reward_r = - np.sum(np.log(20 * np.clip(obs_new_r[:, 89:93], a_min=0.001 , a_max=0.05)), axis=1)
         table_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 70:87], a_min=0.002, a_max=0.02)) * finger_weights, axis=1)
         arm_height_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 89:93], a_min=0.002, a_max=0.02)), axis=1)
-        # if the abs of the first 6 dim of action_r are larger than 6, then give a negative reward arm_action_reward_r
-        arm_action_reward_r = np.sum((np.abs(action_r[:, :6])-6) * (np.abs(action_r[:, :6]) > 6), axis=1)
-        hand_action_reward_r = np.sum((np.abs(action_r[:, 6:])-6) * (np.abs(action_r[:, 6:]) > 6), axis=1)
     
         one_check = global_state[:, 124:128]
         arm_collision_reward_r = np.sum(one_check, axis=1)
 
         for i in range(num_envs):
             rewards_r[i]['affordance_reward'] = affordance_reward_r[i] * cfg['environment']['reward']['affordance_reward']['coeff']
-            rewards_r[i]['center_reward'] = center_loss[i] * cfg['environment']['reward']['center_reward']['coeff']
             rewards_r[i]['table_reward'] = table_reward_r[i] * cfg['environment']['reward']['table_reward']['coeff']
             rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
-            rewards_r[i]['arm_action_reward'] = arm_action_reward_r[i] * min(update/1000, 1.0) * cfg['environment']['reward']['arm_action_reward']['coeff']
-            rewards_r[i]['hand_action_reward'] = hand_action_reward_r[i] * min(update/1000, 1.0) * cfg['environment']['reward']['hand_action_reward']['coeff']
             rewards_r[i]['arm_collision_reward'] = arm_collision_reward_r[i] * cfg['environment']['reward']['arm_collision_reward']['coeff']
 
-            # rewards_r[i]['reward_sum'] = (
-            #             rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['center_reward'] +
-            #             rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'])
             rewards_r[i]['reward_sum'] = (
-                        rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] + rewards_r[i]['center_reward'] +
-                        rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'] + rewards_r[i]['arm_action_reward'] + 
-                        rewards_r[i]['hand_action_reward'] + rewards_r[i]['arm_collision_reward'])
+                        rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] +
+                        rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'] + 
+                        rewards_r[i]['arm_collision_reward'])
 
             reward_r[i] = rewards_r[i]['reward_sum']
         reward_r.clip(min=reward_clip)

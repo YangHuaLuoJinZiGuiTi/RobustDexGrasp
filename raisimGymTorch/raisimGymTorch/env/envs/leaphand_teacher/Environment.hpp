@@ -243,9 +243,10 @@ namespace raisim {
                     sphere[i] = server_->addVisualSphere(body_parts_r_[i]+"_sphere", 0.005, 0, 1, 0, 1);
                     joints_sphere[i] = server_->addVisualSphere(body_parts_r_[i]+"_joints_sphere", 0.01, 0, 0, 1, 1);
                 }
-                for(int i = 0; i < 5; i++){
+                for(int i = 0; i < 4; i++){
                     aff_center_visual[i] = server_->addVisualSphere(body_parts_r_[i]+"_aff_center", 0.01, 0, 0, 1, 1);
                 }
+                aff_center_visual[4] = server_->addVisualSphere("debug", 0.03, 1, 1, 0, 1);
                 aff_center_visual[5] = server_->addVisualSphere(body_parts_r_[5]+"_aff_center", 0.02, 1, 1, 0, 1);
                 aff_center_visual[6] = server_->addVisualSphere(body_parts_r_[6]+"_aff_center", 0.02, 1, 1, 0, 1);
                 wrist_target[0] = server_->addVisualSphere("wrist_target", 0.03, 1, 0, 1, 1);
@@ -397,6 +398,32 @@ namespace raisim {
             }
         }
 
+        bool check_collision(const Eigen::Ref<EigenVec>& joint_state) final {
+            Eigen::VectorXd sc, sv;
+            sc = joint_state.cast<double>();
+            sv.setZero(gvDim_);
+            mano_r_->setState(sc, sv, true);
+
+            for (int i = 0; i < 4; i++) {
+                if(server_) server_->lockVisualizationServerMutex();
+                world_->integrate();
+                if(server_) server_->unlockVisualizationServerMutex();
+            }
+
+            contacts_arm_all.setZero(6);
+
+            for(auto& contact_arm: mano_r_->getContacts()) {
+                contacts_arm_all[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
+            }
+
+            if (contacts_arm_all[0] > 0 || contacts_arm_all[1] > 0 || contacts_arm_all[2] > 0 || contacts_arm_all[3] > 0) {
+                //std::cout << "the joint config have a self-collision" << contacts_arm_all.transpose() << std::endl;
+                return false;
+            } else {
+                return true;
+            }
+        }
+
         /// Resets the state to a user defined input
         // obj_pose: 8 DOF [trans(3), ori(4, quat), joint angle(1)]
         // init_state_l in right-hand coord
@@ -463,7 +490,7 @@ namespace raisim {
             arctic->setState(arcticCoord, arcticVel);
             mano_r_->setBasePos(base_pos);
             mano_r_->setBaseOrientation(base_mat);
-            mano_r_->setState(gc_set_r_, gv_set_r_);
+            mano_r_->setState(gc_set_r_, gv_set_r_, false, false, false);
 
             /// set initial object state
 
@@ -548,6 +575,7 @@ namespace raisim {
 
             if (visualizable_){
                 aff_center_visual[5]->setPosition(hand_center_w);
+                aff_center_visual[4]->setPosition(wrist_pos_w.e());
             }
 
             /// Compute position target for actuators
@@ -590,7 +618,7 @@ namespace raisim {
             pTarget_prev_r = pTarget_clipped_r;
 
             /// update observation and set new mean to the latest pose
-            updateObservation();
+            updateObservation(lift == false);
             actionMean_r_ = gc_r_;
 
             affordance_contact_reward_r = contacts_r_af.cwiseProduct(finger_weights_contact).sum() / num_contacts;
@@ -619,6 +647,20 @@ namespace raisim {
             else{
                 not_affordance_impulse_reward_r = 0;
             }
+            // Calculate push reward based on sum of impulses_r_af_z
+            push_reward_r = 0;
+            if (impulses_r_af_z[0] > 1.0){
+                push_reward_r += (impulses_r_af_z[0] - 1.0);
+            }
+            for (int i = 1; i < num_contacts; i++){
+                if (impulses_r_af_z[i] > 2.0){
+                    push_reward_r += (impulses_r_af_z[i] - 2.0);
+                }
+            }
+            if (push_reward_r > 10.0){
+                push_reward_r = 10.0;
+            }
+            
             table_impulse_reward_r = impulses_r_table_clipped.cwiseProduct(finger_weights_contact).sum();
 
             arm_table_contact_reward = contacts_arm_table.norm();
@@ -661,24 +703,19 @@ namespace raisim {
            raisim::matmul(obj_rot_w_trans, wrist_mat_r, wrist_mat_r_in_obj);
            raisim::RotmatToEuler(wrist_mat_r_in_obj, wrist_euler_in_obj);
 
-           direction_reward = (wrist_euler_in_obj_init.e()-wrist_euler_in_obj.e()).norm();
-
-
             rewards_r_.record("affordance_contact_reward", std::max(0.0, affordance_contact_reward_r));
-//            rewards_r_.record("affordance_impulse_reward", std::min(obj_weight * 5, affordance_impulse_reward_r));
+            rewards_r_.record("push_reward", std::max(0.0, push_reward_r));
             rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
             rewards_r_.record("table_contact_reward", std::max(0.0, table_contact_reward_r));
             rewards_r_.record("table_impulse_reward", std::max(0.0, table_impulse_reward_r));
             rewards_r_.record("obj_displacement_reward", std::max(0.0, obj_displacement_reward));
             rewards_r_.record("arm_contact_reward", std::max(0.0, arm_table_contact_reward));
             rewards_r_.record("arm_impulse_reward", std::max(0.0, arm_table_impulse_reward));
-            rewards_r_.record("direction_reward", std::max(0.0, direction_reward));
             rewards_r_.record("wrist_vel_reward_", std::max(0.0, wrist_vel_reward_r));
             rewards_r_.record("wrist_qvel_reward_", std::max(0.0, wrist_qvel_reward_r));
             rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
             rewards_r_.record("arm_joint_vel_reward_", std::max(0.0, arm_joint_vel_reward));
             rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
-            rewards_r_.record("torque", std::max(0.0, (right_hand_torque.squaredNorm())));
 
             rewards_sum_[0] = rewards_r_.sum();
             rewards_sum_[1] = 0;
@@ -689,8 +726,8 @@ namespace raisim {
         }
 
         /// This function computes and updates the observation/state space
-        void updateObservation() {
-            mano_r_->updateObservation();
+        void updateObservation(bool start = false) {
+            mano_r_->updateObservation(start);
             // update observation
             impulses_r_af.setZero();
             contacts_r_af.setZero();

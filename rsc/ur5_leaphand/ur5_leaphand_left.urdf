@@ -488,7 +488,7 @@
 <child link="pip" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-1.047" upper = "1.047"/>
-<joint_properties friction="0.0"/>
+<dynamics damping="3.90180564" friction="10"/>
 </joint>
 
 <joint name="leap_joint1" type="revolute">
@@ -497,7 +497,7 @@
 <child link="mcp_joint" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-0.314" upper = "2.23"/>
-<joint_properties friction="0.0"/>
+<dynamics damping="0.01291585" friction="5"/>
 </joint>
 
 <joint name="leap_joint2" type="revolute">
@@ -506,7 +506,7 @@
 <child link="dip" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-0.506" upper = "1.885"/>  
-<joint_properties friction="0.0"/>
+<dynamics damping="6.66517925" friction="10"/>
 </joint>
 
 <joint name="leap_joint3" type="revolute">
@@ -515,7 +515,7 @@
 <child link="fingertip" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-0.366" upper = "2.042"/>   
-<joint_properties friction="0.0"/>
+<dynamics damping="9.79553223" friction="12"/>
 </joint>
 
 
@@ -643,7 +643,7 @@
 <child link="pip_2" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-1.047" upper = "1.047"/>
-<joint_properties friction="0.0"/>
+<dynamics damping="2.68129516" friction="10"/>
 </joint>
 
 <joint name="leap_joint5" type="revolute">
@@ -652,7 +652,7 @@
 <child link="mcp_joint_2" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-0.314" upper = "2.23"/>
-<joint_properties friction="0.0"/>
+<dynamics damping="0.11413904" friction="5"/>
 </joint>
 
 <joint name="leap_joint6" type="revolute">
@@ -661,7 +661,7 @@
 <child link="dip_2" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-0.506" upper = "1.885"/>  
-<joint_properties friction="0.0"/>
+<dynamics damping="8.03685093" friction="10"/>
 </joint>
 
 
@@ -671,7 +671,7 @@
 <child link="fingertip_2" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-0.366" upper = "2.042"/>   
-<joint_properties friction="0.0"/>
+<dynamics damping="0.82893139" friction="12"/>
 </joint>
 
 
@@ -798,7 +798,7 @@
 <child link="pip_3" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-1.047" upper = "1.047"/>
-<joint_properties friction="0.0"/>
+<dynamics damping="5.3809495" friction="10"/>
 </joint>
 
 <joint name="leap_joint9" type="revolute">
@@ -807,7 +807,7 @@
 <child link="mcp_joint_3" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-0.314" upper = "2.23"/>
-<joint_properties friction="0.0"/>
+<dynamics damping="0.10022587" friction="5"/>
 </joint>
 
 <joint name="leap_joint10" type="revolute">
@@ -816,7 +816,7 @@
 <child link="dip_3" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-0.506" upper = "1.885"/>  
-<joint_properties friction="0.0"/>
+<dynamics damping="8.46683884" friction="10"/>
 </joint>
 
 <joint name="leap_joint11" type="revolute">
@@ -825,7 +825,7 @@
 <child link="fingertip_3" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-0.366" upper = "2.042"/>   
-<joint_properties friction="0.0"/>
+<dynamics damping="5.9256773" friction="12"/>
 </joint>
 
 
@@ -952,7 +952,7 @@
 <child link="pip_4" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-2.443" upper = "0.47"/> 
-<joint_properties friction="0.0"/>
+<dynamics damping="0." friction="10"/>
 </joint>
 
 <joint name="leap_joint13" type="revolute">
@@ -961,7 +961,7 @@
 <child link="thumb_pip" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-2.094" upper = "0.349"/> 
-<joint_properties friction="0.0"/>
+<dynamics damping="0." friction="5"/>
 </joint>
 
 <joint name="leap_joint14" type="revolute">
@@ -970,7 +970,7 @@
 <child link="thumb_dip" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-1.20" upper = "1.90"/> 
-<joint_properties friction="0.0"/>
+<dynamics damping="0.9443478" friction="10"/>
 </joint>
 
 <joint name="leap_joint15" type="revolute">
@@ -979,7 +979,7 @@
 <child link="thumb_fingertip" />
 <axis xyz="0 0 -1"/>
 <limit effort="0.95" velocity="8.48" lower = "-1.34" upper = "1.88"/> 
-<joint_properties friction="0.0"/>
+<dynamics damping="2.1758244" friction="12"/>
 </joint>
 
 

@@ -22,13 +22,14 @@ from raisimGymTorch.helper import rotations
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5
 import torch
 
+import csv
 
 # ===== Configuration Parameters =====
 exp_name = "leaphand_teacher"
 
 
 # Selected model weights for evaluation
-weight_saved = 'test/full_500_r.pt'
+weight_saved = 'right/full_2500_r.pt'
 
 
 # Command line argument parsing
@@ -108,7 +109,7 @@ obj_ori_list = folder_names
 
 # Randomly select one object from the list for evaluation
 obj_item = choice(obj_ori_list)
-obj_item = '003_cracker_box'
+#obj_item = '003_cracker_box'
 
 # Initialize vectorized environment with the selected object
 env = VecEnv([obj_item], hand.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
@@ -252,6 +253,8 @@ for update in range(args.num_iterations):
 
         print(f"{sample_x}, {sample_y}, {angle}, {axis_angles[0, 2]}")
         
+        #sample_x, sample_y, angle, axis_angles[0, 2] = -0.03227274010036371, -0.4798850435102864, -1.6379461971429308, 0.11231550954282943
+        
         # Set object position
         obj_pose_reset[i, 0] = sample_x
         obj_pose_reset[i, 1] = sample_y
@@ -339,23 +342,26 @@ for update in range(args.num_iterations):
                 qpos_reset_r[i, :6] = ik_result
 
                 # Check for self-collisions by resetting the environment state
-                env.reset_state(qpos_reset_r,
-                                qpos_reset_l,
-                                np.zeros((num_envs, 22), 'float32'),
-                                np.zeros((num_envs, 22), 'float32'),
-                                obj_pose_reset,
-                                )
+                # env.reset_state(qpos_reset_r,
+                #                 qpos_reset_l,
+                #                 np.zeros((num_envs, 22), 'float32'),
+                #                 np.zeros((num_envs, 22), 'float32'),
+                #                 obj_pose_reset,
+                #                 )
     
-                temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
-                temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
-                _, _, _ = env.step(temp_action_r, temp_action_l)
+                # temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
+                # temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
+                # _, _, _ = env.step(temp_action_r, temp_action_l)
                 
-                # Check collision flags in the global state
-                global_state = env.get_global_state()
-                one_check = global_state[:, 124:128]
-                contains_one = np.any(one_check == 1, axis=1)
-                true_indices = np.where(contains_one)[0]
-                if len(true_indices) > 0:
+                # # Check collision flags in the global state
+                # global_state = env.get_global_state()
+                # one_check = global_state[:, 124:128]
+                # contains_one = np.any(one_check == 1, axis=1)
+                # true_indices = np.where(contains_one)[0]
+                # if len(true_indices) > 0:
+                
+                collision_check = env.check_collision(qpos_reset_r)
+                if not collision_check:
                     # Collision detected, mark as infeasible
                     feasible_ik_flag[j] = False
                     continue
@@ -390,6 +396,7 @@ for update in range(args.num_iterations):
             best_index = np.argmin(projection_lengths)
             qpos_reset_r[i, :6] = ik_results[best_index]
 
+    print(qpos_reset_r)
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
                     np.zeros((num_envs, 22), 'float32'),
@@ -411,6 +418,8 @@ for update in range(args.num_iterations):
     else:
         obj_pos_bias = np.zeros((num_envs, 3), dtype='float32')
 
+    csvfile = open(f"/home/ubuntu/hand/github/vision_dex/raisimGymTorch/raisimGymTorch/env/hardware/log_data/csv/leap_test.csv","w")
+    writer = csv.writer(csvfile)
     # ===== Main Action Execution Loop =====
     for step in range(n_steps_r):
         # Time the start of each frame for real-time control
@@ -419,7 +428,8 @@ for update in range(args.num_iterations):
         # Get current observations
         obs_r = obs_new_r
         obs_r = obs_r[:, :].astype('float32')
-
+        
+        writer.writerows(obs_r)
         # Generate action using the actor network
         action_r = actor_r.architecture.architecture(torch.from_numpy(obs_r.astype('float32')).to(device))
         action_r = action_r.cpu().detach().numpy()
@@ -464,7 +474,8 @@ for update in range(args.num_iterations):
         wait_time = cfg['environment']['control_dt'] - (frame_end - frame_start)
         if wait_time > 0.:
             time.sleep(wait_time)
-
+    
+    csvfile.close()
     print("end")
 
 # ===== End of Evaluation =====
