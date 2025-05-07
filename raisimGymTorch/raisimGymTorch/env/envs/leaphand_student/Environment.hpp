@@ -141,15 +141,14 @@ namespace raisim {
 
             contacts_r_af.setZero(num_contacts); contacts_r_non_af.setZero(num_contacts);
             impulses_r_af.setZero(num_contacts); impulses_r_non_af.setZero(num_contacts);
+            impulses_r_af_vector.setZero(num_contacts*3); impulses_r_non_af_vector.setZero(num_contacts*3);
+            impulses_r_table_vector.setZero(num_contacts*3); impulses_arm_table_vector.setZero(6*3);
+            impulses_r_af_xy.setZero(num_contacts*2); impulses_r_af_z.setZero(num_contacts);
             impulse_high.setZero(num_contacts); impulse_low.setZero(num_contacts);
 
             contacts_r_table.setZero(num_contacts); impulses_r_table.setZero(num_contacts);
             contacts_arm_table.setZero(6); impulses_arm_table.setZero(6);
             contacts_arm_all.setZero(6);
-
-            force_xy_r_af.setZero(num_contacts*2); force_xy_r_non_af.setZero(num_contacts*2); force_xy_r_table.setZero(num_contacts*2); force_xy_arm_table.setZero(6*2);
-            force_z_r_af.setZero(num_contacts); force_z_r_table.setZero(num_contacts);force_z_r_non_af.setZero(num_contacts); force_z_arm_table.setZero(6);
-            impulse_high_table.setZero(num_contacts); max_impulse_xy_r_af.setZero(num_contacts); max_impulse_xyz_r_table.setZero(num_contacts);
 
             pTarget_clipped_r.setZero(gcDim_);
             pTarget_prev_r.setZero(gcDim_);
@@ -612,7 +611,8 @@ namespace raisim {
             impulses_r_af_clipped.setZero(num_contacts);
             impulses_r_non_af_clipped.setZero(num_contacts);
             impulses_r_table_clipped.setZero(num_contacts);
-            impulses_r_af_clipped = impulses_r_af.cwiseMax(impulse_low).cwiseMin(impulse_high);
+            // impulses_r_af_clipped = impulses_r_af.cwiseMax(impulse_low).cwiseMin(impulse_high);
+            impulses_r_af_clipped = impulses_r_af_xy.cwiseMax(impulse_low).cwiseMin(impulse_high);
             impulses_r_non_af_clipped = impulses_r_non_af.cwiseMax(impulse_low).cwiseMin(impulse_high);
             impulses_r_table_clipped = impulses_r_table.cwiseMax(impulse_low).cwiseMin(impulse_high);
 
@@ -624,25 +624,21 @@ namespace raisim {
             else{
                 not_affordance_impulse_reward_r = 0;
             }
+            // Calculate push reward based on sum of impulses_r_af_z
+            push_reward_r = 0;
+            if (impulses_r_af_z[0] > 1.0){
+                push_reward_r += (impulses_r_af_z[0] - 1.0);
+            }
+            for (int i = 1; i < num_contacts; i++){
+                if (impulses_r_af_z[i] > 2.0){
+                    push_reward_r += (impulses_r_af_z[i] - 2.0);
+                }
+            }
+            if (push_reward_r > 10.0){
+                push_reward_r = 10.0;
+            }
+            
             table_impulse_reward_r = impulses_r_table_clipped.cwiseProduct(finger_weights_contact).sum();
-
-            max_force_reward_r = 0.0;
-            if (force_z_r_af[0] > 100.0) {
-                max_force_reward_r += (force_z_r_af[0] - 100.0) * 0.01;
-            } 
-            if (force_z_r_table[0] > 100.0) {
-                max_force_reward_r += (force_z_r_table[0] - 100.0) * 0.01;
-            }
-
-            for (int i = 1; i < num_contacts; i++) {
-                if (force_z_r_af[i] > 200.0) {
-                    max_force_reward_r += (force_z_r_af[i] - 200.0) * 0.01;
-                }
-                if (force_z_r_table[i] > 240.0) {
-                    max_force_reward_r += (force_z_r_table[i] - 240.0) * 0.01;
-                }
-            }
-            if (max_force_reward_r > 5.0) max_force_reward_r = 5.0;
 
             arm_table_contact_reward = contacts_arm_table.norm();
             arm_table_impulse_reward = impulses_arm_table.norm();
@@ -685,9 +681,8 @@ namespace raisim {
            direction_reward = (wrist_euler_in_obj_init.e()-wrist_euler_in_obj.e()).norm();
 
 
-           rewards_r_.record("max_force_reward", std::max(0.0, max_force_reward_r));
             rewards_r_.record("affordance_contact_reward", std::max(0.0, affordance_contact_reward_r));
-//            rewards_r_.record("affordance_impulse_reward", std::min(obj_weight * 5, affordance_impulse_reward_r));
+            rewards_r_.record("push_reward", std::max(0.0, push_reward_r));
             rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
             rewards_r_.record("table_contact_reward", std::max(0.0, table_contact_reward_r));
             rewards_r_.record("table_impulse_reward", std::max(0.0, table_impulse_reward_r));
@@ -723,14 +718,12 @@ namespace raisim {
             contacts_arm_table.setZero();
             impulses_arm_table.setZero();
             contacts_arm_all.setZero();
-            force_xy_r_af.setZero();
-            force_xy_r_non_af.setZero();
-            force_xy_r_table.setZero();
-            force_xy_arm_table.setZero();
-            force_z_r_af.setZero();
-            force_z_r_non_af.setZero();
-            force_z_r_table.setZero();
-            force_z_arm_table.setZero();
+            impulses_r_af_vector.setZero();
+            impulses_r_non_af_vector.setZero();
+            impulses_r_table_vector.setZero();
+            impulses_arm_table_vector.setZero();
+            impulses_r_af_xy.setZero();
+            impulses_r_af_z.setZero();
 
             raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
@@ -766,70 +759,121 @@ namespace raisim {
                 if (contact_af.skip() || contact_af.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
                 if (contact_af.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
                 if (contact_list_obj[contact_af.getPairContactIndexInPairObject()].getlocalBodyIndex() != affordance_id) continue;
-                contacts_r_af[contactMapping_r_[contact_af.getlocalBodyIndex()]] = 1;
-                impulses_r_af[contactMapping_r_[contact_af.getlocalBodyIndex()]] = contact_af.getImpulse().norm();
-
+                if (contact_af.getImpulse().e().norm() < 0.001) continue;
+                // contacts_r_af[contactMapping_r_[contact_af.getlocalBodyIndex()]] = 1;
+                // impulses_r_af[contactMapping_r_[contact_af.getlocalBodyIndex()]] = contact_af.getImpulse().norm();
                 int idx = contactMapping_r_[contact_af.getlocalBodyIndex()];
-                Eigen::VectorXd impulseW = (contact_af.getContactFrame().e().transpose() * contact_af.getImpulse().e())/ world_->getTimeStep();
-                if (!contact_af.isObjectA()) impulseW = -impulseW;
-                force_xy_r_af[idx*2] += impulseW[0];
-                force_xy_r_af[idx*2+1] += impulseW[1];
-                force_z_r_af[idx] += impulseW[2];
+                // contacts_r_af[idx] = 1;
+                Eigen::Vector3d impulse = contact_af.getContactFrame().e().transpose() * contact_af.getImpulse().e();
+                if (!contact_af.isObjectA()) impulse = -impulse;
+                // raisim::matTransposevecmul(contact_af.getContactFrame(), contact_af.getImpulse(), impulse);
+                impulses_r_af_vector[idx*3] += impulse[0];
+                impulses_r_af_vector[idx*3+1] += impulse[1];
+                impulses_r_af_vector[idx*3+2] += impulse[2];
             }
-            // for (int i = 0; i < num_contacts; i++) {
-            //     impulses_r_af[i] = sqrt(force_xy_r_af[i*2]*force_xy_r_af[i*2]+force_xy_r_af[i*2+1]*force_xy_r_af[i*2+1]);
+
+            for(int i = 0; i < num_contacts; i++){
+                impulses_r_af[i] = impulses_r_af_vector.segment<3>(i*3).norm();
+                impulses_r_af_xy[i] = impulses_r_af_vector.segment<2>(i*3).norm();
+                impulses_r_af_z[i] = impulses_r_af_vector[i*3+2];
+                if(impulses_r_af[i] > 0.01){
+                    contacts_r_af[i] = 1;
+                }
+                else{
+                    contacts_r_af[i] = 0;
+                }
+            }
+
+            // for(int i = 0; i < num_contacts; i++){
+            //     float impulse_af = impulses_r_af_vector.segment<3>(i*3).norm();
+            //     float impulse_af_norm = impulses_r_af[i];
+            //     if(impulse_af != impulse_af_norm){
+            //         std::cout<<"impulse_af: "<<impulse_af<<std::endl;
+            //         std::cout<<"impulse_af_norm: "<<impulse_af_norm<<std::endl;
+            //         std::cout<<"diff: "<<impulse_af - impulse_af_norm<<std::endl;
+            //     }
             // }
 
             for(auto& contact_non_af: mano_r_->getContacts()) {
                 if (contact_non_af.skip() || contact_non_af.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
                 if (contact_non_af.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
                 if (contact_list_obj[contact_non_af.getPairContactIndexInPairObject()].getlocalBodyIndex() != non_affordance_id) continue;
-                contacts_r_non_af[contactMapping_r_[contact_non_af.getlocalBodyIndex()]] = 1;
-                impulses_r_non_af[contactMapping_r_[contact_non_af.getlocalBodyIndex()]] = contact_non_af.getImpulse().norm();
-
+                if (contact_non_af.getImpulse().e().norm() < 0.001) continue;
+                // contacts_r_non_af[contactMapping_r_[contact_non_af.getlocalBodyIndex()]] = 1;
+                // impulses_r_non_af[contactMapping_r_[contact_non_af.getlocalBodyIndex()]] = contact_non_af.getImpulse().norm();
                 int idx = contactMapping_r_[contact_non_af.getlocalBodyIndex()];
-                Eigen::VectorXd impulseW = (contact_non_af.getContactFrame().e().transpose() * contact_non_af.getImpulse().e())/ world_->getTimeStep();
-                if (!contact_non_af.isObjectA()) impulseW = -impulseW;
-                force_xy_r_non_af[idx*2] += impulseW[0];
-                force_xy_r_non_af[idx*2+1] += impulseW[1];
-                force_z_r_non_af[idx] += impulseW[2];
+                // contacts_r_non_af[idx] = 1;
+                Eigen::Vector3d impulse = contact_non_af.getContactFrame().e().transpose() * contact_non_af.getImpulse().e();
+                if (!contact_non_af.isObjectA()) impulse = -impulse;
+                // raisim::matTransposevecmul(contact_non_af.getContactFrame(), contact_non_af.getImpulse(), impulse);
+                impulses_r_non_af_vector[idx*3] += impulse[0];
+                impulses_r_non_af_vector[idx*3+1] += impulse[1];
+                impulses_r_non_af_vector[idx*3+2] += impulse[2];
             }
-            // for (int i = 0; i < num_contacts; i++) {
-            //     impulses_r_non_af[i] = sqrt(force_xy_r_non_af[i*2]*force_xy_r_non_af[i*2]+force_xy_r_non_af[i*2+1]*force_xy_r_non_af[i*2+1]);
-            // }
+
+            for(int i = 0; i < num_contacts; i++){
+                impulses_r_non_af[i] = impulses_r_non_af_vector.segment<3>(i*3).norm();
+                if(impulses_r_non_af[i] > 0.01){
+                    contacts_r_non_af[i] = 1;
+                }
+                else{
+                    contacts_r_non_af[i] = 0;
+                }
+            }
 
             for(auto& contact_table: mano_r_->getContacts()) {
                 if (contact_table.skip() || contact_table.getPairObjectIndex() != box->getIndexInWorld()) continue;
-                contacts_r_table[contactMapping_r_[contact_table.getlocalBodyIndex()]] = 1;
-                impulses_r_table[contactMapping_r_[contact_table.getlocalBodyIndex()]] = contact_table.getImpulse().norm();
-        
-                int idx = contactMapping_r_[contact_table.getlocalBodyIndex()];
-                Eigen::VectorXd impulseW = (contact_table.getContactFrame().e().transpose() * contact_table.getImpulse().e())/ world_->getTimeStep();
-                if (!contact_table.isObjectA()) impulseW = -impulseW;
-                force_xy_r_table[idx*2] += impulseW[0];
-                force_xy_r_table[idx*2+1] += impulseW[1];
-                force_z_r_table[idx] += impulseW[2];
+//                 contacts_r_table[contactMapping_r_[contact_table.getlocalBodyIndex()]] = 1;
+// //                std::cout << "contact idx: " << contact_table.getlocalBodyIndex() << std::endl;
+// //                std::cout << "contact body: " << contactMapping_r_[contact_table.getlocalBodyIndex()] << std::endl;
+// //                std::cout << "contact name: " << contact_bodies_r_[contactMapping_r_[contact_table.getlocalBodyIndex()]] << std::endl;
+//                 impulses_r_table[contactMapping_r_[contact_table.getlocalBodyIndex()]] = contact_table.getImpulse().norm();
+                if (contact_table.getImpulse().e().norm() < 0.001) continue;
+                    int idx = contactMapping_r_[contact_table.getlocalBodyIndex()];
+                    // contacts_r_table[idx] = 1;
+                    Eigen::Vector3d impulse = contact_table.getContactFrame().e().transpose() * contact_table.getImpulse().e();
+                    if (!contact_table.isObjectA()) impulse = -impulse;
+                    // raisim::matTransposevecmul(contact_table.getContactFrame(), contact_table.getImpulse(), impulse);
+                    impulses_r_table_vector[idx*3] += impulse[0];
+                    impulses_r_table_vector[idx*3+1] += impulse[1];
+                    impulses_r_table_vector[idx*3+2] += impulse[2];
             }
-            // for (int i = 0; i < num_contacts; i++) {
-            //     impulses_r_table[i] = sqrt(force_xy_r_table[i*2]*force_xy_r_table[i*2]+force_xy_r_table[i*2+1]*force_xy_r_table[i*2+1]+force_z_r_table[i]*force_z_r_table[i]);
-            // }
 
+            for(int i = 0; i < num_contacts; i++){
+                impulses_r_table[i] = impulses_r_table_vector.segment<3>(i*3).norm();
+                if(impulses_r_table[i] > 0.01){
+                    contacts_r_table[i] = 1;
+                }
+                else{
+                    contacts_r_table[i] = 0;
+                }
+            }   
+            
             for(auto& contact_arm: mano_r_->getContacts()) {
                 if ((contact_arm.skip() || contact_arm.getPairObjectIndex() != arctic->getIndexInWorld()) && (contact_arm.skip() || contact_arm.getPairObjectIndex() != box->getIndexInWorld())) continue;
-                contacts_arm_table[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
-                impulses_arm_table[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = contact_arm.getImpulse().norm();
-    
+                // contacts_arm_table[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
+                // impulses_arm_table[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = contact_arm.getImpulse().norm();
+                if (contact_arm.getImpulse().e().norm() < 0.001) continue;
                 int idx = contactMapping_arm_[contact_arm.getlocalBodyIndex()];
-                Eigen::VectorXd impulseW = (contact_arm.getContactFrame().e().transpose() * contact_arm.getImpulse().e())/ world_->getTimeStep();
-                if (!contact_arm.isObjectA()) impulseW = -impulseW;
-                force_xy_arm_table[idx*2] += impulseW[0];
-                force_xy_arm_table[idx*2+1] += impulseW[1];
-                force_z_arm_table[idx] += impulseW[2];
+                // contacts_arm_table[idx] = 1;
+                Eigen::Vector3d impulse = contact_arm.getContactFrame().e().transpose() * contact_arm.getImpulse().e();
+                if (!contact_arm.isObjectA()) impulse = -impulse;
+                // raisim::matTransposevecmul(contact_arm.getContactFrame(), contact_arm.getImpulse(), impulse);
+                impulses_arm_table_vector[idx*3] += impulse[0];
+                impulses_arm_table_vector[idx*3+1] += impulse[1];
+                impulses_arm_table_vector[idx*3+2] += impulse[2];
             }
-            // for (int i = 0; i < 6; i++) {
-            //     impulses_arm_table[i] = sqrt(force_xy_arm_table[i*2]*force_xy_arm_table[i*2]+force_xy_arm_table[i*2+1]*force_xy_arm_table[i*2+1]+force_z_arm_table[i]*force_z_arm_table[i]);
-            // }
 
+            for(int i = 0; i < 6; i++){
+                impulses_arm_table[i] = impulses_arm_table_vector.segment<3>(i*3).norm();
+                if(impulses_arm_table[i] > 0.01){
+                    contacts_arm_table[i] = 1;
+                }
+                else{
+                    contacts_arm_table[i] = 0;
+                }
+            }   
+            
             for(auto& contact_arm: mano_r_->getContacts()) {
 //                if (contact_arm.skip()) continue;
                 contacts_arm_all[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
@@ -1072,26 +1116,12 @@ namespace raisim {
 //                    return true;
 //                }
 //            }
-            // if (force_z_r_table[0] > 250.0) {
-            //     terminalReward = -10;
-            //     //std::cout<<"too large force in z axis: "<<force_z_r_table[i]<<std::endl;
-            // }
-            if (force_z_r_af[0] > 150.0){
-                terminalReward = -10;
-
-                test_cnt++;
-                if (test_cnt > 100) {
-
-                    std::cout<<"too large hand in z axis: "<<force_z_r_af[0]<<std::endl;
-                    test_cnt = 0;
-                }
-            }
 
 
             for(int i = 0; i < num_bodyparts ; i++){
                 if (joint_height_w[i] < -0.0){
                     terminalReward = -10;
-                    std::cout<<"joint_height_w: "<<joint_height_w[i]<<std::endl;
+                    // std::cout<<"joint_height_w: "<<joint_height_w[i]<<std::endl;
                     return true;
                 }
             }
@@ -1137,6 +1167,7 @@ namespace raisim {
         double table_contact_reward_r = 0.0;
         double affordance_impulse_reward_r= 0.0;
         double not_affordance_impulse_reward_r = 0.0;
+        double push_reward_r = 0.0;
         double table_impulse_reward_r = 0.0;
         double wrist_vel_reward_r = 0.0;
         double wrist_qvel_reward_r = 0.0;
@@ -1168,9 +1199,11 @@ namespace raisim {
         Eigen::VectorXd contacts_r_non_af, impulses_r_non_af;
         Eigen::VectorXd contacts_r_table, impulses_r_table;
         Eigen::VectorXd contacts_arm_table, impulses_arm_table, contacts_arm_all;
-        Eigen::VectorXd force_xy_r_af, force_xy_r_non_af, force_xy_r_table, force_xy_arm_table, force_z_r_af, force_z_r_table, force_z_r_non_af, force_z_arm_table, impulse_high_table, max_impulse_xy_r_af, max_impulse_xyz_r_table;
         Eigen::VectorXd contact_body_idx_r_, contact_arm_idx;
         Eigen::VectorXd frame_y_in_obj, joint_pos_in_obj, joint_height_w, arm_height_w;
+
+        Eigen::VectorXd impulses_r_af_vector, impulses_r_non_af_vector, impulses_r_table_vector, impulses_arm_table_vector, impulses_r_af_xy, impulses_r_af_z;
+
         raisim::Vec<3> Position;
         raisim::Vec<3> wrist_vel, wrist_qvel;
         raisim::Vec<3> obj_base_pos;

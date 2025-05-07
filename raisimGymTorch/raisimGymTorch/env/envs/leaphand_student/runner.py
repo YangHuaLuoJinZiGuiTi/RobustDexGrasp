@@ -23,6 +23,7 @@ import joblib
 import random
 import wandb
 import torch
+import sys
 
 from random import choices
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, transformRobotParameter
@@ -268,7 +269,9 @@ for i in range(4):
     finger_weights[:, 4 * i+4] *= 4.0
 finger_weights[:, 16] *= 2.0
 finger_weights /= finger_weights.sum(axis=1).reshape(-1, 1)
+finger_weights[:, 0] = 0.0 
 finger_weights *= 17.0
+
 affordance_reward_r = np.zeros((num_envs, 1))
 center_reward_r = np.zeros((num_envs, 1))
 table_reward_r = np.zeros((num_envs, 1))
@@ -519,9 +522,8 @@ for update in range(args.num_iterations):
                 if projection_lengths[j] < 0.18:
                     score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
                     score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']
-                    score3 = ((projection_lengths[j] / min(projection_lengths)) ** 2) * cfg['environment']['length_ratio_coeff']
-                    score4 = (abs(ik_results[j, 4]) - 3.2) * cfg['environment']['angle_score_coeff'] * 0.5
-                    scores[j] = score1 + score2 + score3 + score4
+                    score3 = (abs(ik_results[j, 4]) - 3.2) * cfg['environment']['angle_score_coeff'] * 0.5
+                    scores[j] = score1 + score2 + score3
                 else:
                     scores[j] = 10000.
             best_index = np.argmin(scores)

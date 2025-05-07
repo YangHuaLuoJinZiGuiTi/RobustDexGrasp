@@ -29,7 +29,7 @@ exp_name = "leaphand_teacher"
 
 
 # Selected model weights for evaluation
-weight_saved = 'right/full_2500_r.pt'
+weight_saved = 'right_re/full_5500_r.pt'
 
 
 # Command line argument parsing

@@ -35,7 +35,7 @@ exp_name = "leaphand_teacher"
 # weight_saved = '/../../pt_allegro_fixed/2024-05-30-18-50-43/full_9000_r.pt'
 # weight_saved = '/../../pt_allegro_fixed/2024-06-11-17-56-47/full_48000_r.pt'
 # weight_saved = '/../2024-10-28-16-53-10/full_6000_r.pt'
-weight_saved = '/../2024-10-28-16-13-40/full_5500_r.pt'
+weight_saved = '/../2025-05-04-01-11-44/full_7000_r.pt'
 
 
 # configuration
@@ -196,9 +196,10 @@ finger_weights = np.ones((num_envs, 17)).astype('float32')
 for i in range(4):
     finger_weights[:, 4 * i+4] *= 4.0
 finger_weights[:, 16] *= 2.0
+finger_weights[:, 4] *= 1.05
 finger_weights /= finger_weights.sum(axis=1).reshape(-1, 1)
 finger_weights[:, 0] = 0.0             # Zero weight for palm contact
-finger_weights *= 16.0                 # Scale up for stronger gradient signal
+finger_weights *= 17.0                 # Scale up for stronger gradient signal
 
 affordance_reward_r = np.zeros((num_envs, 1))
 center_reward_r = np.zeros((num_envs, 1))
