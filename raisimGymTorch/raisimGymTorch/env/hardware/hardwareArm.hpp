@@ -14,6 +14,7 @@ public:
 
     virtual void updateArmState() = 0;
     virtual void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const = 0;
+    virtual void move_line(double x, double y, double z) {};
 
     virtual void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const = 0;
     virtual const int getDim() const = 0;

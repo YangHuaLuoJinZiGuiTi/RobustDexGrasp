@@ -673,6 +673,9 @@ class RaisimGymVecEnvTest:
 
     def final_reset_state(self, init_state_r, release_hand, sim_flag, set_arm):
         self.wrapper.final_reset_state(init_state_r, release_hand, sim_flag, set_arm)
+        
+    def move_line(self, x,y,z):
+        self.wrapper.move_line(x,y,z)
 
     def set_goals_r(self, obj_pos_r, ee_pos_r, pose_r, qpos_r):
         self.wrapper.set_goals_r(obj_pos_r, ee_pos_r, pose_r, qpos_r)

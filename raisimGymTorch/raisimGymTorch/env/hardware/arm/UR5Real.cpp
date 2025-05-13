@@ -120,6 +120,20 @@ public:
         }
     }
 
+    void move_line(double x, double y, double z) {
+        std::vector<double> actual_tcp_pose = rtde_receive_->getActualTCPPose();
+        actual_tcp_pose[0] += x;
+        actual_tcp_pose[1] += y;
+        actual_tcp_pose[2] += z;
+        rtde_control_->servoStop();
+        rtde_control_->stopScript();
+        usleep(50000);
+        rtde_control_->moveL(actual_tcp_pose, 0.1, 0.1);
+        usleep(50000);
+        rtde_control_->stopL();
+        rtde_control_->stopScript();
+    }
+
     void getPdgains(Eigen::VectorXd &pgain, Eigen::VectorXd &dgain, int head_shift) const final override {
         for (int i = 0; i < num_joint_; i++) {
             pgain[i] = Pgain[i];

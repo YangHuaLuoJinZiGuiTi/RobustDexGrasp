@@ -28,6 +28,7 @@ PYBIND11_MODULE(RAISIMGYM_TORCH_ENV_NAME, m) {
     .def("reset_state", &VectorizedEnvironment<ENVIRONMENT>::reset_state)
     .def("reset_state2", &VectorizedEnvironment<ENVIRONMENT>::reset_state2)
     .def("final_reset_state", &VectorizedEnvironment<ENVIRONMENT>::final_reset_state)
+    .def("move_line", &VectorizedEnvironment<ENVIRONMENT>::move_line)
     .def("set_goals_r", &VectorizedEnvironment<ENVIRONMENT>::set_goals_r)
     .def("set_goals_r2", &VectorizedEnvironment<ENVIRONMENT>::set_goals_r2)
     .def("set_obj_goal", &VectorizedEnvironment<ENVIRONMENT>::set_obj_goal)

@@ -198,6 +198,10 @@ public:
         setPdTarget(new_target, velTarget);
     }
 
+    void move_line(double x, double y, double z) {
+        arm_->move_line(x,y,z);
+    }
+
     /**
      * real world interaction: update all the joint state, hand frame position and orientation 
      * need to update after step(), reset(), reset_state()
@@ -386,7 +390,7 @@ public:
                 cnt--;
                 hand_->setPdTarget(genco.tail(hand_dim_), genvel.tail(hand_dim_), false);
                 arm_->setPdTarget(genco.head(arm_dim_), genvel.head(arm_dim_), false);
-                if (no_wait) return;
+                if (true) return;
                 usleep(100000);
                 arm_->updateArmState();
                 Eigen::VectorXd eef_pos = arm_->getEefPose();
@@ -554,6 +558,9 @@ public:
     /////////////////////////////////////////////////////////////////////////////////
 
     // raisim API only used in raisim environment
+    int getIndexInWorld() {
+        return arm_hand_platform_->getIndexInWorld();
+    }
     void setName(const std::string &name) {
         arm_hand_platform_->setName(name);
     }
@@ -601,7 +608,8 @@ private:
         if (it != factory.end()) {
             component = factory[type]();
         } else {
-            std::cout << "Key not found. use the default key: " << factory.begin()->first << std::endl;
+            std::cout << type  << ": Key not found !!! "<< std::endl;
+            exit(0);
             component = factory[factory.begin()->first]();
         }
     }

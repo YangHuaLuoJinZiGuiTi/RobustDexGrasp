@@ -138,6 +138,12 @@ class VectorizedEnvironment {
           environments_[i]->final_reset_state(init_state_r.row(i), release_hand, sim_flag, set_arm);
   }
 
+  void move_line(double x,double y,double z) {
+    #pragma omp parallel for
+      for (int i = 0; i < num_envs_; i++)
+      environments_[i]->move_line(x,y,z);
+    }
+
     void set_goals_r(Eigen::Ref<EigenRowMajorMat> &obj_pos_r, 
                      Eigen::Ref<EigenRowMajorMat> &ee_pos_r, 
                      Eigen::Ref<EigenRowMajorMat> &pose_r,
