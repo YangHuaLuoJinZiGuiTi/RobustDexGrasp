@@ -488,7 +488,7 @@
 <parent link="mcp_joint" />
 <child link="pip" />
 <axis xyz="0 0 -1"/>
-<limit effort="0.95" velocity="8.48" lower = "-1.047" upper = "1.047"/>
+<limit effort="0.95" velocity="8.48" lower = "-0.31" upper = "0.31"/>
 <dynamics damping="3.90180564" friction="10"/>
 </joint>
 
@@ -643,7 +643,7 @@
 <parent link="mcp_joint_2" />
 <child link="pip_2" />
 <axis xyz="0 0 -1"/>
-<limit effort="0.95" velocity="8.48" lower = "-1.047" upper = "1.047"/>
+<limit effort="0.95" velocity="8.48" lower = "-0.31" upper = "0.31"/>
 <dynamics damping="2.68129516" friction="10"/>
 </joint>
 
@@ -798,7 +798,7 @@
 <parent link="mcp_joint_3" />
 <child link="pip_3" />
 <axis xyz="0 0 -1"/>
-<limit effort="0.95" velocity="8.48" lower = "-1.047" upper = "1.047"/>
+<limit effort="0.95" velocity="8.48" lower = "-0.31" upper = "0.31"/>
 <dynamics damping="5.3809495" friction="10"/>
 </joint>
 

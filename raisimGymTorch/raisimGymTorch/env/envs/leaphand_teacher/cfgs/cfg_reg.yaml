@@ -25,7 +25,7 @@ environment:
     # PD controller parameters file for the hand
     hand_pd_file: "Allegrotemp.txt" # path in ./raisimGymTorch/env/hardware/hand/Allegrotemp.txt
     # Initial joint positions for the 16 finger joints [rad]
-    init_finger_pose: [0.5, 0., 0.3, 0.5, 0.5, 0., 0.3, 0.5, 0.5, 0., 0.3, 0.5, 1.5, 0.0, -0.1, 0.2]
+    init_finger_pose: [0.5, 0., 0.3, 0.5, 0.5, 0., 0.3, 0.5, 0.5, 0., 0.3, 0.5, 1.8, 0.0, -0.5, 0.5]
     # Friction coefficient of the table surface
     table_friction: 0.2
 
