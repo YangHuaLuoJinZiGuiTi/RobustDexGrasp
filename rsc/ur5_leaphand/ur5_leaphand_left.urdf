@@ -360,9 +360,9 @@
 </material>
 </visual>
  <collision>
-<origin xyz="-0.095574224938392599027 -0.11704001150113751972 0.02077960705260517571" rpy="1.57079632679489678 1.1239611599647231752e-28 3.1415926535897908956" />
+<origin xyz="-0.18 -0.115 0.046" rpy="3.1415926535897908956 0 1.57079632679489678" />
 <geometry>
-<mesh filename="leap_left_meshes/palm_lower_left_simplify_simplify.obj"/>
+<mesh filename="leap_left_meshes/palam_sw_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -441,7 +441,7 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01 -0.035 0.0" rpy="0 0 0" />
+<origin xyz="0.006 -0.035 0.0" rpy="0 0 0" />
 <geometry>
 <box size="0.032 0.018 0.022"/>
 </geometry>
@@ -470,9 +470,9 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.013286424108533503169 -0.00611423838654200167 0.0" rpy="3.141592653589793116 1.1993117970061734707e-33 4.4395481053923607589e-32" />
+<origin xyz="0.009 0.008 0.017" rpy="3.141592653589793116 1.57079632679489678 0" />
 <geometry>
-<mesh filename="leap_left_meshes/fingertip_simplify_simplify.obj"/>
+<mesh filename="leap_left_meshes/finger_sw_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -596,7 +596,7 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01 -0.035 0.0" rpy="0 0 0" />
+<origin xyz="0.006 -0.035 0.0" rpy="0 0 0" />
 <geometry>
 <box size="0.032 0.018 0.022"/>
 </geometry>
@@ -625,9 +625,9 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.013286424108533503169 -0.00611423838654200167 0.0" rpy="3.141592653589793116 1.1993117970061734707e-33 4.4395481053923607589e-32" />
+<origin xyz="0.009 0.008 0.017" rpy="3.141592653589793116 1.57079632679489678 0" />
 <geometry>
-<mesh filename="leap_left_meshes/fingertip_simplify_simplify.obj"/>
+<mesh filename="leap_left_meshes/finger_sw_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -751,7 +751,7 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01 -0.035 0.0" rpy="0 0 0" />
+<origin xyz="0.006 -0.035 0.0" rpy="0 0 0" />
 <geometry>
 <box size="0.032 0.018 0.022"/>
 </geometry>
@@ -780,9 +780,9 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.013286424108533503169 -0.00611423838654200167 0.0" rpy="3.141592653589793116 1.1993117970061734707e-33 4.4395481053923607589e-32" />
+<origin xyz="0.009 0.008 0.017" rpy="3.141592653589793116 1.57079632679489678 0" />
 <geometry>
-<mesh filename="leap_left_meshes/fingertip_simplify_simplify.obj"/>
+<mesh filename="leap_left_meshes/finger_sw_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -934,9 +934,9 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.062559538462667402259 0.078459682911396960714 0.0635" rpy="2.586996940753466404e-33 -3.3306690738754701143e-16 4.6050499879454267902e-33" />
+<origin xyz="-0.01 -0.062 -0.0125" rpy="2.586996940753466404e-33 -3.3306690738754701143e-16 4.6050499879454267902e-33" />
 <geometry>
-<mesh filename="leap_left_meshes/thumb_fingertip_simplify_simplify.obj"/>
+<mesh filename="leap_left_meshes/thumb_finger_sw_simplify.obj"/>
 </geometry>
 </collision>
 <inertial>
