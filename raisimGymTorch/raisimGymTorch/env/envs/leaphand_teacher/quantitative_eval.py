@@ -92,8 +92,8 @@ cfg['environment']['visualize'] = False
 # cat_name = 'real_obj'
 # cat_name = 'affordance_level'
 # cat_name = 'large_scale_light_stable'
-# cat_name = 'shapenet-30obj'
-cat_name = 'new_training_set_eval'
+cat_name = 'shapenet-30obj'
+# cat_name = 'new_training_set_eval'
 
 if cat_name == 'shapenet-30obj':
     stable = True
@@ -469,13 +469,13 @@ for update in range(5):
             object_failure_stats[obj_name]["failures"] += 1
 
     # Print the names of failed objects
-    failed_indices = np.where(lifted == 0)[0]
-    if len(failed_indices) > 0:
-        print("Failed objects:", file=sys.stdout)
-        for idx in failed_indices:
-            print(f"  - {obj_list[idx]}", file=sys.stdout)
-    else:
-        print("All objects were successfully grasped!", file=sys.stdout)
+    # failed_indices = np.where(lifted == 0)[0]
+    # if len(failed_indices) > 0:
+    #     print("Failed objects:", file=sys.stdout)
+    #     for idx in failed_indices:
+    #         print(f"  - {obj_list[idx]}", file=sys.stdout)
+    # else:
+    #     print("All objects were successfully grasped!", file=sys.stdout)
 
 
 # 在所有评估结束后，打印每个物体的失败统计

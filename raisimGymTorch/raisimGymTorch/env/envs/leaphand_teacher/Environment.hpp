@@ -158,9 +158,10 @@ namespace raisim {
             /// initialize 3D positions weights for fingertips higher than for other fingerparts
             finger_weights_contact.setOnes(num_contacts);
             for(int i=1; i < 5; i++){
-                finger_weights_contact(3*i) *= 3;
+                finger_weights_contact(3*i) *= 4;
             }
             finger_weights_contact(0) = 0;
+            finger_weights_contact(10) = 0;
             finger_weights_contact.segment(10,3) *= 2;
             finger_weights_contact(num_contacts-1) *= 2;
             finger_weights_contact /= finger_weights_contact.sum();
@@ -404,7 +405,7 @@ namespace raisim {
             sv.setZero(gvDim_);
             mano_r_->setState(sc, sv, true);
 
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 1; i++) {
                 if(server_) server_->lockVisualizationServerMutex();
                 world_->integrate();
                 if(server_) server_->unlockVisualizationServerMutex();

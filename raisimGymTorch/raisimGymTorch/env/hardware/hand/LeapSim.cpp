@@ -152,9 +152,9 @@ private:
     "leap_joint13", "leap_joint14", "leap_joint15", "leap_joint15_tip"};
 
     const std::string body_parts_[num_bodies_] =  {"tool02Flange_fixed_joint",
-    "leap_joint0", "leap_joint2", "leap_joint3", "leap_joint3_tip",
-    "leap_joint4", "leap_joint6", "leap_joint7", "leap_joint7_tip",
-    "leap_joint8", "leap_joint10", "leap_joint11", "leap_joint11_tip",
+    "leap_joint1", "leap_joint2", "leap_joint3", "leap_joint3_tip",
+    "leap_joint5", "leap_joint6", "leap_joint7", "leap_joint7_tip",
+    "leap_joint9", "leap_joint10", "leap_joint11", "leap_joint11_tip",
     "leap_joint13", "leap_joint14", "leap_joint15", "leap_joint15_tip"};
 
     // for raisim contact check

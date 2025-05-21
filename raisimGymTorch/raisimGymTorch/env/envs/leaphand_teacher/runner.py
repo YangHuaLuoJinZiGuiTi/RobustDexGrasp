@@ -40,7 +40,7 @@ weight_saved = '/../2025-05-04-01-11-44/full_7000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg.yaml')
+parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg_left.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
 parser.add_argument('-w', '--weight', type=str, default=weight_saved)
@@ -196,7 +196,6 @@ finger_weights = np.ones((num_envs, 17)).astype('float32')
 for i in range(4):
     finger_weights[:, 4 * i+4] *= 4.0
 finger_weights[:, 16] *= 2.0
-finger_weights[:, 4] *= 1.05
 finger_weights /= finger_weights.sum(axis=1).reshape(-1, 1)
 finger_weights[:, 0] = 0.0             # Zero weight for palm contact
 finger_weights *= 17.0                 # Scale up for stronger gradient signal
