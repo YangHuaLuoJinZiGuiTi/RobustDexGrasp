@@ -1,0 +1,124 @@
+seed: 1
+
+environment:
+
+  hardware:
+    kinematic_type: "simfk"
+    arm_type: "ur5"                
+    hand_type: "leaphand"
+    real_world_mode: False          # add suffix "_real" or "_sim" for arm_type and hand_type
+    # Enables hand-only mode without the arm
+    flying_hand_mode: False
+    # Option to save simulation states
+    save_state_mode: False
+    # Resource model identifier
+    rsc_model: "ur5_leaphand"
+    # Simulation model path reference - rsc/${rsc_model}/${sim_model}.urdf
+    sim_model: "ur5_leaphand_left_sw"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+
+    # Collision group ID for visualization in RaiSim
+    vis_group_id: "0"
+    # Collision mask IDs - 2:table, 63:all objects
+    vis_mask_id:  "0,1,2,63"
+    # PD controller parameters file for the arm
+    arm_pd_file: "UR5Identification_id5hz.txt" # path in ./raisimGymTorch/env/hardware/arm/UR5Identification_id5hz.txt
+    # PD controller parameters file for the hand
+    hand_pd_file: "Allegrotemp.txt" # path in ./raisimGymTorch/env/hardware/hand/Allegrotemp.txt
+    # Initial joint positions for the 16 finger joints [rad]
+    init_finger_pose: [0.5, 0., 0.3, 0.5, 0.5, 0., 0.3, 0.5, 0.5, 0., 0.3, 0.5, -1.8, 0.0, -0.5, 0.5]
+    # Friction coefficient of the table surface
+    table_friction: 0.2
+
+#  partial_pt_init_pose: True
+  biased: False
+  grasp_steps: 70
+  train_safe: True
+  top: False
+  non_uniform_sampling: True  # 控制是否使用非均匀采样，True为使用非均匀采样，False为使用均匀采样
+  eval_during_training: False
+#  camera_position: [0.25, -0.55152, 1.5]
+  camera_position: [0.035, -0.58, 1.331]
+  sample_num: 10
+  length_score_coeff: 5
+  length_ratio_coeff: 0.
+  angle_score_coeff: 1
+
+  render: True
+  eval_every_n: 500
+  update_every_n: 20
+  num_threads: 16
+  simulation_dt: 0.01
+  control_dt: 0.2
+  max_time: 4.0
+  root_guided: True
+  visualize: False
+  unseen: True
+  new_category: False
+  load_set: "mixed_train"
+  finger_action_std: 0.015
+  rot_action_std: 0.005
+  reward:
+    affordance_reward:
+      coeff: 0.5
+    affordance_contact_reward:
+      coeff: 1.5
+    affordance_impulse_reward:
+      coeff: 1.0
+
+    table_reward:
+      coeff: -0.03
+    table_contact_reward:
+      coeff: -1.0
+    table_impulse_reward:
+      coeff: -0.5
+
+    arm_height_reward:
+      coeff: -0.05
+    arm_contact_reward:
+      coeff: -0.1
+    arm_impulse_reward:
+      coeff: -0.1
+    arm_collision_reward:
+      coeff: -1.0
+
+    push_reward:
+      coeff: -10.0
+
+
+
+    wrist_vel_reward_:
+      coeff: -1.0
+    wrist_qvel_reward_:
+      coeff: -0.1
+    obj_vel_reward_:
+      coeff: -15.0
+    obj_qvel_reward_:
+      coeff: -0.2
+    obj_displacement_reward:
+      coeff: -5.0
+    arm_joint_vel_reward_:
+      coeff: -1.0
+
+
+    arm_action_reward:
+            coeff: -0.0
+#      coeff: -0.5
+
+    hand_action_reward:
+            coeff: -0.0
+#      coeff: -0.5
+
+    anatomy_reward:
+      coeff: -0.0
+    torque:
+      coeff: -0.0
+    direction_reward:
+#      coeff: -0.1
+      coeff: -0.0
+    center_reward:
+    #  coeff: -1.0
+      coeff: -0.0
+
+architecture:
+  policy_net: [128, 128]
+  value_net: [128, 128]
