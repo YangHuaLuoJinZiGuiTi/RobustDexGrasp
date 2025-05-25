@@ -353,14 +353,14 @@
 <visual>
 <origin xyz="-0.095574224938392599027 -0.11704001150113751972 0.02077960705260517571" rpy="1.57079632679489678 1.1239611599647231752e-28 3.1415926535897908956" />
 <geometry>
-<mesh filename="leap_left_meshes/palm_lower_left.obj"/>
+<mesh filename="leap_left_meshes/palm_lower_left_simplify.obj"/>
 </geometry>
 <material name="palm_lower_left_material">
 <color rgba="0.60392156862745094426 0.14901960784313725283 0.14901960784313725283 1.0"/>
 </material>
 </visual>
  <collision>
-<origin xyz="-0.18 -0.115 0.046" rpy="3.1415926535897908956 0 1.57079632679489678" />
+<origin xyz="-0.178 -0.115 0.038" rpy="3.1415926535897908956 0 1.57079632679489678" />
 <geometry>
 <mesh filename="leap_left_meshes/palam_sw.obj"/>
 </geometry>
@@ -470,9 +470,9 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.009 0.008 0.017" rpy="3.141592653589793116 1.57079632679489678 0" />
+<origin xyz="0.009 -0.019 0.012" rpy="3.1415926535897908956 1.57079632679489678 0" />
 <geometry>
-<mesh filename="leap_left_meshes/finger_sw.obj"/>
+<mesh filename="leap_left_meshes/tip.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -625,9 +625,9 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.009 0.008 0.017" rpy="3.141592653589793116 1.57079632679489678 0" />
+<origin xyz="0.009 -0.019 0.012" rpy="3.1415926535897908956 1.57079632679489678 0" />
 <geometry>
-<mesh filename="leap_left_meshes/finger_sw.obj"/>
+<mesh filename="leap_left_meshes/tip.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -780,9 +780,9 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.009 0.008 0.017" rpy="3.141592653589793116 1.57079632679489678 0" />
+<origin xyz="0.009 -0.019 0.012" rpy="3.1415926535897908956 1.57079632679489678 0" />
 <geometry>
-<mesh filename="leap_left_meshes/finger_sw.obj"/>
+<mesh filename="leap_left_meshes/tip.obj"/>
 </geometry>
 </collision>
 <inertial>

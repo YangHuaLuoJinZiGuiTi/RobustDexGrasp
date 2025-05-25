@@ -354,16 +354,16 @@
 <visual>
 <origin xyz="-0.020095249652862544332 0.025757756134899473244 -0.034722403578460216134" rpy="0 -0 0" />
 <geometry>
-<mesh filename="leap_right_meshes/palm_lower_simplify.stl"/>
+<mesh filename="leap_right_meshes/palm_lower_simplify.obj"/>
 </geometry>
 <material name="palm_lower_material">
 <color rgba="0.60392156862745094426 0.14901960784313725283 0.14901960784313725283 1.0"/>
 </material>
 </visual>
 <collision>
-<origin xyz="-0.020095249652862544332 0.025757756134899473244 -0.034722403578460216134" rpy="0 -0 0" />
+<origin xyz="-0.1 -0.15 0.011" rpy="3.1415926535897908956 0 1.57079632679489678" />
 <geometry>
-<mesh filename="leap_right_meshes/palm_lower_simplify.obj"/>
+<mesh filename="leap_right_meshes/palam_right_sw.obj"/>
 </geometry>
 </collision>
 <inertial>
@@ -413,7 +413,7 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01 0.0 -0.012" rpy="0 0 0" />
+<origin xyz="0.01 0.0 -0.014" rpy="0 0 0" />
 <geometry>
 <box size="0.048 0.028 0.018"/>
 </geometry>
@@ -442,7 +442,7 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01 -0.035 -0.002" rpy="0 0 0" />
+<origin xyz="0.006 -0.035 -0.002" rpy="0 0 0" />
 <geometry>
 <box size="0.032 0.018 0.022"/>
 </geometry>
@@ -471,15 +471,15 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.013286424108533503169 -0.0061142383865419869249 -0.0025" rpy="3.141592653589793116 1.1993117970061734707e-33 4.4395481053923607589e-32" />
+<origin xyz="0.009 0.008 0.015" rpy="3.141592653589793116 1.57079632679489678 0" />
 <geometry>
-<mesh filename="leap_right_meshes/fingertip_simplify.obj"/>
+<mesh filename="leap_left_meshes/finger_sw.obj"/>
 </geometry>
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
-<mass value="0.016" />
-<inertia ixx="0.000003368" ixy="0.000000115"  ixz="0" iyy="0.000001556" iyz="0" izz="0.000002863" />
+<mass value="0.006" />
+<inertia ixx="0.000000513" ixy="0"  ixz="0" iyy="0.000000813" iyz="0" izz="0.000000925" />
 </inertial>
 </link>
 
@@ -520,7 +520,19 @@
 </joint>
 
 
-  <link name="leap_link3_tip"></link>
+  <link name="leap_link3_tip">
+    <collision>
+    <origin xyz="0.009 0.021 0.010" rpy="3.1415926535897908956 1.57079632679489678 0" />
+    <geometry>
+    <mesh filename="leap_left_meshes/tip.obj"/>
+    </geometry>
+    </collision>
+    <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <mass value="0.01" />
+    <inertia ixx="0.000000960" ixy="0"  ixz="0" iyy="0.000001230" iyz="0" izz="0.000001230" />
+    </inertial>
+  </link>
   <joint name="leap_joint3_tip" type="fixed">
     <parent link="fingertip"/>
     <child link="leap_link3_tip"/>c
@@ -568,7 +580,7 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01 0.0 -0.012" rpy="0 0 0" />
+<origin xyz="0.01 0.0 -0.014" rpy="0 0 0" />
 <geometry>
 <box size="0.048 0.028 0.018"/>
 </geometry>
@@ -597,7 +609,7 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01 -0.035 -0.002" rpy="0 0 0" />
+<origin xyz="0.007 -0.035 -0.002" rpy="0 0 0" />
 <geometry>
 <box size="0.032 0.018 0.022"/>
 </geometry>
@@ -626,15 +638,15 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01328642410853349623 -0.0061142383865420008027 -0.0025" rpy="3.141592653589793116 -4.3179597882835943107e-33 1.4408183216511868558e-31" />
+<origin xyz="0.009 0.008 0.015" rpy="3.141592653589793116 1.57079632679489678 0" />
 <geometry>
-<mesh filename="leap_right_meshes/fingertip_simplify.obj"/>
+<mesh filename="leap_left_meshes/finger_sw.obj"/>
 </geometry>
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
-<mass value="0.016" />
-<inertia ixx="0.000003368" ixy="0.000000115"  ixz="0" iyy="0.000001556" iyz="0" izz="0.000002863" />
+<mass value="0.006" />
+<inertia ixx="0.000000513" ixy="0"  ixz="0" iyy="0.000000813" iyz="0" izz="0.000000925" />
 </inertial>
 </link>
 
@@ -676,7 +688,19 @@
 </joint>
 
 
-  <link name="leap_link7_tip"></link>
+  <link name="leap_link7_tip">
+    <collision>
+    <origin xyz="0.009 0.021 0.010" rpy="3.1415926535897908956 1.57079632679489678 0" />
+    <geometry>
+    <mesh filename="leap_left_meshes/tip.obj"/>
+    </geometry>
+    </collision>
+    <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <mass value="0.01" />
+    <inertia ixx="0.000000960" ixy="0"  ixz="0" iyy="0.000001230" iyz="0" izz="0.000001230" />
+    </inertial>
+  </link>
   <joint name="leap_joint7_tip" type="fixed">
     <parent link="fingertip_2"/>
     <child link="leap_link7_tip"/>c
@@ -723,7 +747,7 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01 0.0 -0.012" rpy="0 0 0" />
+<origin xyz="0.01 0.0 -0.014" rpy="0 0 0" />
 <geometry>
 <box size="0.048 0.028 0.018"/>
 </geometry>
@@ -752,7 +776,7 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.01 -0.035 -0.002" rpy="0 0 0" />
+<origin xyz="0.007 -0.035 -0.002" rpy="0 0 0" />
 <geometry>
 <box size="0.032 0.018 0.022"/>
 </geometry>
@@ -781,15 +805,15 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.013286424108533501434 -0.0061142383865419869249 -0.0025" rpy="3.141592653589793116 8.6170716950575402125e-33 1.5565411607615035382e-32" />
+<origin xyz="0.009 0.008 0.015" rpy="3.141592653589793116 1.57079632679489678 0" />
 <geometry>
-<mesh filename="leap_right_meshes/fingertip_simplify.obj"/>
+<mesh filename="leap_left_meshes/finger_sw.obj"/>
 </geometry>
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
-<mass value="0.016" />
-<inertia ixx="0.000003368" ixy="0.000000115"  ixz="0" iyy="0.000001556" iyz="0" izz="0.000002863" />
+<mass value="0.006" />
+<inertia ixx="0.000000513" ixy="0"  ixz="0" iyy="0.000000813" iyz="0" izz="0.000000925" />
 </inertial>
 </link>
 
@@ -830,7 +854,19 @@
 </joint>
 
 
-  <link name="leap_link11_tip"></link>
+  <link name="leap_link11_tip">
+    <collision>
+    <origin xyz="0.009 0.021 0.010" rpy="3.1415926535897908956 1.57079632679489678 0" />
+    <geometry>
+    <mesh filename="leap_left_meshes/tip.obj"/>
+    </geometry>
+    </collision>
+    <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <mass value="0.01" />
+    <inertia ixx="0.000000960" ixy="0"  ixz="0" iyy="0.000001230" iyz="0" izz="0.000001230" />
+    </inertial>
+  </link>
   <joint name="leap_joint11_tip" type="fixed">
     <parent link="fingertip_3"/>
     <child link="leap_link11_tip"/>c
@@ -935,15 +971,15 @@
 </material>
 </visual>
 <collision>
-<origin xyz="0.062559538462667388381 0.078459682911396988469 0.065992911807332215068" rpy="4.3790577010156367543e-47 -3.3306690738754701143e-16 1.2042408677791935383e-46" />
+<origin xyz="0.0 -0.01 0.002" rpy="0 0 0" />
 <geometry>
-<mesh filename="leap_right_meshes/thumb_fingertip_simplify.obj"/>
+<box size="0.02 0.04 0.025"/>
 </geometry>
 </collision>
 <inertial>
 <origin xyz="0 0 0" rpy="0 0 0"/>
-<mass value="0.049" />
-<inertia ixx="0.000020372" ixy="-0.000000489"  ixz="-0.00000003" iyy="0.000004336" iyz="-0.000000097" izz="0.000019845" />
+<mass value="0.039" />
+<inertia ixx="0.000007231" ixy="0"  ixz="0" iyy="0.000003331" iyz="0" izz="0.000006500" />
 </inertial>
 </link>
 
@@ -984,7 +1020,19 @@
 </joint>
 
 
-  <link name="leap_link15_tip"></link>
+  <link name="leap_link15_tip">
+    <collision>
+    <origin xyz="0.01 0.018 0.014" rpy="3.1415926535897908956 1.57079632679489678 0" />
+    <geometry>
+    <mesh filename="leap_left_meshes/tip.obj"/>
+    </geometry>
+    </collision>
+    <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <mass value="0.01" />
+    <inertia ixx="0.000000960" ixy="0"  ixz="0" iyy="0.000001230" iyz="0" izz="0.000001230" />
+    </inertial>
+  </link>
   <joint name="leap_joint15_tip" type="fixed">
     <parent link="thumb_fingertip"/>
     <child link="leap_link15_tip"/>c
