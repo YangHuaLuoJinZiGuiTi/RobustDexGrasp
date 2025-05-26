@@ -7,7 +7,7 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/raisimGymTorch/en
 
 set(BUILD_UR5_REAL          ON)
 set(BUILD_ALLEGRO_REAL      ON)
-set(BUILD_LEAP_REAL         OFF)
+set(BUILD_LEAP_REAL         ON)
 set(BUILD_PINOCCHIO         ON)
 set(BUILD_IKFAST            ON)
 
@@ -75,6 +75,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
 )
+set(Includes "/opt/ros/noetic/include")
 set (Dependencies ${Dependencies} ${catkin_LIBRARIES})
 set(InstanceFile ${InstanceFile} raisimGymTorch/env/hardware/hand/AllegroReal.cpp)
 add_definitions(-DBUILD_ALLEGRO_REAL)

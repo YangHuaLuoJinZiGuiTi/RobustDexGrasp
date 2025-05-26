@@ -12,7 +12,7 @@
 #include "pinocchio/algorithm/jacobian.hpp"
 
 #include "pinocchio/algorithm/geometry.hpp"
-#include "pinocchio/collision/collision.hpp"
+//#include "pinocchio/collision/collision.hpp"
 
 // cpp library
 #include <iostream>
@@ -70,6 +70,7 @@ public:
             return IK_FAIL;
         }
 
+#if 0
         Eigen::Matrix3d rot;
         rot = Eigen::AngleAxisd(eef[3], Eigen::Vector3d::UnitX()) * 
                         Eigen::AngleAxisd(eef[4], Eigen::Vector3d::UnitY()) * 
@@ -162,7 +163,9 @@ public:
                 return IK_SELF_COLLISION;
             }
         }
-        
+
+#endif
+
         std::cout << "!!!!!! UNKNOW collision !!!!!!!!!" << std::endl;
         return IK_SELF_COLLISION;
     }
