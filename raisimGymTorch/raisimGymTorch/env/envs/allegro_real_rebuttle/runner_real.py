@@ -26,6 +26,7 @@ import torch
 import cv2
 
 from raisimGymTorch.env.hardware.planning.vlm_planner import vlm_planner
+from raisimGymTorch.env.hardware.planning.audio_vlm_planner import audio_vlm_planner
 from raisimGymTorch.env.hardware.sam.sam_predict import sam_predict
 from raisimGymTorch.env.hardware.realsense.PointCloud import Realsense
 from raisimGymTorch.env.hardware.FoundationPose.interactive import FoundationData
@@ -170,6 +171,10 @@ elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
     rgbd = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
     vlm = vlm_planner()
     sam = sam_predict()
+elif sample_pc_mode == 'audio':
+    rgbd = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
+    vlm = audio_vlm_planner()
+    sam = sam_predict()
 elif sample_pc_mode == 'auto':
     rs = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
 elif sample_pc_mode == 'mesh':
@@ -256,6 +261,33 @@ while True:
         obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
         obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
         print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
+    elif sample_pc_mode == 'audio':
+        t1 = time.time()
+        rgb_frame, depth_frame = rgbd.get_rgbd_frame()
+        rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
+        pth = "/home/ubuntu/Downloads/Demo/test.png"
+        cv2.imwrite(pth, rgb_frame)
+        t2 = time.time()
+        print(f"-------------getimg time = {t2 - t1}")
+        object_cmd = vlm.start_detection()
+        t3 = time.time()
+        print(f"-------------audio detect time = {t3 - t2}")
+        bbox_2d = vlm.request_task("mark_bounding_box", pth, object_cmd)
+        x1, y1, x2, y2 = bbox_2d['bbox_2d']
+        input_point = np.array([[int((x1+x2)/2),int((y1+y2)/2)]])  # 为要分割的指定点
+        input_label = np.array([1])  # 为分割对象的性质（背景|前景）
+        input_box = np.array(bbox_2d['bbox_2d'])
+        t4 = time.time()
+        print(f"-------------vlm detect time = {t4 - t3}")
+        mask = sam.calculate_mask(rgb_frame, input_point, input_label, input_box)
+        t5 = time.time()
+        print(f"-------------mask detect time = {t5 - t4}")
+        obj_pos_mean, obj_pointcloud = rgbd.GetPointCloud(mask)
+        t6 = time.time()
+        print(f"-------------getpc time = {t6 - t5}")
+        obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
+        obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
+        print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
     elif sample_pc_mode == 'auto':
         obj_pos_mean, obj_pointcloud = rs.GetPointCloud()
 
@@ -283,7 +315,7 @@ while True:
         # get_meaningful_ik = False
         # while not get_meaningful_ik:
         # sample object states (not relavent for hardware deployment)
-        if sample_pc_mode == 'manual' or sample_pc_mode == 'auto' or sample_pc_mode == 'sam':
+        if sample_pc_mode == 'manual' or sample_pc_mode == 'auto' or sample_pc_mode == 'sam' or sample_pc_mode == 'audio':
             obj_pose_reset[i, :7] = obj_init_xyz_qwxyz # mean of pointcloud
             visible_points_w[i, :] = obj_pointcloud # sample randomly from RGBD in mask
             angle = math.atan2(obj_init_xyz_qwxyz[1], obj_init_xyz_qwxyz[0])
@@ -531,7 +563,7 @@ while True:
             #env.set_joint_sensor_visual(show_point)
 
             end = time.time()
-            print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
+            #print(f"{step} --- policy:{frame_start2 - frame_start},  step:{frame_start3 - frame_start2},  obscalculate:{frame_start4 - frame_start3},  all:{end - frame_start}")
             step = step + 1
         print("end")
         #csvfile.close()
@@ -544,7 +576,7 @@ while True:
         lift_topleft[0, :] = [-1.53, -1.74, 2.041, -0.209, 1.884, -1.535]
         # demo
         print("will move top ..... ")
-        env.final_reset_state(action_r, False, sim_flag, lift_top)
+        env.move_line(0, 0, 0.1)
         print("will move left ..... ")
         env.final_reset_state(action_r, False, sim_flag, lift_topleft)
         print("will release ..... ")
