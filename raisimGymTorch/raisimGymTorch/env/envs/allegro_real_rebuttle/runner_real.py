@@ -29,9 +29,13 @@ from raisimGymTorch.env.hardware.planning.vlm_planner import vlm_planner
 from raisimGymTorch.env.hardware.planning.audio_vlm_planner import audio_vlm_planner
 from raisimGymTorch.env.hardware.sam.sam_predict import sam_predict
 from raisimGymTorch.env.hardware.realsense.PointCloud import Realsense
+from raisimGymTorch.env.hardware.realsense.PointCloudQuick import RealsenseQuick
 from raisimGymTorch.env.hardware.FoundationPose.interactive import FoundationData
 from raisimGymTorch.env.hardware.FoundationPose.RGBDPointCloud import GetPointCloud
 from raisimGymTorch.env.hardware.log_data import d435_record
+
+import matplotlib
+matplotlib.use("TkAgg")
 
 import csv
 exp_name = "arm_rand_student"
@@ -172,7 +176,7 @@ elif sample_pc_mode == 'sam' or sample_pc_mode == 'manual':
     vlm = vlm_planner()
     sam = sam_predict()
 elif sample_pc_mode == 'audio':
-    rgbd = Realsense(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
+    rgbd = RealsenseQuick(cfg['environment']['hardware']['pointcloud_real']['camera_K_path'], 200)
     vlm = audio_vlm_planner()
     sam = sam_predict()
 elif sample_pc_mode == 'auto':
@@ -263,31 +267,38 @@ while True:
         print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
     elif sample_pc_mode == 'audio':
         t1 = time.time()
-        rgb_frame, depth_frame = rgbd.get_rgbd_frame()
-        rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
-        pth = "/home/ubuntu/Downloads/Demo/test.png"
-        cv2.imwrite(pth, rgb_frame)
-        t2 = time.time()
-        print(f"-------------getimg time = {t2 - t1}")
+        pth = "/home/ubuntu/Downloads/Demo"
+        # 先异步拍摄获取点云，同时录入音频。
+        rgbd.async_save_rgbd(pth)
         object_cmd = vlm.start_detection()
-        t3 = time.time()
-        print(f"-------------audio detect time = {t3 - t2}")
-        bbox_2d = vlm.request_task("mark_bounding_box", pth, object_cmd)
+        t2 = time.time()
+        print(f"-------------t12 = {t2 - t1}")
+
+        # 再异步让机械臂运动，同时获取bbox
+        reset_top = np.zeros((num_envs, 6), dtype='float32')
+        reset_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
+        env.final_reset_state(np.zeros((num_envs, 22), dtype='float32'), True, False, reset_top, True)
+        rgb_frame = cv2.imread(pth+"/rgb.png")
+        bbox_2d = vlm.request_task(pth+"/rgb.png", object_cmd)
         x1, y1, x2, y2 = bbox_2d['bbox_2d']
         input_point = np.array([[int((x1+x2)/2),int((y1+y2)/2)]])  # 为要分割的指定点
         input_label = np.array([1])  # 为分割对象的性质（背景|前景）
         input_box = np.array(bbox_2d['bbox_2d'])
-        t4 = time.time()
-        print(f"-------------vlm detect time = {t4 - t3}")
+        t3 = time.time()
+        print(f"-------------t23 = {t3 - t2}")
+        
         mask = sam.calculate_mask(rgb_frame, input_point, input_label, input_box)
+        t4 = time.time()
+        print(f"-------------t34 = {t4 - t3}")
+        
+        obj_pos_mean, obj_pointcloud = rgbd.get_mask_rgbd(mask)
         t5 = time.time()
-        print(f"-------------mask detect time = {t5 - t4}")
-        obj_pos_mean, obj_pointcloud = rgbd.GetPointCloud(mask)
-        t6 = time.time()
-        print(f"-------------getpc time = {t6 - t5}")
+        print(f"-------------t45 = {t5 - t4}")
+        
         obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
         obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
         print(f" ================== mean of point cloud (obj pose center) = {obj_pos_mean}")
+        
     elif sample_pc_mode == 'auto':
         obj_pos_mean, obj_pointcloud = rs.GetPointCloud()
 
@@ -497,6 +508,8 @@ while True:
     
     for sim_flag in [False]: # True, False
 
+        t6 = time.time()
+        print(f"-------------t56 = {t6 - t5}")
         print(f"--------------------------- test in {sim_flag} flag ---------------------- ")
         env.reset_state(qpos_reset_r,
                         qpos_reset_l,

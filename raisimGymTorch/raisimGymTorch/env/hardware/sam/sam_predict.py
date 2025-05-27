@@ -18,7 +18,7 @@ class sam_predict:
         sam = sam_model_registry['default'](checkpoint=os.path.join(os.path.dirname(__file__), 'sam_vit_h_4b8939.pth'))
         _ = sam.to(device="cuda")
         self.generator = SamPredictor(sam)
-        self.log = True
+        self.log = False
 
     def calculate_mask(self, in_img, input_point, input_label, input_box = None):
     

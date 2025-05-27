@@ -57,7 +57,8 @@ class RaisimGymEnv {
   virtual void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r,
                                 bool release_hand,
                                 bool sim_flag,
-                                const Eigen::Ref<EigenVec>& set_arm) {};
+                                const Eigen::Ref<EigenVec>& set_arm,
+                                bool no_wait = false) {};
   virtual void move_line(double x,double y,double z) {};
   virtual void set_goals(const Eigen::Ref<EigenVec>& obj_angle,
                          const Eigen::Ref<EigenVec>& obj_pos,
