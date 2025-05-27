@@ -671,7 +671,7 @@ class RaisimGymVecEnvTest:
         else:
             self.wrapper.reset_state2(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
 
-    def final_reset_state(self, init_state_r, release_hand, sim_flag, set_arm, no_wait = False):
+    def final_reset_state(self, init_state_r, release_hand, sim_flag, set_arm, no_wait):
         self.wrapper.final_reset_state(init_state_r, release_hand, sim_flag, set_arm, no_wait)
         
     def move_line(self, x,y,z):

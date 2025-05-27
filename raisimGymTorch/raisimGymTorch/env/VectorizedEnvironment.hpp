@@ -133,7 +133,7 @@ class VectorizedEnvironment {
                           bool release_hand,
                           bool sim_flag,
                           Eigen::Ref<EigenRowMajorMat>& set_arm,
-                          bool no_wait = false) {
+                          bool no_wait) {
 #pragma omp parallel for
       for (int i = 0; i < num_envs_; i++)
           environments_[i]->final_reset_state(init_state_r.row(i), release_hand, sim_flag, set_arm, no_wait);

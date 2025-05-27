@@ -379,7 +379,7 @@ public:
             return;
         }
 
-        if (real_world_mode_) {
+        if (real_world_mode_ && false == no_wait) {
             std::cout << "--------------set state = " << genco.transpose() << std::endl;
             int cnt = 10;
             double max_gap[16] = {0.04, 0.06, 0.04, 0.04, 
@@ -420,6 +420,10 @@ public:
                 }
 
             }
+        } else if (real_world_mode_ && true == no_wait) {
+            std::cout << "-------------- [[[asycn]]] set state = " << genco.transpose() << std::endl;
+            arm_->async_reset(genco.head(arm_dim_));
+            hand_->setPdTarget(genco.tail(hand_dim_), genvel.tail(hand_dim_), true);
         } else {
             arm_hand_platform_->setState(genco, genvel);
         }

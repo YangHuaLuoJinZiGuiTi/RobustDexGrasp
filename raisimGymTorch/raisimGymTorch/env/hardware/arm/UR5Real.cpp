@@ -101,6 +101,19 @@ public:
         //    end_effector_velocity_[i] = actual_tcp_speed[i];
         //}
     }
+
+    void async_reset(const Eigen::VectorXd &posTarget) {
+        std::vector<double> tar_joint_pos;
+        for (int i = 0; i < 6; i++) {
+            tar_joint_pos.push_back(posTarget[i]);
+        }
+        rtde_control_->servoStop();
+        rtde_control_->stopScript();
+        usleep(50000);
+
+        rtde_control_->moveJ(tar_joint_pos, move_vel_, move_acc_, true);
+    }
+
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const final override {
         std::vector<double> tar_joint_pos;
         for (int i = 0; i < 6; i++) {

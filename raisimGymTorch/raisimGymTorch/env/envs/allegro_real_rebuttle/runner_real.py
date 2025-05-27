@@ -276,24 +276,27 @@ while True:
 
         # 再异步让机械臂运动，同时获取bbox
         reset_top = np.zeros((num_envs, 6), dtype='float32')
-        reset_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
+        reset_top[0, :] = [0.0, -1.53, 1.762, -0.209, 1.57, -1.57]
         env.final_reset_state(np.zeros((num_envs, 22), dtype='float32'), True, False, reset_top, True)
         rgb_frame = cv2.imread(pth+"/rgb.png")
+        t3 = time.time()
+        print(f"-------------t23 = {t3 - t2}")
+        
         bbox_2d = vlm.request_task(pth+"/rgb.png", object_cmd)
         x1, y1, x2, y2 = bbox_2d['bbox_2d']
         input_point = np.array([[int((x1+x2)/2),int((y1+y2)/2)]])  # 为要分割的指定点
         input_label = np.array([1])  # 为分割对象的性质（背景|前景）
         input_box = np.array(bbox_2d['bbox_2d'])
-        t3 = time.time()
-        print(f"-------------t23 = {t3 - t2}")
-        
-        mask = sam.calculate_mask(rgb_frame, input_point, input_label, input_box)
         t4 = time.time()
         print(f"-------------t34 = {t4 - t3}")
         
-        obj_pos_mean, obj_pointcloud = rgbd.get_mask_rgbd(mask)
+        mask = sam.calculate_mask(rgb_frame, input_point, input_label, input_box)
         t5 = time.time()
         print(f"-------------t45 = {t5 - t4}")
+        
+        obj_pos_mean, obj_pointcloud = rgbd.get_mask_rgbd(mask)
+        t6 = time.time()
+        print(f"-------------t56 = {t6 - t5}")
         
         obj_pos_mean = np.mean(obj_pointcloud.reshape(200,3), axis=0)
         obj_init_xyz_qwxyz = np.array([obj_pos_mean[0], obj_pos_mean[1], obj_pos_mean[2], 0.707, 0, 0.707, 0])
@@ -400,7 +403,7 @@ while True:
         else:
             hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
-        pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.2 * hand_dir_x_w
 
 
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
@@ -508,8 +511,8 @@ while True:
     
     for sim_flag in [False]: # True, False
 
-        t6 = time.time()
-        print(f"-------------t56 = {t6 - t5}")
+        t7 = time.time()
+        print(f"-------------t67 = {t7 - t6}")
         print(f"--------------------------- test in {sim_flag} flag ---------------------- ")
         env.reset_state(qpos_reset_r,
                         qpos_reset_l,
@@ -591,7 +594,7 @@ while True:
         print("will move top ..... ")
         env.move_line(0, 0, 0.1)
         print("will move left ..... ")
-        env.final_reset_state(action_r, False, sim_flag, lift_topleft)
+        env.final_reset_state(action_r, False, sim_flag, lift_topleft, False)
         print("will release ..... ")
-        env.final_reset_state(action_r, True, sim_flag, lift_topleft)
+        env.final_reset_state(action_r, True, sim_flag, lift_topleft, False)
         print("finsh all")

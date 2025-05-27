@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw
 
 import speech_recognition as sr
 from pynput import keyboard
+import time
 # from googletrans import Translator
 
 class audio_vlm_planner:
@@ -18,6 +19,7 @@ class audio_vlm_planner:
 
         # 初始化识别器和翻译器
         self.recognizer = sr.Recognizer()
+        self.recognizer.energy_threshold = 4000  # 设定音量阈值，数值越大要求音量越高
         # self.translator = Translator()
 
         # 标志位和语言设置
@@ -98,50 +100,60 @@ class audio_vlm_planner:
         return bbox_json
 
     def on_press(self, key):
+        if self.recording is False:
+            try:
+                if key.char == 't':
+                    self.recording = True
+                    self.language = 'zh-CN'  # 中文
+                    print("按下 't' ...")
+                    self.record_audio()
+            except AttributeError:
+                pass
+
+    def on_release(self, key):
         try:
-            if key.char == 't':
-                self.recording = True
-                self.language = 'zh-CN'  # 中文
-                print("开始录制中文...")
-                self.record_audio()
-            elif key.char == 'u':
-                self.recording = True
-                self.language = 'en-US'  # 英文
-                print("开始录制英文...")
-                self.record_audio()
-            elif key.char == 'e':
+            if key.char == 't':  # 如果松开 't' 键
                 self.recording = False
-                print("录音结束")
+                print("松开 't' 键 ...")
                 return False  # 停止监听器
         except AttributeError:
             pass
-
+            
     def record_audio(self):
         with sr.Microphone() as source:
-            while self.recording:
-                print("正在识别...")
+            try:
+                # 调整为适应环境噪声
+                self.recognizer.adjust_for_ambient_noise(source, duration=1)
+
+                print("开始录音...")
+                t1 = time.time()
+                # 设置timeout为0.5秒，phrase_time_limit限制每次录音最大时间
                 audio_data = self.recognizer.listen(source)
-                try:
-                    # 根据选择的语言进行识别
-                    text = self.recognizer.recognize_google(audio_data, language=self.language)
-                    print(f"识别结果: {text}")
-                    self.get_text = text
-                    # 如果是中文输入，翻译为英文
-                    # if self.language == 'zh-CN':
-                    #     translated_text = self.translator.translate(text, dest='en').text
-                    #     print(f"翻译结果: {translated_text}")
-                    #     self.get_text = translated_text
-                except sr.UnknownValueError:
-                    print("无法理解音频")
-                except sr.RequestError:
-                    print("无法请求结果")
-                finally:
-                    self.recording = False
+                print("识别完成...")
+                t2 = time.time()
+                print(f"----------- 监听耗时 = {t2 - t1}")
+                # 根据选择的语言进行识别
+                text = self.recognizer.recognize_google(audio_data, language=self.language)
+                t3 = time.time()
+                print(f"----------- 识别耗时 = {t3 - t2}")
+                print(f"识别结果: {text}")
+                self.get_text = text
+                # 如果是中文输入，翻译为英文
+                # if self.language == 'zh-CN':
+                #     translated_text = self.translator.translate(text, dest='en').text
+                #     print(f"翻译结果: {translated_text}")
+                #     self.get_text = translated_text
+            except sr.UnknownValueError:
+                print("无法理解音频")
+            except sr.RequestError:
+                print("无法请求结果")
+            finally:
+                pass
 
     def start_detection(self):
         # 监听键盘事件
-        with keyboard.Listener(on_press=self.on_press) as listener:
-            print("请按 't' 开始录制中文，按 'u' 开始录制英文，按 'e' 停止录制")
+        with keyboard.Listener(on_press=self.on_press, on_release=self.on_release) as listener:
+            print("按住 't' 开始录音， 松开 't' 结束录音 ")
             listener.join()  # 等待监听器结束
             print("监听结束！")
         
@@ -151,8 +163,10 @@ def main() -> None:
 
     vlm = audio_vlm_planner()
     
-    object_cmd = vlm.start_detection()
+    for i in range (5):
+        object_cmd = vlm.start_detection()
 
+    exit(0)
     frame_path = "/home/ubuntu/Downloads/Demo/test.png"
     bbox_2d = vlm.request_task(frame_path, object_cmd)
     image = Image.open(frame_path)

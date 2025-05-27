@@ -13,6 +13,7 @@ public:
     virtual void setSimPlatform(raisim::ArticulatedSystem *platform) = 0; // only use in simulation mode
 
     virtual void updateArmState() = 0;
+    virtual void async_reset(const Eigen::VectorXd &posTarget) {};
     virtual void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const = 0;
     virtual void move_line(double x, double y, double z) {};
 
