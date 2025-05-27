@@ -111,7 +111,7 @@ public:
         rtde_control_->stopScript();
         usleep(50000);
 
-        rtde_control_->moveJ(tar_joint_pos, move_vel_, move_acc_, true);
+        rtde_control_->moveJ(tar_joint_pos, 1.5, 0.8, true);
     }
 
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const final override {
@@ -121,6 +121,9 @@ public:
         }
 
         if (async == false) {
+            rtde_control_->stopJ();
+            rtde_control_->stopScript();
+            usleep(50000);
             rtde_control_->servoStop();
             rtde_control_->stopScript();
             usleep(50000);

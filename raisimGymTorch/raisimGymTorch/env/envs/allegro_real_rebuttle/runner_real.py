@@ -145,7 +145,7 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps']
-lift_steps = 5
+lift_steps = 1
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
@@ -276,7 +276,7 @@ while True:
 
         # 再异步让机械臂运动，同时获取bbox
         reset_top = np.zeros((num_envs, 6), dtype='float32')
-        reset_top[0, :] = [0.0, -1.53, 1.762, -0.209, 1.57, -1.57]
+        reset_top[0, :] = [-0.3, -1.53, 1.762, -0.209, 1.57, -1.57]
         env.final_reset_state(np.zeros((num_envs, 22), dtype='float32'), True, False, reset_top, True)
         rgb_frame = cv2.imread(pth+"/rgb.png")
         t3 = time.time()
@@ -403,7 +403,7 @@ while True:
         else:
             hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
-        pos = obj_aff_center_in_w + 0.2 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.14 * hand_dir_x_w
 
 
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])

@@ -19,7 +19,7 @@ class audio_vlm_planner:
 
         # 初始化识别器和翻译器
         self.recognizer = sr.Recognizer()
-        self.recognizer.energy_threshold = 4000  # 设定音量阈值，数值越大要求音量越高
+        # self.recognizer.energy_threshold = 4000  # 设定音量阈值，数值越大要求音量越高
         # self.translator = Translator()
 
         # 标志位和语言设置
@@ -123,7 +123,7 @@ class audio_vlm_planner:
         with sr.Microphone() as source:
             try:
                 # 调整为适应环境噪声
-                self.recognizer.adjust_for_ambient_noise(source, duration=1)
+                # self.recognizer.adjust_for_ambient_noise(source, duration=1)
 
                 print("开始录音...")
                 t1 = time.time()
