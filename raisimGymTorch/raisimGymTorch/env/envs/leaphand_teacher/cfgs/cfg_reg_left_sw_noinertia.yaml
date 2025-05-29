@@ -14,7 +14,7 @@ environment:
     # Resource model identifier
     rsc_model: "ur5_leaphand"
     # Simulation model path reference - rsc/${rsc_model}/${sim_model}.urdf
-    sim_model: "ur5_leaphand_left_sw"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
+    sim_model: "ur5_leaphand_left_sw_noinertia"        # simulation model in   rsc/${rsc_model}/${sim_model}.urdf
 
     # Collision group ID for visualization in RaiSim
     vis_group_id: "0"

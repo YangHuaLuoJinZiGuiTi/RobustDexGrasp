@@ -205,9 +205,9 @@ for update in range(args.num_iterations):
     #                         [ 0., 0., 1., -0.095],
     #                         [ 0., 0., 0., 1.]])
     # leap hand
-    Ttarget2eef = np.array([[ 0., 0., 1., -0.095],
+    Ttarget2eef = np.array([[ 0., 0., 1., -0.11],
                             [ -1., 0., 0., 0.],
-                            [ 0., -1., 0., 0.],
+                            [ 0., -1., 0.,-0.05],
                             [ 0., 0., 0., 1.]])
     # Transformation matrix from UR5 robot frame to world frame
     Teefraisim2ik = np.array([[ 0., 1., 0., 0.],
@@ -299,7 +299,8 @@ for update in range(args.num_iterations):
 
         # Calculate center of visible points (affordance center) in world frame
         obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200, 3), axis=0)
-
+        if obj_aff_center_in_w[2] < 0.82:
+            qpos_reset_r[i, 6:] = cfg['environment']['hardware']['init_finger_pose_low_obj']
         # Check if top grasp is enabled in configuration
         top_grasp = cfg['environment']['top']
 
@@ -314,7 +315,7 @@ for update in range(args.num_iterations):
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
         # Calculate wrist position based on affordance center and approach direction
-        pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.08 * hand_dir_x_w
 
         # Sample rotation matrices and calculate projection lengths for hand orientation
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
@@ -378,10 +379,10 @@ for update in range(args.num_iterations):
         scores = scores * 10000.  # Set initial scores high (worse)
         
         # Select the best IK solution based on projection length and joint angles
-        if min(projection_lengths) < 0.18:
+        if min(projection_lengths) < 0.14:
             # If we have short projection lengths, use scoring based on multiple criteria
             for j in feasible_indices:
-                if projection_lengths[j] < 0.18:
+                if projection_lengths[j] < 0.14:
                     # Calculate score based on projection length and wrist angle
                     score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
                     score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']

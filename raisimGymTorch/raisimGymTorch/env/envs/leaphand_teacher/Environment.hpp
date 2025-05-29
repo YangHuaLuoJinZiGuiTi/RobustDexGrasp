@@ -86,7 +86,7 @@ namespace raisim {
             hand_center.setZero();
             hand_center[0] = 0.0;
             hand_center[1] = -0.05;
-            hand_center[2] = 0.135;
+            hand_center[2] = 0.11;
 
 
             /// get actuation dimensions
@@ -241,17 +241,9 @@ namespace raisim {
                 /// initialize Cylinders for sensor
                 for(int i = 0; i < num_bodyparts; i++){
                     Cylinder[i] = server_->addVisualCylinder(body_parts_r_[i]+"_cylinder", 0.005, 0.1, 1, 0, 1);
-                    sphere[i] = server_->addVisualSphere(body_parts_r_[i]+"_sphere", 0.005, 0, 1, 0, 1);
-                    joints_sphere[i] = server_->addVisualSphere(body_parts_r_[i]+"_joints_sphere", 0.01, 0, 0, 1, 1);
                 }
-                for(int i = 0; i < 4; i++){
-                    aff_center_visual[i] = server_->addVisualSphere(body_parts_r_[i]+"_aff_center", 0.01, 0, 0, 1, 1);
-                }
-                aff_center_visual[4] = server_->addVisualSphere("debug", 0.03, 1, 1, 0, 1);
-                aff_center_visual[5] = server_->addVisualSphere(body_parts_r_[5]+"_aff_center", 0.02, 1, 1, 0, 1);
-                aff_center_visual[6] = server_->addVisualSphere(body_parts_r_[6]+"_aff_center", 0.02, 1, 1, 0, 1);
-                wrist_target[0] = server_->addVisualSphere("wrist_target", 0.03, 1, 0, 1, 1);
-                wrist_target[1] = server_->addVisualSphere("wrist_start", 0.03, 1, 0, 1, 1);
+                wrist_target[0] = server_->addVisualSphere("target", 0.01, 0, 1, 1, 1);
+                wrist_target[1] = server_->addVisualSphere("hand_center", 0.01, 1, 0, 1, 1);
 
                 if(server_) server_->unlockVisualizationServerMutex();
             }
@@ -551,10 +543,6 @@ namespace raisim {
             arctic->getPosition(affordance_id, obj_pos_w);
             arctic->getOrientation(affordance_id, obj_rot_w);
             raisim::matvecmul(obj_rot_w, afford_center, afford_center_w);
-//            raisim::matvecmul(obj_rot_w, obj_center_o, obj_center_w);
-            if (visualizable_){
-//                wrist_target[1]->setPosition(obj_center_w.e() + obj_pos_w.e());
-            }
 
             raisim::Vec<3> wrist_pos_w;
             raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
@@ -564,9 +552,6 @@ namespace raisim {
             target_center[0] = afford_center_w[0] + obj_pos_w[0];
             target_center[1] = afford_center_w[1] + obj_pos_w[1];
             target_center[2] = afford_center_w[2] + obj_pos_w[2];
-            if (visualizable_){
-                aff_center_visual[6]->setPosition(target_center.e());
-            }
 
             Eigen::Vector3d hand_center_w;
             hand_center_w = wrist_mat_r.e() * hand_center;
@@ -575,8 +560,8 @@ namespace raisim {
             hand_center_w[2] += wrist_pos_w[2];
 
             if (visualizable_){
-                aff_center_visual[5]->setPosition(hand_center_w);
-                aff_center_visual[4]->setPosition(wrist_pos_w.e());
+                wrist_target[0]->setPosition(hand_center_w);
+                wrist_target[1]->setPosition(target_center.e());
             }
 
             /// Compute position target for actuators
@@ -1259,9 +1244,6 @@ namespace raisim {
         raisim::PolyLine *lines[17];
         raisim::Visuals *table_top, *leg1,*leg2,*leg3,*leg4, *plane;
         raisim::Visuals *Cylinder[17];
-        raisim::Visuals *sphere[17];
-        raisim::Visuals *joints_sphere[17];
-        raisim::Visuals *aff_center_visual[7];
         raisim::Visuals *wrist_target[2];
 
         raisim::Vec<3> base_pos;
