@@ -47,14 +47,14 @@ exp_name = "leaphand_student"
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
 weight_saved = './../leaphand_teacher/2024-11-21-16-02-19/full_35000_r.pt'
 
-weight_path_student = 'baseline/full_4500_r.pt'
+weight_path_student = 'left/full_1000_r.pt'
 
 
 
 
 # configuration
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg.yaml')
+parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg_left_sw_noinertia.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
 parser.add_argument('-w', '--weight', type=str, default=weight_path_student)
@@ -267,9 +267,9 @@ for update in range(args.num_iterations):
     #                         [ 0., 0., 1., -0.095],
     #                         [ 0., 0., 0., 1.]])
     # leap hand
-    Ttarget2eef = np.array([[ 0., 0., 1., -0.095],
+    Ttarget2eef = np.array([[ 0., 0., 1., -0.11],
                             [ -1., 0., 0., 0.],
-                            [ 0, -1., 0., 0.],
+                            [ 0, -1., 0., -0.05],
                             [ 0., 0., 0., 1.]])
     # Transformation matrix from UR5 robot frame to world frame
     Teefraisim2ik = np.array([[ 0., 1., 0., 0.],
@@ -373,7 +373,7 @@ for update in range(args.num_iterations):
         else:
             hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
-        pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.15 * hand_dir_x_w
 
 
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
@@ -416,9 +416,9 @@ for update in range(args.num_iterations):
         feasible_indices = np.where(feasible_ik_flag)[0]
         scores = np.ones(sample_num, dtype='float32')
         scores = scores * 10000.
-        if min(projection_lengths) < 0.18:
+        if min(projection_lengths) < 0.14:
             for j in feasible_indices:
-                if projection_lengths[j] < 0.18:
+                if projection_lengths[j] < 0.14:
                     score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
                     score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']
                     score3 = ((projection_lengths[j] / min(projection_lengths)) ** 2) * cfg['environment']['length_ratio_coeff']

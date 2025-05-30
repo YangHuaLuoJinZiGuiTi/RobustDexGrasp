@@ -397,7 +397,7 @@ for update in range(5):
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
         # get position and orientation of the wrist
-        pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.15 * hand_dir_x_w
 
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
 
@@ -421,9 +421,9 @@ for update in range(5):
         feasible_indices = np.where(feasible_ik_flag)[0]
         scores = np.ones(sample_num, dtype='float32')
         scores = scores * 10000.
-        if min(projection_lengths) < 0.18:
+        if min(projection_lengths) < 0.14:
             for j in feasible_indices:
-                if projection_lengths[j] < 0.18:
+                if projection_lengths[j] < 0.14:
                     score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
                     score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']
                     score3 = ((projection_lengths[j] / min(projection_lengths)) ** 2) * cfg['environment']['length_ratio_coeff']

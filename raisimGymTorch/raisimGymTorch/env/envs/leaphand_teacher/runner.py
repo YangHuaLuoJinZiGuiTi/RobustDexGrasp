@@ -40,7 +40,7 @@ weight_saved = '/../2025-05-04-01-11-44/full_7000_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg_left.yaml')
+parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg_left_sw_noinertia.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
 parser.add_argument('-w', '--weight', type=str, default=weight_saved)
@@ -92,11 +92,7 @@ obj_list = []
 # cat_name = 'ycb_urdf_light'
 # cat_name = 'ycb_urdf_sim_light'
 cat_name = 'new_training_set'
-# cat_name = 'new_training_set_eval'
-if cat_name == 'new_training_set' or cat_name == 'new_training_set_eval':
-    repeat_per_obj = 2
-else:
-    repeat_per_obj = 3
+repeat_per_obj = 2
 
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
@@ -473,8 +469,6 @@ for update in range(args.num_iterations):
 
         # get the x_dir of the grasping frame
         obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200, 3), axis=0)
-        if obj_aff_center_in_w[2] < 0.82:
-            qpos_reset_r[i, 6:] = cfg['environment']['hardware']['init_finger_pose_low_obj']
 
         top_grasp = cfg['environment']['top']
 
@@ -487,7 +481,7 @@ for update in range(args.num_iterations):
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
         # get position and orientation of the wrist
-        pos = obj_aff_center_in_w + 0.08 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.15 * hand_dir_x_w
 
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
 

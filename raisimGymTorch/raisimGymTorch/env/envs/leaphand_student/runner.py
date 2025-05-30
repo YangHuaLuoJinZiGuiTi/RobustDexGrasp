@@ -30,13 +30,13 @@ from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, tra
 
 exp_name = "leaphand_student"
 
-weight_saved = '/../../leaphand_teacher/2024-11-21-16-02-19/full_35000_r.pt'
-weight_path_student = '2024-10-28-14-49-02/full_1000_r.pt'
+weight_saved = '/../../leaphand_teacher/0529_close_obj/full_5000_r.pt'
+weight_path_student = '/../0530_new/full_2000_r.pt'
 
 
 # configuration
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg.yaml')
+parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg_left_sw_noinertia.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
 parser.add_argument('-w', '--weight', type=str, default=weight_saved)
@@ -90,10 +90,7 @@ obj_list = []
 cat_name = 'new_training_set'
 # cat_name = 'new_training_set_eval'
 
-if cat_name == 'new_training_set' or cat_name == 'new_training_set_eval':
-    repeat_per_obj = 2
-else:
-    repeat_per_obj = 3
+repeat_per_obj = 2
 
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
@@ -105,36 +102,6 @@ folder_names = [item for item in items if os.path.isdir(os.path.join(directory_p
 
 obj_path_list = []
 obj_ori_list = folder_names
-if cat_name == 'new_training_set' or cat_name == 'new_training_set_eval':
-    obj_ori_list.append('009_gelatin_box')
-    # obj_ori_list.append('011_banana')
-    # obj_ori_list.append('011_banana')
-    # obj_ori_list.append('019_pitcher_base')
-    # obj_ori_list.append('037_scissors')
-    obj_ori_list.append('052_extra_large_clamp')
-    # obj_ori_list.append('big_tape')
-    # obj_ori_list.append('big_tape')
-    obj_ori_list.append('big_tape')
-    # obj_ori_list.append('big_tape')
-    # obj_ori_list.append('hammer')
-    obj_ori_list.append('hammer')
-    obj_ori_list.append('loopy_head_side')
-    # obj_ori_list.append('loopy_head_side')
-    # obj_ori_list.append('small_block')
-    obj_ori_list.append('small_block')
-
-    obj_ori_list.append('003_cracker_box')
-    # obj_ori_list.append('off_water_body')
-    # obj_ori_list.append('037_scissors')
-    obj_ori_list.append('019_pitcher_base')
-    obj_ori_list.append('mouse')
-    obj_ori_list.append('011_banana')
-    obj_ori_list.append('gun_functional')
-    # obj_ori_list.append('wood_block_oriented')
-    # obj_ori_list.append('suger_box_oriented')
-    # obj_ori_list.append('cracker_box_oriented')
-    obj_ori_list.append('power_drill_oriented')
-# label = {}
 
 num_envs = len(obj_ori_list) * repeat_per_obj
 obj_list = []
@@ -371,9 +338,9 @@ for update in range(args.num_iterations):
     #                         [ 0., 0., 1., -0.095],
     #                         [ 0., 0., 0., 1.]])
     # leap hand
-    Ttarget2eef = np.array([[ 0., 0., 1., -0.095],
+    Ttarget2eef = np.array([[ 0., 0., 1., -0.11],
                             [ -1., 0., 0., 0.],
-                            [ 0, -1., 0., 0.],
+                            [ 0, -1., 0., -0.05],
                             [ 0., 0., 0., 1.]])
     # Transformation matrix from UR5 robot frame to world frame
     Teefraisim2ik = np.array([[ 0., 1., 0., 0.],
@@ -493,7 +460,7 @@ for update in range(args.num_iterations):
             hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
-        pos = obj_aff_center_in_w + 0.25 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.15 * hand_dir_x_w
 
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
 
@@ -517,9 +484,9 @@ for update in range(args.num_iterations):
         feasible_indices = np.where(feasible_ik_flag)[0]
         scores = np.ones(sample_num, dtype='float32')
         scores = scores * 10000.
-        if min(projection_lengths) < 0.18:
+        if min(projection_lengths) < 0.14:
             for j in feasible_indices:
-                if projection_lengths[j] < 0.18:
+                if projection_lengths[j] < 0.14:
                     score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
                     score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']
                     score3 = (abs(ik_results[j, 4]) - 3.2) * cfg['environment']['angle_score_coeff'] * 0.5

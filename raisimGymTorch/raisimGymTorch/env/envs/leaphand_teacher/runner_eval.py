@@ -29,12 +29,12 @@ exp_name = "leaphand_teacher"
 
 
 # Selected model weights for evaluation
-weight_saved = 'right_re/full_5500_r.pt'
+weight_saved = 'left/full_5000_r.pt'
 
 
 # Command line argument parsing
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg.yaml')
+parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg_left_sw_noinertia.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
 parser.add_argument('-w', '--weight', type=str, default=weight_saved)
@@ -299,8 +299,6 @@ for update in range(args.num_iterations):
 
         # Calculate center of visible points (affordance center) in world frame
         obj_aff_center_in_w = np.mean(visible_points_w[i].reshape(200, 3), axis=0)
-        if obj_aff_center_in_w[2] < 0.82:
-            qpos_reset_r[i, 6:] = cfg['environment']['hardware']['init_finger_pose_low_obj']
         # Check if top grasp is enabled in configuration
         top_grasp = cfg['environment']['top']
 
@@ -315,7 +313,7 @@ for update in range(args.num_iterations):
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
         # Calculate wrist position based on affordance center and approach direction
-        pos = obj_aff_center_in_w + 0.08 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.15 * hand_dir_x_w
 
         # Sample rotation matrices and calculate projection lengths for hand orientation
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])

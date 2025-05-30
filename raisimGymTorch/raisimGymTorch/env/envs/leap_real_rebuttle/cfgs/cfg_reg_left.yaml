@@ -47,7 +47,7 @@ environment:
 
   long_steps: False
   biased: False
-  grasp_steps: 22
+  grasp_steps: 40
   top: True
   non_uniform_sampling: False  # 控制是否使用非均匀采样，True为使用非均匀采样，False为使用均匀采样
   eval_during_training: False

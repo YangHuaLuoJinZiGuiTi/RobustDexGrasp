@@ -163,7 +163,7 @@ namespace raisim {
             finger_weights_contact(0) = 0;
             finger_weights_contact(10) = 0;
             finger_weights_contact.segment(10,3) *= 2;
-            finger_weights_contact(num_contacts-1) *= 2;
+            finger_weights_contact(num_contacts-1) *= 2.5;
             finger_weights_contact /= finger_weights_contact.sum();
             finger_weights_contact *= num_contacts;
 

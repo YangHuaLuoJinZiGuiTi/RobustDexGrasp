@@ -32,7 +32,7 @@ exp_name = "leaphand_student"
 
 weight_saved = './../arm_rand/2024-11-17-12-27-38/full_7000_r.pt'
 #weight_path_student = 'last/full_1500_r.pt'
-weight_path_student = 'left/full_5000_r.pt'
+weight_path_student = 'left/full_6500_r.pt'
 
 # configuration
 parser = argparse.ArgumentParser()
@@ -206,9 +206,9 @@ while True:
     #                         [ 0., 0., 1., -0.095],
     #                         [ 0., 0., 0., 1.]])
     # leap hand
-    Ttarget2eef = np.array([[ 0., 0., 1., -0.095],
+    Ttarget2eef = np.array([[ 0., 0., 1., -0.11],
                             [ -1., 0., 0., 0.],
-                            [ 0, -1., 0., 0.],
+                            [ 0, -1., 0., -0.05],
                             [ 0., 0., 0., 1.]])
     # Transformation matrix from UR5 robot frame to world frame
     Teefraisim2ik = np.array([[ 0., 1., 0., 0.],
@@ -374,7 +374,7 @@ while True:
         else:
             hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
-        pos = obj_aff_center_in_w + 0.2 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.15 * hand_dir_x_w
 
 
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
@@ -405,9 +405,9 @@ while True:
         feasible_indices = np.where(feasible_ik_flag)[0]
         scores = np.ones(sample_num, dtype='float32')
         scores = scores * 10000.
-        if min(projection_lengths) < 0.15:
+        if min(projection_lengths) < 0.14:
             for j in feasible_indices:
-                if projection_lengths[j] < 0.15:
+                if projection_lengths[j] < 0.14:
                     score1 = projection_lengths[j] * cfg['environment']['length_score_coeff']
                     score2 = abs(ik_results[j, 4] - 1.57) * cfg['environment']['angle_score_coeff']
                     score3 = ((projection_lengths[j] / min(projection_lengths)) ** 2) * cfg['environment']['length_ratio_coeff']

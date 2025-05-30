@@ -560,7 +560,7 @@ namespace raisim {
             mano_r_->move_line(x,y,z);
         }
 
-        void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag, const Eigen::Ref<EigenVec>& set_arm) final {
+        void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag, const Eigen::Ref<EigenVec>& set_arm, bool no_wait) final {
             Eigen::VectorXd final_arm(6), final_hand(16);
             // if (lift_up) {
             //     final_arm << 0.0, -1.57, 1.57, 0., 1.57, -1.57; // lift on top
@@ -579,7 +579,7 @@ namespace raisim {
             }
             pTarget_clipped_r.head(6) = set_arm.cast<double>();
             //std::cout << "set lift target = " << pTarget_clipped_r.transpose() << std::endl;
-            mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag, true);
+            mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag, no_wait);
         }
 
         void update_target(const Eigen::Ref<EigenVec>& target_center) final {
