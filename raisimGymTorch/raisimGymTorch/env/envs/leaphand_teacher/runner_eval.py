@@ -34,7 +34,7 @@ weight_saved = 'left/full_5000_r.pt'
 
 # Command line argument parsing
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg_left_sw_noinertia.yaml')
+parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg_right_sw_noinertia.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
 parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
 parser.add_argument('-w', '--weight', type=str, default=weight_saved)
@@ -81,7 +81,7 @@ cfg['environment']['visualize'] = True
 cfg['environment']['num_envs'] = num_envs
 
 # Set dataset for training objects
-cat_name = 'new_training_set_eval'
+cat_name = 'new_training_set_large'
 # cat_name = 'shapenet-30obj'
 
 # Whether should load stable states

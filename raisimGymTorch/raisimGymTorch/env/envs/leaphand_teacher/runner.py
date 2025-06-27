@@ -91,8 +91,8 @@ obj_list = []
 # cat_name = 'ycb_urdf_all'
 # cat_name = 'ycb_urdf_light'
 # cat_name = 'ycb_urdf_sim_light'
-cat_name = 'new_training_set'
-repeat_per_obj = 2
+cat_name = 'new_training_set_large'
+repeat_per_obj = 8
 
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"

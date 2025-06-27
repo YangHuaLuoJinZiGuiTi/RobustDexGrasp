@@ -47,7 +47,7 @@ exp_name = "leaphand_student"
 # weight_saved = '2024-10-26-16-03-00/full_40500_r.pt'
 weight_saved = './../leaphand_teacher/2024-11-21-16-02-19/full_35000_r.pt'
 
-weight_path_student = 'left/full_1000_r.pt'
+weight_path_student = 'left_test/full_5000_r.pt'
 
 
 
@@ -105,7 +105,7 @@ cfg['environment']['num_envs'] = num_envs
 print('num envs', num_envs)
 
 
-cat_name = 'new_training_set_eval'
+cat_name = 'new_training_set_large'
 
 if cat_name == 'shapenet-30obj':
     stable = True
@@ -154,7 +154,7 @@ obj_item = choice(obj_ori_list)
 # obj_item = 'fan_small_head'
 # obj_item = 'gun_functional'
 # obj_item = 'hammer'
-# obj_item = 'loopy_head_side'
+obj_item = 'loopy_head_side'
 # obj_item = 'mouse'
 # obj_item = 'off_water_body'
 # obj_item = 'solder_iron_head'
@@ -203,7 +203,7 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps']
-lift_steps = 20
+lift_steps = 40
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
@@ -494,7 +494,7 @@ for update in range(args.num_iterations):
         # show_point = dis_info[:, 17:68].astype('float32').copy()
         #env.set_joint_sensor_visual(show_point)
         
-        time.sleep(0.2)
+        time.sleep(0.05)
 
         if biased:
             obj_pos_bias_current = np.zeros((num_envs, 3), dtype='float32')

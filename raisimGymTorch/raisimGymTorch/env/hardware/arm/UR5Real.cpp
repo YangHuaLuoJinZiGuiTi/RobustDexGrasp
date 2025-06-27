@@ -121,9 +121,9 @@ public:
         }
 
         if (async == false) {
-            rtde_control_->stopJ();
-            rtde_control_->stopScript();
-            usleep(50000);
+            // rtde_control_->stopJ();
+            // rtde_control_->stopScript();
+            // usleep(50000);
             rtde_control_->servoStop();
             rtde_control_->stopScript();
             usleep(50000);
