@@ -14,7 +14,11 @@ conda install pytorch3d-0.7.7-py38_cu118_pyt231.tar.bz2
 # python library
 
 ```Shell
-pip install empy catkin_pkg scipy scikit-learn opencv-python opencv-python pyrealsense2 open3d numpy==1.23.1
+pip install empy catkin_pkg scipy scikit-learn opencv-python opencv-python pyrealsense2 open3d numpy==1.23.1 kornia transformations psutil imageio segment-anything pynput SpeechRecognition json_repair openai ruamel.yaml omegaconf h5py
+
+git clone https://github.com/NVlabs/nvdiffrast.git
+cd nvdiffrast
+pip install .
 ```
     
 # system library
@@ -107,4 +111,10 @@ run the code of real world evaluation
 ```Shell
 cd raisimGymTorch 
 python raisimGymTorch/env/envs/allegro_real/real.py
+```
+
+
+# for ubuntu22.04
+```Shell
+sudo ln -s /usr/lib/x86_64-linux-gnu/libdl.so.2 /usr/lib/x86_64-linux-gnu/libdl.so
 ```
