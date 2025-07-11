@@ -22,11 +22,22 @@ class RealsenseQuick:
         for i in range(90):
             _, _ = self.get_one_rgbd()
 
+        self.timer = threading.Timer(1.0, self.trigger_save) 
+        #self.timer.start()
+
         self.event = threading.Event()
         self.thread_run_flag = True
         self.b_thread = threading.Thread(target=self.save_rgbd_thread)
         self.b_thread.daemon = True
         self.b_thread.start()
+
+    def trigger_save(self):
+        print("save a img..")
+        rgb_image, depth_image = self.get_one_rgbd()
+        rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
+        cv2.imwrite("/home/ubuntu/continue_rgb.png", rgb_image)
+        self.timer = threading.Timer(1.0, self.trigger_save)  # 1秒后调用repeated_task
+        self.timer.start()
 
     def get_one_rgbd(self):
         while True:
@@ -195,7 +206,6 @@ class RealsenseQuick:
             break
 
     def get_mask_rgbd(self, mask):
-        t1 = time.time()
         depth_image = np.load(self.save_pth + "/tmp.npy")
 
         output = np.zeros_like(depth_image)
@@ -203,16 +213,10 @@ class RealsenseQuick:
         # get point cloud
         pointcloud_xyz = self.depth2xyzmap(output)
         all_pc = pointcloud_xyz.reshape(-1, 3).astype(np.float32)
-
-        t2 = time.time()
-        print(f"-------------t12 = {t2 - t1}")
     
         mask_pcd_new, mean_pose = self.sample_pc(all_pc)
         tsim2realpc = self.raisim_frame_tf(mask_pcd_new)
         tsim2realpose = self.raisim_frame_tf(mean_pose)
-        
-        t3 = time.time()
-        print(f"-------------t23 = {t3 - t2}")
 
         if self.debug:
             cloud = o3d.geometry.PointCloud()

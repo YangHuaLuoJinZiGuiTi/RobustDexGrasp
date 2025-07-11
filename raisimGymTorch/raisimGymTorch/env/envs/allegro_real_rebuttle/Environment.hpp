@@ -97,6 +97,7 @@ namespace raisim {
 
 //            std::cout<<gcDim_<<std::endl;
 
+            no_wait_sc_r_.setZero(6);
             gc_r_.setZero(gcDim_);
             gv_r_.setZero(gvDim_);
             gc_set_r_.setZero(gcDim_); gv_set_r_.setZero(gvDim_);
@@ -221,24 +222,10 @@ namespace raisim {
                 server_ = std::make_unique<raisim::RaisimServer>(world_.get());
                 server_->launchServer();
 
-                /// Create table
-                table_top = server_->addVisualBox("tabletop", 2.0, 1.0, 0.05, 0.44921875, 0.30859375, 0.1953125, 1, "");
-                table_top->setPosition(0.2, -0.75152, 0.746);
-                leg1 = server_->addVisualCylinder("leg1", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
-                leg2 = server_->addVisualCylinder("leg2", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
-                leg3 = server_->addVisualCylinder("leg3", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
-                leg4 = server_->addVisualCylinder("leg4", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
-                leg1->setPosition(-0.7875,-0.28402,0.373);
-                leg2->setPosition(1.1775,-0.26402,0.373);
-                leg3->setPosition(-0.7875,-1.21902,0.373);
-                leg4->setPosition(1.1775,-1.23902,0.373);
-
                 obj_pose_sphere = server_->addVisualSphere("obj_pose", 0.01, 1, 0, 1, 1);
                 /// initialize Cylinders for sensor
                 for(int i = 0; i < num_bodyparts; i++){
                     Cylinder[i] = server_->addVisualCylinder(body_parts_r_[i]+"_cylinder", 0.005, 0.1, 1, 0, 1);
-                    sphere[i] = server_->addVisualSphere(body_parts_r_[i]+"_sphere", 0.005, 0, 1, 0, 1);
-                    joints_sphere[i] = server_->addVisualSphere(body_parts_r_[i]+"_joints_sphere", 0.01, 0, 0, 1, 1);
                 }
                 for(int i = 0; i < 5; i++){
                     aff_center_visual[i] = server_->addVisualSphere(body_parts_r_[i]+"_aff_center", 0.01, 0, 0, 1, 1);
@@ -343,7 +330,7 @@ namespace raisim {
             sv.setZero(gvDim_);
             mano_r_->setState(sc, sv, true);
 
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 2; i++) {
                 if(server_) server_->lockVisualizationServerMutex();
                 world_->integrate();
                 if(server_) server_->unlockVisualizationServerMutex();
@@ -364,7 +351,7 @@ namespace raisim {
         }
 
         void set_joint_sensor_visual(const Eigen::Ref<EigenVec>& joint_sensor_visual) final {
-
+            if (visualizable_ == false) return;
             raisim::Vec<3> joint_pos_w, mesh_pos_o, mesh_pos_w, vis_cylinder_pos_w;
 
             for(int i = 0; i < num_bodyparts; i++) {
@@ -561,6 +548,21 @@ namespace raisim {
             mano_r_->move_line(x,y,z);
         }
 
+        bool get_no_wait_finish_flag() {
+            if (no_wait_flag == false) return true;
+            mano_r_->updateObservation(false, false);
+            mano_r_->getState(gc_r_, gv_r_, false);
+            for (int i = 0; i < 6; i++) {
+                double diff = std::abs(no_wait_sc_r_[i] - gc_r_[i]);
+                if (diff > 0.004) {
+                    printf("waiting for joint[%d] has a large gap: %f --- %f\n", i, no_wait_sc_r_[i], gc_r_[i]);
+                    return false;
+                }
+            }
+            no_wait_flag = false;
+            return true;
+        }
+
         void final_reset_state(const Eigen::Ref<EigenVec>& init_state_r, bool release_hand, bool sim_flag, const Eigen::Ref<EigenVec>& set_arm, bool no_wait) final {
             Eigen::VectorXd final_arm(6), final_hand(16);
             // if (lift_up) {
@@ -582,6 +584,10 @@ namespace raisim {
             //std::cout << "set lift target = " << pTarget_clipped_r.transpose() << std::endl;
             std::cout << "set no wait  = " << no_wait << std::endl;
             mano_r_->setState(pTarget_clipped_r, gv_set_r_, sim_flag, no_wait=no_wait);
+            no_wait_flag = no_wait;
+            if (no_wait == true) {
+                no_wait_sc_r_ = set_arm.cast<double>();
+            }
         }
 
         void update_target(const Eigen::Ref<EigenVec>& target_center) final {
@@ -605,6 +611,19 @@ namespace raisim {
             /// Compute position target for actuators
             pTarget_r_ = action_r.cast<double>();
             pTarget_r_ = pTarget_r_.cwiseProduct(actionStd_r_); //residual action * scaling
+            Eigen::VectorXd actionjoint = pTarget_r_;
+
+            double gc_diff_reward = 0.0;
+            //std::cout << "action:  ";
+            for (int i = 1; i < 4; i++) {
+                //std::cout << actionjoint[i] << ", ";
+                double absdiff = abs(actionjoint[i]);
+                if (absdiff > 0.015) {
+                    gc_diff_reward += (absdiff - 0.015);
+                }
+            }
+            //std::cout << std::endl;
+
             pTarget_r_ += actionMean_r_; //add wrist bias (first 3DOF) and last pose (23DoF)
             if (lift){
                 lift_num += 1;
@@ -641,8 +660,8 @@ namespace raisim {
             }
             if (max_step_distance_arm > 0.03) {
                 arm_delay_cnt = round(max_step_distance_arm / 0.025) + 1.0;
-                if (arm_delay_cnt > 5.0) {
-                    arm_delay_cnt = 5.0;
+                if (arm_delay_cnt > 2.0) {
+                    arm_delay_cnt = 2.0;
                 }
                 if (arm_delay_cnt > 1.0) {
                     std::cout << "max_step_distance_arm = " << max_step_distance_arm << ", will delay times = " << arm_delay_cnt << std::endl;
@@ -699,7 +718,6 @@ namespace raisim {
 
                 /// Set PD targets (velocity zero)
                 //if (delay_cnt > 1.0)
-                //    printf("%d: set: %f/(%f,%f) \t %f/(%f,%f) \t %f/(%f,%f) \t %f/(%f,%f) \t %f/(%f,%f) \t %f/(%f,%f) \n",step, pTarget_clipped_step[0], gc_r_[0], pTarget_clipped_r[0], pTarget_clipped_step[1], gc_r_[1], pTarget_clipped_r[1], pTarget_clipped_step[2], gc_r_[2], pTarget_clipped_r[2], pTarget_clipped_step[3], gc_r_[3], pTarget_clipped_r[3], pTarget_clipped_step[4], gc_r_[4], pTarget_clipped_r[4], pTarget_clipped_step[5], gc_r_[5], pTarget_clipped_r[5]);
                 mano_r_->setPdTarget(pTarget_clipped_step, vTarget_r_, sim_flag);
 
                 /// Apply N control steps
@@ -901,7 +919,7 @@ namespace raisim {
         /// Since the episode lengths are fixed, this function is used to catch instabilities in simulation and reset the env in such cases
         bool isTerminalState(float& terminalReward) final {
             for(int i = 0; i < num_bodyparts ; i++){
-                if (joint_height_w[i] < -0.008){
+                if (joint_height_w[i] < -0.012){
                     terminalReward = -10;
                     std::cout<<"joint_height_w: "<<joint_height_w[i]<<std::endl;
                     return true;
@@ -933,7 +951,8 @@ namespace raisim {
         int lift_num = 0;
         int step_cnt_ = 0;
         raisim::ArticulatedSystem* mano_;
-        Eigen::VectorXd gc_r_, gv_r_, pTarget_r_, vTarget_r_, gc_set_r_, gv_set_r_;
+        bool no_wait_flag = false;
+        Eigen::VectorXd gc_r_, gv_r_, pTarget_r_, vTarget_r_, gc_set_r_, gv_set_r_, no_wait_sc_r_;
         Eigen::VectorXd obj_pos_init_;
         Eigen::VectorXd joint_pos_in_world;
         Eigen::VectorXd arm_joint_pos_in_world;
@@ -1026,11 +1045,7 @@ namespace raisim {
         std::ifstream test_sysid;
         std::ofstream log_obs_out;
 
-        raisim::PolyLine *lines[17];
-        raisim::Visuals *table_top, *leg1,*leg2,*leg3,*leg4, *plane;
         raisim::Visuals *Cylinder[17];
-        raisim::Visuals *sphere[17];
-        raisim::Visuals *joints_sphere[17];
         raisim::Visuals *aff_center_visual[7];
         raisim::Visuals *wrist_target[2];
         raisim::Visuals *obj_pose_sphere;

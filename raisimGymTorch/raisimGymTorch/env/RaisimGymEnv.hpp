@@ -59,6 +59,7 @@ class RaisimGymEnv {
                                 bool sim_flag,
                                 const Eigen::Ref<EigenVec>& set_arm,
                                 bool no_wait) {};
+  virtual bool get_no_wait_finish_flag() {};
   virtual void move_line(double x,double y,double z) {};
   virtual void set_goals(const Eigen::Ref<EigenVec>& obj_angle,
                          const Eigen::Ref<EigenVec>& obj_pos,

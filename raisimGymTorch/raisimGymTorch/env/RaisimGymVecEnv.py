@@ -31,7 +31,7 @@ class RaisimGymVecEnv:
         self.gs_rms = RunningMeanStd(shape=[self.num_envs, self.num_gs])
         self._reward_r = np.zeros(self.num_envs, dtype=np.float32)
         self._reward_l = np.zeros(self.num_envs, dtype=np.float32)
-        self._done = np.zeros(self.num_envs, dtype=np.bool)
+        self._done = np.zeros(self.num_envs, dtype=np.bool_)
         self.rewards = [[] for _ in range(self.num_envs)]
 
     def seed(self, seed=None):

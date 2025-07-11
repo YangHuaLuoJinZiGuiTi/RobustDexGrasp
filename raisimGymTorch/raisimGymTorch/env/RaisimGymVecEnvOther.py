@@ -43,7 +43,7 @@ class RaisimGymVecEnvTest:
         self.gs_rms = RunningMeanStd(shape=[self.num_envs, self.num_gs])
         self._reward_r = np.zeros(self.num_envs, dtype=np.float32)
         self._reward_l = np.zeros(self.num_envs, dtype=np.float32)
-        self._done = np.zeros(self.num_envs, dtype=np.bool)
+        self._done = np.zeros(self.num_envs, dtype=np.bool_)
         self.rewards = [[] for _ in range(self.num_envs)]
         # self.bps = bps_torch(bps_type='random_uniform',
         #         n_bps_points=64,
@@ -673,6 +673,9 @@ class RaisimGymVecEnvTest:
 
     def final_reset_state(self, init_state_r, release_hand, sim_flag, set_arm, no_wait):
         self.wrapper.final_reset_state(init_state_r, release_hand, sim_flag, set_arm, no_wait)
+        
+    def get_no_wait_finish_flag(self):
+        return self.wrapper.get_no_wait_finish_flag()
         
     def move_line(self, x,y,z):
         self.wrapper.move_line(x,y,z)

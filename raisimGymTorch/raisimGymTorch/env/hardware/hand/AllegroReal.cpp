@@ -172,6 +172,8 @@ private:
             hand_joint_velocity_[i] = msg->velocity[i];
             hand_joint_effort_[i] = msg->effort[i];
         }
+
+        hand_joint_position_[7] = 0.5;
     }
 
     void subscribeLoop() {

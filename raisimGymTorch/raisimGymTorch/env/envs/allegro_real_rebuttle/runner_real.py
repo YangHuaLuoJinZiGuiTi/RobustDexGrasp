@@ -21,7 +21,7 @@ import numpy as np
 import torch
 import argparse
 from raisimGymTorch.helper import rotations
-from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, transformRobotParameter
+from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5
 import torch
 import cv2
 
@@ -30,9 +30,6 @@ from raisimGymTorch.env.hardware.planning.audio_vlm_planner import audio_vlm_pla
 from raisimGymTorch.env.hardware.sam.sam_predict import sam_predict
 from raisimGymTorch.env.hardware.realsense.PointCloud import Realsense
 from raisimGymTorch.env.hardware.realsense.PointCloudQuick import RealsenseQuick
-from raisimGymTorch.env.hardware.FoundationPose.interactive import FoundationData
-from raisimGymTorch.env.hardware.FoundationPose.RGBDPointCloud import GetPointCloud
-from raisimGymTorch.env.hardware.log_data import d435_record
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -145,7 +142,7 @@ total_obs_dim = tobeEncode_dim*t_steps + ob_dim_r
 # Training
 reward_clip = -2.0
 grasp_steps = cfg['environment']['grasp_steps']
-lift_steps = 1
+lift_steps = 3
 n_steps_r = grasp_steps + lift_steps
 total_steps_r = n_steps_r * env.num_envs
 
@@ -510,9 +507,6 @@ while True:
         exit(0)
     
     for sim_flag in [False]: # True, False
-
-        t7 = time.time()
-        print(f"-------------t67 = {t7 - t6}")
         print(f"--------------------------- test in {sim_flag} flag ---------------------- ")
         env.reset_state(qpos_reset_r,
                         qpos_reset_l,
@@ -588,13 +582,13 @@ while True:
         lift_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
         lift_topright = np.zeros((num_envs, 6), dtype='float32')
         lift_topright[0, :] = [1.0, -1.57, 1.57, 0., 1.57, -1.57]
-        lift_topleft = np.zeros((num_envs, 6), dtype='float32')
-        lift_topleft[0, :] = [-1.53, -1.74, 2.041, -0.209, 1.884, -1.535]
+        lift_box = np.zeros((num_envs, 6), dtype='float32')
+        lift_box[0, :] = [-1.722, -1.949, 2.0457, 0.0771, 1.3844, -1.6893]
         # demo
         print("will move top ..... ")
         env.move_line(0, 0, 0.1)
         print("will move left ..... ")
-        env.final_reset_state(action_r, False, sim_flag, lift_topleft, False)
+        env.final_reset_state(action_r, False, sim_flag, lift_box, False)
         print("will release ..... ")
-        env.final_reset_state(action_r, True, sim_flag, lift_topleft, False)
+        env.final_reset_state(action_r, True, sim_flag, lift_box, False)
         print("finsh all")

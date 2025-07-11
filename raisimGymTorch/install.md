@@ -113,6 +113,11 @@ cd raisimGymTorch
 python raisimGymTorch/env/envs/allegro_real/real.py
 ```
 
+# install pyaudio
+```Shell
+sudo apt install portaudio19-dev
+pip install pyaudio
+```
 
 # for ubuntu22.04
 ```Shell

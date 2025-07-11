@@ -27,8 +27,11 @@ public:
         control_dt_ = 1.0 / rtde_frequency;
         uint16_t flags = ur_rtde::RTDEControlInterface::FLAG_USE_EXT_UR_CAP;
 
-        rtde_control_ = std::make_unique<ur_rtde::RTDEControlInterface>(robot_ip, rtde_frequency, flags);
+        std::cout << "------------- start connect ur5 receive ...." << std::endl;
         rtde_receive_ = std::make_unique<ur_rtde::RTDEReceiveInterface>(robot_ip, rtde_frequency);
+        std::cout << "------------- start connect ur5 control ...." << std::endl;
+        rtde_control_ = std::make_unique<ur_rtde::RTDEControlInterface>(robot_ip, rtde_frequency, flags);
+        std::cout << "------------- start connect ur5 ok all...." << std::endl;
 
         move_vel_ = cfg["arm_real"]["move_vel"].As<double>();
         move_acc_ = cfg["arm_real"]["move_acc"].As<double>();
@@ -58,6 +61,7 @@ public:
             }
             pd_txt.close();
         } else {
+        std::cout << "------------- open pd fail...." << std::endl;
             for (int i = 0; i < num_joint_; i++) {
                 Pgain[i] = Pgain[0];
                 Dgain[i] = Dgain[0];
@@ -111,7 +115,7 @@ public:
         rtde_control_->stopScript();
         usleep(50000);
 
-        rtde_control_->moveJ(tar_joint_pos, 1.5, 0.8, true);
+        rtde_control_->moveJ(tar_joint_pos, 1.0, 0.25, true);
     }
 
     void setPdTarget(const Eigen::VectorXd &posTarget, const Eigen::VectorXd &velTarget, bool async = true) const final override {
@@ -144,7 +148,7 @@ public:
         rtde_control_->servoStop();
         rtde_control_->stopScript();
         usleep(50000);
-        rtde_control_->moveL(actual_tcp_pose, 0.1, 0.1);
+        rtde_control_->moveL(actual_tcp_pose, 0.2, 0.1);
         usleep(50000);
         rtde_control_->stopL();
         rtde_control_->stopScript();

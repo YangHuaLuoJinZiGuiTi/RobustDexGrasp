@@ -139,6 +139,10 @@ class VectorizedEnvironment {
           environments_[i]->final_reset_state(init_state_r.row(i), release_hand, sim_flag, set_arm, no_wait);
   }
 
+  bool get_no_wait_finish_flag() {
+    return environments_[0]->get_no_wait_finish_flag();
+  }
+
   void move_line(double x,double y,double z) {
     #pragma omp parallel for
       for (int i = 0; i < num_envs_; i++)

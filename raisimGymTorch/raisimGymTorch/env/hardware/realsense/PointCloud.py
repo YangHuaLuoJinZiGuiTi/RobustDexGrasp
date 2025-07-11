@@ -21,7 +21,7 @@ class Realsense:
             self.filter_time = 20
             self.downsample = 4
 
-        self.mini_height = 0.012
+        self.mini_height = 0.015
         self.debug = False
         self.width = 640
         self.hight = 480
