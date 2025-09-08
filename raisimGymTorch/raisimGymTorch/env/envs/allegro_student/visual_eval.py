@@ -81,8 +81,8 @@ print('num envs', num_envs)
 
 
 # ===== Object Loading Setup =====
-cat_name = 'new_training_set'
-# cat_name = 'shapenet-30obj'
+# cat_name = 'new_training_set'
+cat_name = 'shapenet-30obj'
 
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
@@ -100,6 +100,7 @@ obj_ori_list = folder_names
 
 # Randomly choose one object for visual evaluation
 obj_item = choice(obj_ori_list)
+
 # Alternatively, uncomment one of the lines below to test a specific object
 # obj_item = '002_master_chef_can'
 # obj_item = '003_cracker_box'
@@ -145,7 +146,7 @@ obj_item = choice(obj_ori_list)
 # obj_item = 'Blue_camera'
 # obj_item = 'Blue_teapot'
 # obj_item = 'Camera_brown'
-# obj_item = 'Camera_yellow'
+obj_item = 'Camera_yellow'
 # obj_item = 'CellPhone_4e'
 # obj_item = 'Donut'
 # obj_item = 'DrinkBottle_blue_1ef'
@@ -173,6 +174,8 @@ obj_item = choice(obj_ori_list)
 
 
 # Whether should load stable states
+# print(cat_name)
+# raise
 if cat_name == 'shapenet-30obj':
     stable = True
 else:
@@ -488,9 +491,11 @@ for update in range(args.num_iterations):
         # Handle grasp vs lift phase logic
         if step < grasp_steps:
             # During grasp phase, use network outputs directly
+
             final_actions = action_r
         else:
             # During lift phase, use fixed arm pose with previous finger positions
+
             action_r = final_actions
             action_r[:, :6] = theta0
             if step == grasp_steps:
@@ -499,6 +504,9 @@ for update in range(args.num_iterations):
                 env.switch_root_guidance(True)
 
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
+        gs = env.get_global_state()
+        print(">>> max contact_force", gs[:, -1])
+        
 
         obs_new_r, dis_info = env.observe_vision_new()
         aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))

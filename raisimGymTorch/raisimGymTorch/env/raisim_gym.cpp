@@ -58,6 +58,7 @@ PYBIND11_MODULE(RAISIMGYM_TORCH_ENV_NAME, m) {
     .def("getActionDim", &VectorizedEnvironment<ENVIRONMENT>::getActionDim)
     .def("getGSDim", &VectorizedEnvironment<ENVIRONMENT>::getGSDim)
     .def("getNumOfEnvs", &VectorizedEnvironment<ENVIRONMENT>::getNumOfEnvs)
+
 //    .def("getPtarget", &VectorizedEnvironment<ENVIRONMENT>::getPtarget)
     .def("turnOnVisualization", &VectorizedEnvironment<ENVIRONMENT>::turnOnVisualization)
     .def("turnOffVisualization", &VectorizedEnvironment<ENVIRONMENT>::turnOffVisualization)
@@ -71,6 +72,9 @@ PYBIND11_MODULE(RAISIMGYM_TORCH_ENV_NAME, m) {
     .def("set_sample_point_visual", &VectorizedEnvironment<ENVIRONMENT>::set_sample_point_visual)
     .def("check_collision", &VectorizedEnvironment<ENVIRONMENT>::check_collision)
     .def("debugShowObs", &VectorizedEnvironment<ENVIRONMENT>::debugShowObs)
+  .def("getMaterialPairProperties", &VectorizedEnvironment<ENVIRONMENT>::getMaterialPairProperties)
+  .def("getObjectTotalMass", &VectorizedEnvironment<ENVIRONMENT>::getObjectTotalMass, py::arg("envIndex"), py::arg("objName")="object")
+  
     .def(py::pickle(
         [](const VectorizedEnvironment<ENVIRONMENT> &p) { // __getstate__ --> Pickling to Python
             /* Return a tuple that fully encodes the state of the object */

@@ -161,11 +161,12 @@ namespace raisim {
 
             contacts_r_af.setZero(num_contacts); 
             contacts_r_non_af.setZero(num_contacts);
+            contact_normals_r_vector.setZero(num_contacts*3);
             impulses_r_af.setZero(num_contacts); 
             impulses_r_non_af.setZero(num_contacts);
             impulses_r_af_vector.setZero(num_contacts*3); 
             impulses_r_non_af_vector.setZero(num_contacts*3);
-            impulses_r_table_vector.setZero(num_contacts*3); 
+            impulses_r_table_vector.setZero(num_contacts*3);
             impulses_arm_table_vector.setZero(6*3);
             impulses_r_af_xy.setZero(num_contacts*2); 
             impulses_r_af_z.setZero(num_contacts);
@@ -209,7 +210,7 @@ namespace raisim {
             // Initialize environment dimensions
             obDim_single = 102;
             obDim_l_ = 1;
-            gsDim_ = 179;
+            gsDim_ = 179 + 1; // max_force
             history_len = 10;
             tobeEncode_dim = 44;
             obDim_r_ = history_len * tobeEncode_dim + obDim_single;
@@ -302,7 +303,7 @@ namespace raisim {
             arctic->setGeneralizedCoordinate(gen_coord);
             arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
             obj_weight = arctic->getTotalMass();
-
+            
             Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
             objPgain.setZero();
             objDgain.setZero();
@@ -724,6 +725,7 @@ namespace raisim {
             impulses_arm_table_vector.setZero();
             impulses_r_af_xy.setZero();
             impulses_r_af_z.setZero();
+            contact_normals_r_vector.setZero();
 
             raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
@@ -763,6 +765,8 @@ namespace raisim {
                 impulses_r_af_vector[idx*3] += impulse[0];
                 impulses_r_af_vector[idx*3+1] += impulse[1];
                 impulses_r_af_vector[idx*3+2] += impulse[2];
+
+                
             }
 
             for(int i = 0; i < num_contacts; i++){
@@ -775,6 +779,12 @@ namespace raisim {
                 else{
                     contacts_r_af[i] = 0;
                 }
+            }
+            
+            // Get max contact force
+            max_contact_force_ = impulses_r_af.maxCoeff()/control_dt_;
+            if(max_contact_force_ < 0.01/control_dt_){
+                max_contact_force_ = 0.0;
             }
 
             for(auto& contact_non_af: mano_r_->getContacts()) {
@@ -979,7 +989,8 @@ namespace raisim {
                              contacts_arm_all[2],
                              contacts_arm_all[3],
                              contacts_arm_all[4],
-                             joint_pos_in_world;
+                             joint_pos_in_world,
+                             max_contact_force_;
         }
 
         /// Set observation in wrapper to current observation
@@ -1052,6 +1063,22 @@ namespace raisim {
 
             return false;
         }
+        int getNumContacts() const {
+            return num_contacts;
+        }
+
+        // 在 public 区域添加以下函数
+        const Eigen::VectorXd& getContactForces() const {
+            return impulses_r_af_vector;  // 所有接触点的力向量（世界坐标系）
+        }
+
+        const Eigen::VectorXd& getContactPositions() const {
+            return joint_pos_in_world;  // 所有接触点的位置（世界坐标系）
+        }
+
+        const Eigen::VectorXd& getContactNormals() const {
+            return contacts_r_af;  // 接触点的法线信息（当前示例中为二值表示）
+        }
 
     private:
         int gcDim_, gvDim_, tobeEncode_dim, history_len, obDim_single;
@@ -1063,6 +1090,7 @@ namespace raisim {
         Eigen::VectorXd obj_pos_init_;
         Eigen::VectorXd joint_pos_in_world;
         Eigen::VectorXd arm_joint_pos_in_world;
+        Eigen::VectorXd contact_normals_r_vector; // 接触法线向量，形状为 num_contacts * 3
         std::string load_set;
 
         double affordance_contact_reward_r= 0.0;
@@ -1086,6 +1114,7 @@ namespace raisim {
 
         int num_contacts = 0;
         int num_bodyparts = 0;
+        double max_contact_force_ = 0.0;
 
         raisim::Mat<3,3> init_rot_r_, init_or_r_, init_obj_rot_, init_obj_or_, wrist_mat_r_in_obj_init;
         raisim::Vec<3> init_root_r_, init_obj_;

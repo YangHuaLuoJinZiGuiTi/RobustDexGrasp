@@ -20,8 +20,9 @@ from raisimGymTorch.env.bin.allegro_student import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import sample_rot_mats
 from raisimGymTorch.helper import rotations
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5
+from raisimGymTorch.helper.utils import *
 import raisimGymTorch.algo.ppo_dagger_recon.module as ppo_module
-
+from copy import copy
 # Other imports
 from scipy.spatial.transform import Rotation as R
 
@@ -78,8 +79,8 @@ cfg['environment']['visualize'] = False
 
 # ===== Object Loading Setup =====
 # Set dataset for quantitative evaluation
-# cat_name = 'new_training_set'
-cat_name = 'shapenet-30obj'
+cat_name = 'new_training_set'
+# cat_name = 'shapenet-30obj'
 
 
 # Whether should load stable states
@@ -144,6 +145,18 @@ for obj_item in obj_list:
     obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
+# ==== Obj Setup ====
+obj_name = 'object'
+print(">>> get Object mass: ", env.getObjectTotalMass(0, obj_name))
+print(">>> get Object material", env.getMaterialPairProperties(0, 'Allegro', 'object'))
+
+# === Object Static Analysis =====
+mass_list, object_name = [], 'object'
+for i in range(num_envs):
+    mass_list.append(env.getObjectTotalMass(i, obj_name))
+print(">>> Avg: ", np.mean(mass_list))
+# plot_masses(obj_list, mass_list)
+# raise
 # ===== Model Dimension Setup =====
 ob_dim_r = 153
 act_dim = 22
@@ -208,6 +221,11 @@ for obj_name in obj_list:
     if obj_name not in object_failure_stats:
         object_failure_stats[obj_name] = {"failures": 0, "attempts": 0}
 
+# ==== For Force Metrics ==== 
+total_f_g_list = []
+total_f_max_list = []
+
+
 # Run multiple evaluations
 for update in range(5):
     start = time.time()
@@ -216,9 +234,9 @@ for update in range(5):
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')
     qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')
     obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')
-
+    max_force_list = [] # Max Force Trajectory for 35 Envs
     target_center = np.zeros_like(env.affordance_center)
-
+    
     # Set initial finger positions
     qpos_reset_r[:, 6:] = cfg['environment']['hardware']['init_finger_pose']
 
@@ -465,6 +483,8 @@ for update in range(5):
         # Get new observations
         obs_new_r, dis_info = env.observe_vision_new()
         aff_vec, show_point = env.observe_student_aff(torch.from_numpy(visible_points_w).to(device))
+        max_force = np.array(env.get_global_state()[:, 179]).reshape(-1)
+        max_force_list.append(max_force)
 
         # Handle bias cases
         if biased:
@@ -499,7 +519,29 @@ for update in range(5):
     else:
         print("All objects were successfully grasped!", file=sys.stdout)
 
+    # Max Force Static Analysis
+    max_force_array = np.array(max_force_list)
+    ## 1. Force Trajectory for 35 Envs plot
 
+    plot_force_trajectories(max_force_array,
+                            # obj_name=obj_list,
+                            save_path=os.path.join(saver.data_dir, f'force_trajectories_{update}.png'))
+    
+    ## 2. Force_max during the whole process for each env
+    # print("Max force for Each Env during the whole process:", max_force_array.max(axis=0), file=sys.stdout)
+    success_indices = np.where(lifted == 1)[0]
+    f_g = np.average(
+        max_force_array.max(axis=0)[success_indices] / np.array(mass_list)[success_indices] / 10
+        )
+    f_max = np.average(max_force_array.max(axis=0)[success_indices])
+    print(f"current F_max  (N) / G_obj (N) for success obj: {f_g} ; F_max: {f_max}" )
+    total_f_max_list.append(f_max)
+    total_f_g_list.append(copy(f_g))
+    
+    
+
+# ===== Final Statistics Report =====
+# Print failure statistics for each object after all evaluations
 # ===== Output Statistics =====
 print("\n===== Object Failure Statistics =====", file=sys.stdout)
 print(f"{'Object Name':<30} {'Failures':<10} {'Attempts':<10} {'Failure Rate (%)':<20}", file=sys.stdout)
@@ -519,7 +561,12 @@ total_attempts = sum(stats["attempts"] for stats in object_failure_stats.values(
 total_failures = sum(stats["failures"] for stats in object_failure_stats.values())
 total_success_rate = ((total_attempts - total_failures) / total_attempts * 100) if total_attempts > 0 else 0
 
+print("\nObj Average Gravity: {:.2f}N".format(np.average(mass_list)))
 print("\nTotal success rate: {:.2f}%".format(total_success_rate), file=sys.stdout)
+print("\nTotal success rate: {:.2f}%".format(total_success_rate), file=sys.stdout)
+print("\nTotal F_max / G_obj for success obj: {:.2f}".format(np.average(total_f_g_list)), file=sys.stdout)
+print("\nTotal F_max: {:.2f}N".format(np.average(total_f_max_list)), file=sys.stdout)
+
 
 
 

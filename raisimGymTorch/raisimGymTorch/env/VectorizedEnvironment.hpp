@@ -234,6 +234,13 @@ class VectorizedEnvironment {
       environments_[i]->get_global_state(gs.row(i));
   }
 
+void get_obj_weight(Eigen::Ref<EigenVec> weights) {
+    #pragma omp parallel for
+    for (int i = 0; i < num_envs_; i++) {
+        weights[i] = environments_[i]->get_obj_weight(); // 假设get_obj_weight()返回单个环境的权重
+    }
+}
+
     void get_global_state_l(Eigen::Ref<EigenRowMajorMat> &gs) {
 #pragma omp parallel for
     for (int i = 0; i < num_envs_; i++) 
@@ -390,6 +397,31 @@ class VectorizedEnvironment {
   int getActionDim() { return actionDim_; }
   int getGSDim() { return gsDim_; }
   int getNumOfEnvs() { return num_envs_; }
+
+  // Return material pair properties for a given environment index and material names.
+  // Returns a vector of doubles: {c_f, c_r, r_th, c_static_f, v_static_speed}
+  std::vector<double> getMaterialPairProperties(int envIndex, const std::string &mat1, const std::string &mat2) {
+    if (envIndex < 0 || envIndex >= num_envs_)
+      throw std::runtime_error("envIndex out of range");
+    const raisim::MaterialPairProperties &p = environments_[envIndex]->getWorld()->getMaterialPairProperties(mat1, mat2);
+    return std::vector<double>{p.c_f, p.c_r, p.r_th, p.c_static_f, p.v_static_speed};
+  }
+
+  // Return the total mass of an object in a given env (by object name). If the object is articulated, returns getTotalMass(), otherwise returns getMass(0).
+  double getObjectTotalMass(int envIndex, const std::string &objName="object") {
+    if (envIndex < 0 || envIndex >= num_envs_)
+      throw std::runtime_error("envIndex out of range");
+    raisim::Object* obj = environments_[envIndex]->getWorld()->getObject(objName);
+    if (!obj) throw std::runtime_error("object not found: " + objName);
+    if (auto art = dynamic_cast<raisim::ArticulatedSystem*>(obj))
+      return art->getTotalMass();
+    else
+      return obj->getMass(0);
+  }
+
+  
+
+
 
   ////// optional methods //////
   void curriculumUpdate() {

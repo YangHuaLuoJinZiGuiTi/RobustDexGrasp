@@ -93,7 +93,9 @@ class RaisimGymVecEnvTest:
         self.non_affordance_pcd = torch.tensor(self.non_affordance_pcd).float().to('cuda')
         self.non_affordance_normals = torch.tensor(self.non_affordance_normals).float().to('cuda')
 
-
+        # print(">>> ",self.getMaterialPairProperties(0, "material1", "material2"))
+        print('has getObjectTotalMass:', hasattr(self.wrapper, 'getObjectTotalMass'))
+        print('has getObjectContacts:', hasattr(self.wrapper, 'getObjectContacts'))
     def seed(self, seed=None):
         self.wrapper.setSeed(seed)
 
@@ -126,6 +128,8 @@ class RaisimGymVecEnvTest:
     def step_imitate(self, action_r, action_l, obj_pose_r, hand_ee_r, hand_pose_r, obj_pose_l, hand_ee_l, hand_pose_l, imitate_right, imitate_left):
         self.wrapper.step_imitate(action_r, action_l, obj_pose_r, hand_ee_r, hand_pose_r, obj_pose_l, hand_ee_l, hand_pose_l, imitate_right, imitate_left, self._reward_r, self._reward_l, self._done)
         return self._reward_r.copy(), self._reward_l.copy(), self._done.copy()
+    
+    
 
     def load_scaling(self, dir_name, iteration, count=1e5, cent_training=False):
         mean_file_name_r = dir_name + "/mean_r" + str(iteration) + ".csv"
@@ -259,7 +263,11 @@ class RaisimGymVecEnvTest:
 
         return obs_r, af_vec
 
-
+    def get_obj_weight(self):
+        weights = np.zeros(self.num_envs, dtype=np.float32)
+        self.wrapper.get_obj_weight(weights)
+        return weights
+    
     def get_global_state(self, update_mean=True):
         self.wrapper.get_global_state(self._global_state)
 
@@ -281,6 +289,7 @@ class RaisimGymVecEnvTest:
             return self._normalize_global_state(self._global_state_l)
         else:
             return self._global_state_l.copy()
+
 
     def set_rootguidance(self):
         self.wrapper.set_rootguidance()
@@ -347,8 +356,14 @@ class RaisimGymVecEnvTest:
     def set_sample_point_visual(self, joint_sensor_visual):
         self.wrapper.set_sample_point_visual(joint_sensor_visual)
 
+    def getObjectTotalMass(self, env_id, object_name):
+        return self.wrapper.getObjectTotalMass(env_id, object_name)
+
     def check_collision(self, joint_state):
         return self.wrapper.check_collision(joint_state)
+
+    def getMaterialPairProperties(self, envIndex, mat1, mat2):
+        return self.wrapper.getMaterialPairProperties(envIndex, mat1, mat2)
 
     def set_joint_sensor_visual_l(self, joint_sensor_visual):
         self.wrapper.set_joint_sensor_visual_l(joint_sensor_visual)
@@ -387,6 +402,7 @@ class RaisimGymVecEnvTest:
     def get_reward_info_r(self):
         reward_info = self.wrapper.rewardInfoRight()
         return reward_info
+
 
     def get_pca_rewards(self, obs, is_right):
         num_envs = obs.shape[0]

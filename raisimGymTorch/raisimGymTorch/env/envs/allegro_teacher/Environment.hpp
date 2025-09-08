@@ -222,7 +222,7 @@ namespace raisim {
             /// Initialize observation space
             obDim_r_ = 102;
             obDim_l_ = 1;
-            gsDim_ = 128;
+            gsDim_ = 128 + 1 ; // add one dimension for max contact force
             obDouble_r_.setZero(obDim_r_);
             obDouble_l_.setZero(obDim_l_);
             global_state_.setZero(gsDim_);
@@ -314,6 +314,7 @@ namespace raisim {
             arctic->setGeneralizedCoordinate(gen_coord);
             arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
             obj_weight = arctic->getTotalMass();
+
 
             // Set control mode
             Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
@@ -802,6 +803,8 @@ namespace raisim {
                 impulses_r_af_vector[idx*3] += impulse[0];
                 impulses_r_af_vector[idx*3+1] += impulse[1];
                 impulses_r_af_vector[idx*3+2] += impulse[2];
+
+
             }
 
             for(int i = 0; i < num_contacts; i++){
@@ -815,8 +818,12 @@ namespace raisim {
                     contacts_r_af[i] = 0;
                 }
             }
-
-
+            
+            // get max contact force
+            max_contact_force_ = impulses_r_af.maxCoeff()/control_dt_;
+            if(max_contact_force_ < 0.01/control_dt_){
+                max_contact_force_ = 0.0;
+            }
 
             for(auto& contact_non_af: mano_r_->getContacts()) {
                 if (contact_non_af.skip() || contact_non_af.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
@@ -1026,7 +1033,8 @@ namespace raisim {
                              contacts_arm_all[1],
                              contacts_arm_all[2],
                              contacts_arm_all[3],
-                             contacts_arm_all[4];
+                             contacts_arm_all[4],
+                             max_contact_force_;
 
         }
 
@@ -1039,6 +1047,8 @@ namespace raisim {
         void get_global_state(Eigen::Ref<EigenVec> gs) {
             gs = global_state_.cast<float>();
         }
+        
+
 
         /// Set root guidance
         void set_rootguidance() final {}
@@ -1121,6 +1131,7 @@ namespace raisim {
 
         int num_contacts = 13;
         int num_bodyparts = 17;
+        double max_contact_force_ = 0.0;
 
         raisim::Mat<3,3> init_rot_r_, init_or_r_, init_obj_rot_, init_obj_or_, wrist_mat_r_in_obj_init;
         raisim::Vec<3> init_root_r_, init_obj_;

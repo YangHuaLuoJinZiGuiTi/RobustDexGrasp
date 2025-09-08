@@ -112,7 +112,10 @@ obj_path_list = []
 obj_ori_list = folder_names
 
 # Randomly select one object from the list for evaluation
-obj_item = choice(obj_ori_list)
+
+# obj_item = choice(obj_ori_list)
+# print(f">>> Random obj num {len(obj_item)}.   Total obj num {len(obj_ori_list)}") # 14  35
+
 # Alternative object options (commented out)
 # obj_item = '002_master_chef_can'
 # obj_item = '003_cracker_box'
@@ -129,7 +132,7 @@ obj_item = choice(obj_ori_list)
 # obj_item = '024_bowl'
 # obj_item = '025_mug'
 # obj_item = '035_power_drill'
-# obj_item = '036_wood_block'
+obj_item = '036_wood_block'
 # obj_item = '037_scissors'
 # obj_item = '040_large_marker'
 # obj_item = '051_large_clamp'
@@ -151,7 +154,7 @@ obj_item = choice(obj_ori_list)
 # obj_item = 'small_block'
 # obj_item = 'wood_block_oriented'
 # obj_item = 'suger_box_oriented'
-# obj_item = 'cracker_box_oriented'
+obj_item = 'cracker_box_oriented'
 
 # obj_item = 'Bear_34'           
 # obj_item = 'Black_mug'      
@@ -531,7 +534,9 @@ for update in range(args.num_iterations):
 
         # Execute action in the environment
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
-
+        gs = env.get_global_state()
+        print(">>> max contact_force", gs[:, -1])
+        
         # Get new observations and sensor data
         obs_new_r, dis_info = env.observe_vision_new()
         show_point = dis_info[:, 17:68].astype('float32').copy()

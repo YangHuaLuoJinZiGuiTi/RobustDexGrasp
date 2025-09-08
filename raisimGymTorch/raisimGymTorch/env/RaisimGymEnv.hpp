@@ -99,6 +99,7 @@ class RaisimGymEnv {
   virtual void control_switch(int right, int left){};
   virtual void control_switch_all(const Eigen::Ref<EigenVec>& right, const Eigen::Ref<EigenVec>& left){};
   virtual void curriculumUpdate() {};
+
   virtual void close() { if(server_) server_->killServer(); };
   virtual void setSeed(int seed) {};
   virtual float* step2(const Eigen::Ref<EigenVec>& action_r, const Eigen::Ref<EigenVec>& action_l) {};
@@ -121,6 +122,7 @@ class RaisimGymEnv {
   int getLeftObDim() { return obDim_l_; }
   int getActionDim() { return actionDim_; }
   int getGSDim() { return gsDim_; }
+  
   double getControlTimeStep() { return control_dt_; }
   double getSimulationTimeStep() { return simulation_dt_; }
   raisim::World* getWorld() { return world_.get(); }

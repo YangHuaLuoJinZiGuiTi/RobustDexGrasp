@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
+
 from raisimGymTorch.env.bin import allegro_teacher as hand
+
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param
 from raisimGymTorch.env.bin.allegro_teacher import NormalSampler
@@ -20,9 +22,11 @@ from datetime import datetime
 import argparse
 from raisimGymTorch.helper import rotations
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5
+from raisimGymTorch.helper.utils import *
 
 import torch
 import sys
+from copy import copy
 sys.stdout.reconfigure(line_buffering=True)  # Enable line buffering for real-time output logging
 
 
@@ -84,12 +88,12 @@ cfg['environment']['visualize'] = False
 
 # ===== Object Loading Setup =====
 # Set dataset for quantitative evaluation
-# cat_name = 'new_training_set'
-cat_name = 'shapenet-30obj'
+cat_name = 'new_training_set'
+# cat_name = 'shapenet-30obj'
 
 
 
-# Whether should load stable states
+# Whether should load stable states ## random place (obj easy to change pos) or stable place
 if cat_name == 'shapenet-30obj':
     stable = True
 else:
@@ -120,7 +124,8 @@ num_envs = len(obj_ori_list) * repeat_per_obj
 for i in range(repeat_per_obj):
     for item in obj_ori_list:
         obj_list.append(item)
-        
+
+
 # Set activation function for neural networks
 activations = nn.LeakyReLU
 # Update environment configuration with number of environments
@@ -132,12 +137,29 @@ print('num envs', num_envs, file=sys.stdout)
 env = VecEnv(obj_list, hand.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
 
+print("HRHERHEHREHRER")
+obj_name= 'object'
+print('>>>> has getObjectTotalMass:', hasattr(env.wrapper, 'getObjectTotalMass'))
+print('>>>> has getObjectContacts:', hasattr(env.wrapper, 'getObjectContacts'))
+# print(">>> get Object mass: ", env.getObjectTotalMass(0, obj_name))
+
 print("initialization finished", file=sys.stdout)
 
 # Load object models into the environment
 for obj_item in obj_list:
     obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
+# print(env.wrapper.getObjectNames(0))
+print(">>> get Object mass: ", env.getObjectTotalMass(0, obj_name))
+print(">>> get Object material", env.getMaterialPairProperties(0, 'Allegro', 'object'))
+
+# === Object Static Analysis =====
+mass_list, object_name = [], 'object'
+for i in range(num_envs):
+    mass_list.append(env.getObjectTotalMass(i, obj_name))
+print(">>> Avg: ", np.mean(mass_list))
+# plot_masses(obj_list, mass_list)
+
 
 # ===== Model Dimensions Setup =====
 # Define observation and action dimensions
@@ -167,6 +189,7 @@ test_dir = True
 # Setup configuration saver for logging
 saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir + "/" + task_name,
                            save_items=[], test_dir=test_dir)
+
 
 # Initialize PPO algorithm with actor and critic networks
 ppo_r = PPO.PPO(actor=actor_r,
@@ -208,6 +231,13 @@ for obj_name in obj_list:
     if obj_name not in object_failure_stats:
         object_failure_stats[obj_name] = {"failures": 0, "attempts": 0}
 
+# print(f"test obj {len(obj_ori_list)} with each {repeat_per_obj} times = {num_envs}")
+# raise
+
+# ==== For Force Metrics ==== 
+total_f_g_list = []
+total_f_max_list = []
+
 # ===== Main Evaluation Loop =====
 for update in range(5):
     # Start time measurement for this evaluation batch
@@ -217,6 +247,7 @@ for update in range(5):
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')  # Right hand joint positions
     qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')  # Left hand joint positions
     obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')  # Object poses
+    max_force_list = [] # Max Force Trajectory for 35 Envs
 
     # Initialize target center for affordance
     target_center = np.zeros_like(env.affordance_center)
@@ -507,6 +538,10 @@ for update in range(5):
 
         # Get new observations and sensor data
         obs_new_r, dis_info = env.observe_vision_new()
+        # print(env.get_obj_weight())
+        max_force = np.array(env.get_global_state()[:, 128]).reshape(-1)
+        max_force_list.append(max_force)
+
 
         # Handle biased object positions (simulating uncertainty/disturbances)
         if biased:
@@ -550,6 +585,26 @@ for update in range(5):
     else:
         print("All objects were successfully grasped!", file=sys.stdout)
 
+    # Max Force Static Analysis
+    max_force_array = np.array(max_force_list)
+    ## 1. Force Trajectory for 35 Envs plot
+
+    plot_force_trajectories(max_force_array,
+                            obj_name=obj_list,
+                            save_path=os.path.join(saver.data_dir, f'force_trajectories_{update}.png'))
+    
+    ## 2. Force_max during the whole process for each env
+    # print("Max force for Each Env during the whole process:", max_force_array.max(axis=0), file=sys.stdout)
+    success_indices = np.where(lifted == 1)[0]
+    f_g = np.average(
+        max_force_array.max(axis=0)[success_indices] / np.array(mass_list)[success_indices] / 10
+        )
+    f_max = np.average(max_force_array.max(axis=0)[success_indices])
+    print(f"current F_max  (N) / G_obj (N) for success obj: {f_g} ; F_max: {f_max}" )
+    total_f_max_list.append(f_max)
+    total_f_g_list.append(copy(f_g))
+    
+    
 
 # ===== Final Statistics Report =====
 # Print failure statistics for each object after all evaluations
@@ -572,8 +627,13 @@ total_attempts = sum(stats["attempts"] for stats in object_failure_stats.values(
 total_failures = sum(stats["failures"] for stats in object_failure_stats.values())
 total_success_rate = ((total_attempts - total_failures) / total_attempts * 100) if total_attempts > 0 else 0
 
-# Print overall success rate
+# Print overall metrics: success rate F_max/G_obj, F_max
+print("\nObj Average Gravity: {:.2f}N".format(np.average(mass_list)))
 print("\nTotal success rate: {:.2f}%".format(total_success_rate), file=sys.stdout)
+print("\nTotal F_max / G_obj for success obj: {:.2f}".format(np.average(total_f_g_list)), file=sys.stdout)
+print("\nTotal F_max: {:.2f}N".format(np.average(total_f_max_list)), file=sys.stdout)
+
+
 
 # ===== End of Quantitative Evaluation =====
 # This script performs quantitative evaluation of robotic grasping using a pre-trained policy.
