@@ -25,11 +25,6 @@ class RealsenseQuick:
         self.timer = threading.Timer(1.0, self.trigger_save) 
         #self.timer.start()
 
-        self.event = threading.Event()
-        self.thread_run_flag = True
-        self.b_thread = threading.Thread(target=self.save_rgbd_thread)
-        self.b_thread.daemon = True
-        self.b_thread.start()
 
     def trigger_save(self):
         print("save a img..")
@@ -257,18 +252,10 @@ class RealsenseQuick:
 
     def async_save_rgbd(self, save_pth):
         self.save_pth = save_pth
-        self.thread_run_flag = True
-        self.event.set()
-         
-    def save_rgbd_thread(self):
-        while True:
-            self.event.wait()
-            rgb_image, depth_image = self.get_one_rgbd()
-            np.save(self.save_pth + "/tmp.npy", depth_image)
-            rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
-            cv2.imwrite(self.save_pth+"/rgb.png", rgb_image)
-            self.thread_run_flag = False
-            self.event.clear()
+        rgb_image, depth_image = self.get_one_rgbd()
+        np.save(self.save_pth + "/tmp.npy", depth_image)
+        rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
+        cv2.imwrite(self.save_pth+"/rgb.png", rgb_image)
       
 def main() -> None:
     print("test ...")

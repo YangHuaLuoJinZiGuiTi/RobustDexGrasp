@@ -400,7 +400,7 @@ while True:
         else:
             hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
             hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
-        pos = obj_aff_center_in_w + 0.14 * hand_dir_x_w
+        pos = obj_aff_center_in_w + 0.18 * hand_dir_x_w
 
 
         rot_mats, projection_lengths = sample_rot_mats(hand_dir_x_w, sample_num, visible_points_w[i])
@@ -583,7 +583,7 @@ while True:
         lift_topright = np.zeros((num_envs, 6), dtype='float32')
         lift_topright[0, :] = [1.0, -1.57, 1.57, 0., 1.57, -1.57]
         lift_box = np.zeros((num_envs, 6), dtype='float32')
-        lift_box[0, :] = [-1.722, -1.949, 2.0457, 0.0771, 1.3844, -1.6893]
+        lift_box[0, :] = [1.1214, -1.6331, 1.7507, 0.0, 1.1465, -1.5895]
         # demo
         print("will move top ..... ")
         env.move_line(0, 0, 0.1)

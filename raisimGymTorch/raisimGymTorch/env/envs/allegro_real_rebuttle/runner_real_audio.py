@@ -50,7 +50,7 @@ def update_label(label):
 
     # configuration
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg.yaml')
+    parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg_audio.yaml')
     parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
     parser.add_argument('-e', '--exp_name', help='exp_name', type=str, default=exp_name)
     parser.add_argument('-w', '--weight', type=str, default=weight_saved)
@@ -269,6 +269,7 @@ def update_label(label):
                 flag, object_cmd, len = vlm.start_detection()
                 if flag is True and len > 8:
                     print(f"get the audio text: {object_cmd}, len = {len}")
+                    label.after(0, lambda: label.config(text=f"\n\n\n {object_cmd} ", font=("Helvetica", 72), wraplength=1700))
                     break
                 else:
                     print(f" !!!!!!!!!!!!!!! {object_cmd} can not awake, Please say 小迪, 小迪 at frist")
@@ -407,7 +408,7 @@ def update_label(label):
                 hand_dir_x_w = hand_center_sample_w - obj_aff_center_in_w
                 hand_dir_x_w = hand_dir_x_w / np.linalg.norm(hand_dir_x_w, axis=1, keepdims=True)
 
-            pos = obj_aff_center_in_w + 0.1 * hand_dir_x_w
+            pos = obj_aff_center_in_w + 0.18 * hand_dir_x_w
             if pos[0][2] < 0.95:
                 pos[0][2] = 0.95
 
@@ -597,10 +598,10 @@ def update_label(label):
             lift_top = np.zeros((num_envs, 6), dtype='float32')
             lift_top[0, :] = [0.0, -1.57, 1.57, 0., 1.57, -1.57]
             lift_topplace = np.zeros((num_envs, 6), dtype='float32')
-            lift_topplace[0, :] = [-1.722, -1.949, 2.0457, 0.0771, 1.3844, -1.6893]
+            lift_topplace[0, :] = [1.1214, -1.6331, 1.7507, 0.0, 1.1465, -1.5895]
             # demo
             print("will move left ..... ")
-            env.move_line(0.0, 0.0, 0.2)
+            env.move_line(0.0, 0.0, 0.1)
             print("will move left ..... ")
             env.final_reset_state(action_r, False, sim_flag, lift_topplace, False)
             print("will release ..... ")
