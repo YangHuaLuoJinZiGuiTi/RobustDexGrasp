@@ -15,6 +15,10 @@ import os
 import time
 import raisimGymTorch.algo.ppo.module as ppo_module
 import raisimGymTorch.algo.ppo.ppo as PPO
+
+import raisimGymTorch.algo.p3o.module as p3o_module
+import raisimGymTorch.algo.p3o.p3o as P3O
+
 import torch.nn as nn
 import numpy as np
 import torch
@@ -126,6 +130,7 @@ for i in range(repeat_per_obj):
 
 # Set activation function for neural networks
 activations = nn.LeakyReLU
+activations_cost = nn.ReLU
 
 # Configure visualization mode when running without logging (for debugging)
 if args.log_name is None:
@@ -151,6 +156,7 @@ print('num envs', num_envs, file=sys.stdout)
 
 # ===== Environment Setup =====
 # Create vectorized environment with specified objects
+
 env = VecEnv(obj_list, hand.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
 
@@ -175,13 +181,17 @@ n_steps_r = cfg['environment']['grasp_steps']
 total_steps_r = n_steps_r * env.num_envs
 
 # ===== Build Neural Network Models =====
+
 # Actor network
-actor_r = ppo_module.Actor(
+actor_r = p3o_module.Actor(
     ppo_module.MLP(cfg['architecture']['policy_net'], activations, ob_dim_r, act_dim),
     ppo_module.MultivariateGaussianDiagonalCovariance(act_dim, num_envs, 1.0, NormalSampler(act_dim)), device)
 
-# Critic network
-critic_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], activations, ob_dim_r, 1), device)
+# Critic network for value and cost
+num_limits = cfg['environment']['p3o']['num_of_costs']
+critic_r = p3o_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], activations, ob_dim_r, 1), device)
+critic_cost_r = p3o_module.Critic(ppo_module.MLP(cfg['architecture']['cost_net'], activations, ob_dim_r, num_limits), device)
+
 
 # Flag for testing directory, set to False for normal training
 test_dir = False
@@ -193,19 +203,43 @@ saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir
                                        task_path + "/train.py", task_path + "/../../RaisimGymVecEnvOther.py"], test_dir=test_dir)
 
 # ===== Initialize PPO Algorithm =====
-ppo_r = PPO.PPO(actor=actor_r,
-                critic=critic_r,
-                num_envs=num_envs,
-                num_transitions_per_env=n_steps_r,
-                num_learning_epochs=4,
-                gamma=0.996,
-                lam=0.95,
-                num_mini_batches=4,
-                device=device,
-                log_dir=saver.data_dir,
-                shuffle_batch=False
-                # learning_rate=1e-4
-                )
+# ppo_r = PPO.PPO(actor=actor_r,
+#                 critic=critic_r,
+#                 num_envs=num_envs,
+#                 num_transitions_per_env=n_steps_r,
+#                 num_learning_epochs=4,
+#                 gamma=0.996,
+#                 lam=0.95,
+#                 num_mini_batches=4,
+#                 device=device,
+#                 log_dir=saver.data_dir,
+#                 shuffle_batch=False
+#                 # learning_rate=1e-4
+#                 )
+
+cost_limits = []
+for cost_info in cfg['environment']['p3o']['cost_limits'].values():
+    if 'limit' in cost_info:
+        cost_limits.append(cost_info['limit'])
+
+p3o_r = P3O.P3O(
+    actor=actor_r,
+    critic_reward=critic_r,
+    critic_cost=critic_cost_r,
+    num_envs=num_envs,
+    num_transitions_per_env=n_steps_r,
+    num_learning_epochs=4,
+    num_mini_batches=4,
+    gamma=0.996,
+    lam=0.95,
+    device=device,
+    log_dir=saver.data_dir,
+    shuffle_batch=False,
+    kappa=cfg['environment']['p3o']['kappa'],
+    cost_limits=cost_limits,
+)
+
+raise
 
 # ===== Load Pre-trained Student Model (if specified) =====
 if args.load_trained_policy:
@@ -571,7 +605,7 @@ for update in range(args.num_iterations):
     else:
         obj_pos_bias = np.zeros((num_envs, 3), dtype='float32')
 
-
+    # ==== Training Steps Loop ===== ?
     for step in range(current_steps):
         obs_r = obs_new_r
         obs_r = obs_r[:].astype('float32')

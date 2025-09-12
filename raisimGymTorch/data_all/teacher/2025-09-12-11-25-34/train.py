@@ -90,7 +90,7 @@ obj_list = []
 cat_name = 'new_training_set'
 
 # Set number of repetitions per object
-repeat_per_obj = 3
+repeat_per_obj = 2
 
 # Update configuration with dataset information
 cfg['environment']['load_set'] = cat_name
