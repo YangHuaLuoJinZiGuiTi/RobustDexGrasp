@@ -106,7 +106,7 @@ def train_p3o():
         log_dir=save_path,
         device=device,
         shuffle_batch=True,
-        kappa=1,  # Penalty factor
+        kappa=20,  # Penalty factor
         cost_limits=[25.0],  # Cost limit for the environment
         cost_discount_factor=0.99,
         cost_lam=0.95,
@@ -207,7 +207,7 @@ def train_p3o():
                 'actor': agent.actor.architecture.state_dict(),
                 'reward_critic': agent.critic_reward.architecture.state_dict(),
                 'cost_critic': agent.critic_cost.architecture.state_dict(),
-                'optimizer': agent.actor_optimizer.state_dict()
+                'optimizer': agent.optimizer.state_dict()
             }, f'{save_path}/p3o_checkpoint_{update}.pth')
 
     env.close()

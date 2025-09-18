@@ -1,17 +1,15 @@
 #!/usr/bin/python
 
 from ruamel.yaml import YAML, dump, RoundTripDumper
-
 from raisimGymTorch.env.bin import allegro_teacher as hand
-
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
 from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param
 from raisimGymTorch.env.bin.allegro_teacher import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import sample_rot_mats
 from scipy.spatial.transform import Rotation as R
 from random import choice
-
 import os
+import math
 import time
 import raisimGymTorch.algo.ppo.module as ppo_module
 import raisimGymTorch.algo.ppo.ppo as PPO
@@ -22,24 +20,18 @@ from datetime import datetime
 import argparse
 from raisimGymTorch.helper import rotations
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5
-from raisimGymTorch.helper.utils import *
-
 import torch
-import sys
-from copy import copy
-sys.stdout.reconfigure(line_buffering=True)  # Enable line buffering for real-time output logging
 
 
 # ===== Configuration Parameters =====
 exp_name = "teacher"
 
 
-
-# Selected model weights for quantitative evaluation
+# Selected model weights for evaluation
 weight_saved = 'teacher_ckpt/full_12500_r.pt'
 
 
-# ===== Command Line Arguments =====
+# Command line argument parsing
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--cfg', help='config file', type=str, default='cfg_reg.yaml')
 parser.add_argument('-d', '--logdir', help='set dir for storing data', type=str, default=None)
@@ -56,16 +48,14 @@ args = parser.parse_args()
 weight_path = args.weight
 cfg_grasp = args.cfg
 
-print(f"Configuration file: \"{args.cfg}\"", file=sys.stdout)
-print(f"Experiment name: \"{args.exp_name}\"", file=sys.stdout)
+print(f"Configuration file: \"{args.cfg}\"")
+print(f"Experiment name: \"{args.exp_name}\"")
 
 # ===== Path and Configuration Setup =====
 # Task specification
 task_name = args.exp_name
-
 # Check if GPU is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 # Directory setup
 task_path = os.path.dirname(os.path.realpath(__file__))
 home_path = task_path + "/../../../../.."
@@ -78,34 +68,37 @@ else:
 # Load configuration from YAML file
 cfg = YAML().load(open(task_path + '/cfgs/' + args.cfg, 'r'))
 
-# Update seed if provided in command line
+# Update seed configuration if provided in command line
 if args.seed != 1:
     cfg['seed'] = args.seed
 
-# Disable visualization for quantitative evaluation
-cfg['environment']['visualize'] = False
+# Set number of environments based on command line arguments
+num_envs = args.num_repeats
+# Set activation function for neural networks
+activations = nn.LeakyReLU
 
+# Enable visualization in configuration
+cfg['environment']['visualize'] = True
+# Update number of environments in configuration
+cfg['environment']['num_envs'] = num_envs
+print('num envs', num_envs)
 
-# ===== Object Loading Setup =====
-# Set dataset for quantitative evaluation
+# Set dataset for training objects
 cat_name = 'new_training_set'
 # cat_name = 'shapenet-30obj'
 
-
-
-# Whether should load stable states ## random place (obj easy to change pos) or stable place
+# Whether should load stable states
 if cat_name == 'shapenet-30obj':
     stable = True
 else:
     stable = False
 
-# Number of repetitions per object
-repeat_per_obj = 1
-
 # Update configuration with dataset information
 cfg['environment']['load_set'] = cat_name
 directory_path = home_path + f"/rsc/{cat_name}/"
-print(directory_path, file=sys.stdout)
+print(directory_path)
+# Configure single-threaded execution
+cfg['environment']['num_threads'] = 1
 
 # Get list of items in the directory
 items = os.listdir(directory_path)
@@ -113,62 +106,109 @@ items = os.listdir(directory_path)
 # Filter out only the folders (directories) from the list of items
 folder_names = [item for item in items if os.path.isdir(os.path.join(directory_path, item))]
 
-# Initialize lists for objects and paths
-obj_list = []
+# Initialize list for object paths
 obj_path_list = []
+# Set the list of available objects
 obj_ori_list = folder_names
 
-# Calculate total number of environments based on objects and repetitions
-num_envs = len(obj_ori_list) * repeat_per_obj
-# Create the complete object list with repetitions
-for i in range(repeat_per_obj):
-    for item in obj_ori_list:
-        obj_list.append(item)
+# Randomly select one object from the list for evaluation
 
+# obj_item = choice(obj_ori_list)
+# print(f">>> Random obj num {len(obj_item)}.   Total obj num {len(obj_ori_list)}") # 14  35
 
-# Set activation function for neural networks
-activations = nn.LeakyReLU
-# Update environment configuration with number of environments
-cfg['environment']['num_envs'] = num_envs
-print('num envs', num_envs, file=sys.stdout)
+# Alternative object options (commented out)
+# obj_item = '002_master_chef_can'
+# obj_item = '003_cracker_box'
+# obj_item = '004_sugar_box'
+# obj_item = '005_tomato_soup_can'
+# obj_item = '006_mustard_bottle'
+# obj_item = '007_tuna_fish_can'
+# obj_item = '008_pudding_box'
+# obj_item = '009_gelatin_box'
+# obj_item = '010_potted_meat_can'
+# obj_item = '011_banana'
+# obj_item = '019_pitcher_base'
+# obj_item = '021_bleach_cleanser'
+# obj_item = '024_bowl'
+# obj_item = '025_mug'
+# obj_item = '035_power_drill'
+obj_item = '036_wood_block'
+# obj_item = '037_scissors'
+# obj_item = '040_large_marker'
+# obj_item = '051_large_clamp'
+# obj_item = '052_extra_large_clamp'
+# obj_item = '061_foam_brick'
+# obj_item = 'blue_pitcher'
+# obj_item = 'brush_functional'
+# obj_item = 'car_down'
+# obj_item = 'fan_small_head'
+# obj_item = 'gun_functional'
+# obj_item = 'hammer'
+# obj_item = 'loopy_head_side'
+# obj_item = 'mouse'
+# obj_item = 'off_water_body'
+# obj_item = 'solder_iron_head'
+# obj_item = 'wrench'
+# obj_item = 'big_tape'
+# obj_item = 'small_tape'
+# obj_item = 'small_block'
+# obj_item = 'wood_block_oriented'
+# obj_item = 'suger_box_oriented'
+obj_item = 'cracker_box_oriented'
 
-# ===== Environment Initialization =====
-# Create vectorized environment with the specified objects
-env = VecEnv(obj_list, hand.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
+# obj_item = 'Bear_34'           
+# obj_item = 'Black_mug'      
+# obj_item = 'Blue_camera'
+# obj_item = 'Blue_teapot'
+# obj_item = 'Camera_brown'
+# obj_item = 'Camera_yellow'
+# obj_item = 'CellPhone_4e'
+# obj_item = 'Donut'
+# obj_item = 'DrinkBottle_blue_1ef'
+# obj_item = 'Gun'
+# obj_item = 'Hammer_40'
+# obj_item = 'Knife'
+# obj_item = 'Mug_8b_red'
+# obj_item = 'Mug_gray_d7'
+# obj_item = 'Mug_yellow_18'
+# obj_item = 'Pan_gray'
+# obj_item = 'Plate_gold_69'
+# obj_item = 'Purse_brown_d58'
+# obj_item = 'Purse_red_f58'
+# obj_item = 'Red_bottle'
+# obj_item = 'Red_chair'
+# obj_item = 'Red_scissor'
+# obj_item = 'Stapler_gray_d9'
+# obj_item = 'Teapot_blue_high_3d2'
+# obj_item = 'Teapot_brown'
+# obj_item = 'Vase_red_a1'
+# obj_item = 'Watch_9f'
+# obj_item = 'Wine_glass2_1_blue'
+# obj_item = 'Wine_glass_body_blue'
+# obj_item = 'WineGlass_gray_9d'
+
+print(obj_item)
+
+# Initialize vectorized environment with the selected object
+env = VecEnv([obj_item], hand.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
 
+print("initialization finished")
 
-obj_name= 'object'
-# print(">>> get Object mass: ", env.getObjectTotalMass(0, obj_name))
-
-print("initialization finished", file=sys.stdout)
-
-# Load object models into the environment
-for obj_item in obj_list:
-    obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
+# Add object URDF path to the list for loading
+obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
+# Load articulated objects into the environment
 env.load_multi_articulated(obj_path_list)
-# print(env.wrapper.getObjectNames(0))
-print(">>> get Object mass: ", env.getObjectTotalMass(0, obj_name))
-print(">>> get Object material", env.getMaterialPairProperties(0, 'Allegro', 'object'))
 
-# === Object Static Analysis =====
-mass_list, object_name = [], 'object'
-for i in range(num_envs):
-    mass_list.append(env.getObjectTotalMass(i, obj_name))
-print(">>> Avg: ", np.mean(mass_list))
-# plot_masses(obj_list, mass_list)
-
-
-# ===== Model Dimensions Setup =====
 # Define observation and action dimensions
 ob_dim_r = 153  # Observation dimension
 act_dim = 22    # Action dimension (joint controls)
-print('ob dim', ob_dim_r, file=sys.stdout)
-print('act dim', act_dim, file=sys.stdout)
+print('ob dim', ob_dim_r)
+print('act dim', act_dim)
 
 # ===== Training Parameters =====
-grasp_steps = cfg['environment']['grasp_steps'] + 30  # Number of steps for grasping phase
-lift_steps = 100  # Number of steps for lifting phase
+grasp_steps = cfg['environment']['grasp_steps']  # Number of steps for grasping phase
+lift_steps = 30  # Number of steps for lifting phase
 n_steps_r = grasp_steps + lift_steps  # Total steps per episode
 total_steps_r = n_steps_r * env.num_envs  # Total steps across all environments
 
@@ -188,7 +228,6 @@ test_dir = True
 saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir + "/" + task_name,
                            save_items=[], test_dir=test_dir)
 
-
 # Initialize PPO algorithm with actor and critic networks
 ppo_r = PPO.PPO(actor=actor_r,
                 critic=critic_r,
@@ -206,46 +245,28 @@ ppo_r = PPO.PPO(actor=actor_r,
 # Load pre-trained policy from specified weight path
 load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
 
-# ===== Object Data Loading =====
-# Load lowest points of objects for proper placement
+# Load lowest points and stable states of objects for proper placement
 lowest_points = np.zeros((num_envs, 1), dtype='float32')
 if stable:
     stable_states = np.zeros((num_envs, 7), dtype='float32')   
 for i in range(num_envs):
-    # Load lowest point data for each object
-    txt_file_path = os.path.join(directory_path, obj_list[i]) + "/lowest_point_new.txt"
+    # Read lowest point from file (needed for proper object placement)
+    txt_file_path = os.path.join(directory_path, obj_item) + "/lowest_point_new.txt"
     with open(txt_file_path, 'r') as txt_file:
         lowest_points[i] = float(txt_file.read())
     if stable:
-        stable_state_path = home_path + f"/rsc/{cat_name}/{obj_list[i]}/{obj_list[i]}.npy"
+        stable_state_path = home_path + f"/rsc/{cat_name}/{obj_item}/{obj_item}.npy"
         stable_states[i] = np.load(stable_state_path)[-1, :7]
 
-# Initialize success rate tracking
-success_rate = 0.0
-
-# Create a dictionary to track failures and attempts for each object
-object_failure_stats = {}
-for obj_name in obj_list:
-    if obj_name not in object_failure_stats:
-        object_failure_stats[obj_name] = {"failures": 0, "attempts": 0}
-
-# print(f"test obj {len(obj_ori_list)} with each {repeat_per_obj} times = {num_envs}")
-# raise
-
-# ==== For Force Metrics ==== 
-total_f_g_list = []
-total_f_max_list = []
-
 # ===== Main Evaluation Loop =====
-for update in range(5):
-    # Start time measurement for this evaluation batch
+for update in range(args.num_iterations):
+    # Start timing for performance measurement
     start = time.time()
 
-    # Initialize robot joint positions and object poses
+    # Initialize reset positions for robot joints and object
     qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')  # Right hand joint positions
-    qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')  # Left hand joint positions
-    obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')  # Object poses
-    max_force_list = [] # Max Force Trajectory for 35 Envs
+    qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')  # Left hand joint positions (not used)
+    obj_pose_reset = np.zeros((num_envs, 8), dtype='float32')  # Object pose: position (3) + quaternion (4) + type (1)
 
     # Initialize target center for affordance
     target_center = np.zeros_like(env.affordance_center)
@@ -282,6 +303,9 @@ for update in range(5):
     ik.setJointWeights(joint_weights)
     ik.setJointLimits(-3.14, 3.14)
 
+    # Number of samples for initial pose
+    sample_num = cfg['environment']['sample_num']
+
     # Initialize arrays for visible points
     visible_points_w = np.zeros((num_envs, 200, 3), dtype='float32')      # Visible points in world frame
     visible_points_obj = np.zeros((num_envs, 200, 3), dtype='float32')    # Visible points in object frame
@@ -292,13 +316,9 @@ for update in range(5):
     view_point_world[:, 1] = cfg['environment']['camera_position'][1]
     view_point_world[:, 2] = cfg['environment']['camera_position'][2]
 
-    # Number of samples for initial pose
-    sample_num = cfg['environment']['sample_num']
-
     # Initialize environments with randomized object poses
     for i in range(num_envs):
-        
-        # Sample object position with constrained random angle and distance
+        # Sample object position with random angle and distance
         while True:
             angle = np.random.uniform(-0.7 * np.pi, -0.3 * np.pi)
             distance = np.random.uniform(0.45, 0.75)
@@ -317,14 +337,14 @@ for update in range(5):
             quats = stable_states[i, 3:7]
         else:
             # Set z-position based on lowest point and use random rotation
-            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]  # Adjust height based on object's lowest point
+            obj_pose_reset[i, 2] = 0.773 - lowest_points[i]  # Adjust z-position based on object's lowest point
             obj_pose_reset[i, 3:] = [1., -0., -0., 0., 0.]   # Default orientation
 
             # Generate random rotation around z-axis
             axis_angles = np.zeros((1, 3))
             axis_angles[0, 2] = np.random.uniform(-np.pi, np.pi)
             quats = rotations.axisangle2quat(axis_angles)
-            obj_pose_reset[i, 3:7] = quats
+            obj_pose_reset[i, 3:7] = quats  # Set object orientation as quaternion
 
         # Convert quaternion to rotation matrix for object
         obj_mat_single = rotations.quat2mat(quats).reshape(3, 3)
@@ -356,7 +376,7 @@ for update in range(5):
 
         # Check if top grasp is enabled in configuration
         top_grasp = cfg['environment']['top']
-        
+
         # Determine approach direction for hand
         if top_grasp:
             # For top grasp, approach from above (z-direction)
@@ -383,8 +403,8 @@ for update in range(5):
             wrist_in_world = rot_mat
             # Apply wrist bias in world frame
             hand_center_in_world = np.matmul(wrist_in_world, hand_center.T).T
-
-            # Calculate wrist position in UR5 robot frame
+            
+            # Calculate position in UR5 robot frame
             pos_in_ur5 = np.zeros((3, 1))
             pos_in_ur5[0, 0] = pos[0, 0] - 0. + hand_center_in_world[0, 0]
             pos_in_ur5[1, 0] = pos[0, 1] - 0. + hand_center_in_world[0, 1]
@@ -408,10 +428,35 @@ for update in range(5):
                 feasible_ik_flag[j] = False
                 continue
             else:
-                # Valid IK solution found, store the result
-                ik_results[j, :] = ik_result
-                feasible_ik_flag[j] = True
+                # Valid IK solution found, set joint positions
+                qpos_reset_r[i, :6] = ik_result
 
+                # Check for self-collisions by resetting the environment state
+                env.reset_state(qpos_reset_r,
+                                qpos_reset_l,
+                                np.zeros((num_envs, 22), 'float32'),
+                                np.zeros((num_envs, 22), 'float32'),
+                                obj_pose_reset,
+                                )
+                # Execute a zero action to update the state
+                temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
+                temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
+                _, _, _ = env.step(temp_action_r, temp_action_l)
+                
+                # Check collision flags in the global state
+                global_state = env.get_global_state()
+                one_check = global_state[:, 124:128]
+                contains_one = np.any(one_check == 1, axis=1)
+                true_indices = np.where(contains_one)[0]
+                if len(true_indices) > 0:
+                    # Collision detected, mark as infeasible
+                    feasible_ik_flag[j] = False
+                    continue
+                else:
+                    # No collision, mark as feasible and store IK solution
+                    feasible_ik_flag[j] = True
+                    ik_results[j, :] = ik_result
+                    
         # Find indices of feasible IK solutions
         feasible_indices = np.where(feasible_ik_flag)[0]
         
@@ -438,47 +483,6 @@ for update in range(5):
             best_index = np.argmin(projection_lengths)
             qpos_reset_r[i, :6] = ik_results[best_index]
 
-    # ===== Collision Detection and Resolution =====
-    # Reset environment state to check for collisions
-    env.reset_state(qpos_reset_r,
-                    qpos_reset_l,
-                    np.zeros((num_envs, 22), 'float32'),
-                    np.zeros((num_envs, 22), 'float32'),
-                    obj_pose_reset,
-                    )
-    # Execute a zero action to update the state
-    temp_action_r = np.zeros((num_envs, act_dim), dtype='float32')
-    temp_action_l = np.zeros((num_envs, act_dim), dtype='float32')
-    _, _, _ = env.step(temp_action_r, temp_action_l)
-    
-    # Check collision flags in the global state
-    global_state = env.get_global_state()
-    one_check = global_state[:, 124:128]
-    contains_one = np.any(one_check == 1, axis=1)
-    true_indices = np.where(contains_one)[0]
-    
-    # Resolve collisions by replacing problematic poses with good ones
-    for true_idx in true_indices:
-        # Find all environments for the current object
-        current_obj_idx = true_idx // repeat_per_obj
-        current_obj_env_indices = []
-        for i in range(repeat_per_obj):
-            current_obj_env_indices.append(current_obj_idx * repeat_per_obj + i)
-        
-        # Find indices without collisions for the same object
-        false_indices = [idx for idx in current_obj_env_indices if not contains_one[idx]]
-        if len(false_indices)>0:
-            # If there are non-colliding poses for this object, use one of them
-            chosen_index = np.random.choice(false_indices)
-            qpos_reset_r[true_idx, :] = qpos_reset_r[chosen_index, :]
-            obj_pose_reset[true_idx, :] = obj_pose_reset[chosen_index, :]
-        else:
-            # If all poses for this object collide, use a default fallback pose
-            qpos_reset_r[true_idx, :6] = [angle+np.pi/2-0.3, -1.57, 1.57, 0., 1.57, -1.57]
-            obj_pose_reset[true_idx, 0] = 0.1
-            obj_pose_reset[true_idx, 1] = -0.5
-
-    # Reset the environment state with corrected poses
     env.reset_state(qpos_reset_r,
                     qpos_reset_l,
                     np.zeros((num_envs, 22), 'float32'),
@@ -486,19 +490,15 @@ for update in range(5):
                     obj_pose_reset,
                     )
 
-    # Get initial observations and sensor data
     obs_new_r, dis_info = env.observe_vision_new()
-
-    # Update target centers
+    show_point = dis_info[:, 17:68].astype('float32').copy()
+    env.set_joint_sensor_visual(show_point)
     env.update_target(target_center)
 
-    # Initialize final actions for the grasp-then-lift sequence
     final_actions = np.zeros((num_envs, act_dim), dtype='float32')
 
-    # Check if biased object positions are enabled
     biased = cfg['environment']['biased']
     if biased:
-        # Initialize bias tracking and random position offsets
         obj_biased = np.zeros((num_envs, 1), dtype='float32')
         obj_pos_bias = np.random.uniform(-0.05, 0.05, (num_envs, 3)).astype('float32')
     else:
@@ -506,7 +506,7 @@ for update in range(5):
 
     # ===== Main Action Execution Loop =====
     for step in range(n_steps_r):
-        # Time the start of each frame for performance measurement
+        # Time the start of each frame for real-time control
         frame_start = time.time()
         
         # Get current observations
@@ -528,19 +528,19 @@ for update in range(5):
             action_r = final_actions
             action_r[:, :6] = theta0  # Set arm joints to initial configuration for lifting
             if step == grasp_steps:
-                # Transition to lift phase
+                # The transition to lift phase
+                print("lift")
                 env.switch_root_guidance(True)
 
         # Execute action in the environment
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
-
+        gs = env.get_global_state()
+        print(">>> max contact_force", gs[:, -1])
+        
         # Get new observations and sensor data
         obs_new_r, dis_info = env.observe_vision_new()
-        # print(env.get_obj_weight())
-        max_force = np.array(env.get_global_state()[:, 128]).reshape(-1)
-        max_force_list.append(max_force)
-
-
+        show_point = dis_info[:, 17:68].astype('float32').copy()
+        env.set_joint_sensor_visual(show_point)
 
         # Handle biased object positions (simulating uncertainty/disturbances)
         if biased:
@@ -554,89 +554,26 @@ for update in range(5):
             # Update object positions with bias
             env.switch_obj_pos(obj_pos_bias_current)
 
-    # ===== Success Evaluation =====
-    # Get final global state after execution
-    global_state = env.get_global_state()
-    
-    
-    # Success criterion: object lifted more than 0.1 units from its initial position
-    lifted = global_state[:, 107] - obj_pose_reset[:, 2] > 0.1
-    # Print success rate for current batch
-    print("current success rate", np.sum(lifted) / num_envs, file=sys.stdout)
+        # Maintain real-time control frequency
+        frame_end = time.time()
+        wait_time = cfg['environment']['control_dt'] - (frame_end - frame_start)
+        if wait_time > 0.:
+            time.sleep(wait_time)
 
-    # Update overall success rate using running average
-    success_rate = (update * success_rate + np.sum(lifted) / num_envs) / (update + 1)
-    print("average success rate", success_rate, file=sys.stdout)
+    print("end")
 
-    # Update statistics for each object
-    for i in range(num_envs):
-        obj_name = obj_list[i]  # Get object name directly
-        object_failure_stats[obj_name]["attempts"] += 1
-        if not lifted[i]:
-            object_failure_stats[obj_name]["failures"] += 1
+# ===== End of Evaluation =====
+# This script performs visualized robotic grasping evaluation using a pre-trained policy.
+# It loads a specified model checkpoint and evaluates the grasping performance on objects.
+# The evaluation process includes:
+# 1. Sampling and positioning objects in the environment
+# 2. Extracting point cloud from objects
+# 3. Calculating optimal hand approach directions and orientations
+# 4. Solving inverse kinematics for feasible grasp poses
+# 5. Executing the grasp-then-lift sequence using the trained policy
+# 6. Optionally applying position biases to test robustness
+#
+# The results can be visualized in the RaiSim environment if visualization is enabled.
 
-    # Print names of failed objects for analysis
-    failed_indices = np.where(lifted == 0)[0]
-    if len(failed_indices) > 0:
-        print("Failed objects:", file=sys.stdout)
-        for idx in failed_indices:
-            print(f"  - {obj_list[idx]}", file=sys.stdout)
-    else:
-        print("All objects were successfully grasped!", file=sys.stdout)
-
-    # Max Force Static Analysis
-    max_force_array = np.array(max_force_list)
-    ## 1. Force Trajectory for 35 Envs plot
-
-    plot_force_trajectories(max_force_array,
-                            obj_name=obj_list,
-                            save_path=os.path.join(saver.data_dir, f'force_trajectories_{update}.png'))
-    
-    ## 2. Force_max during the whole process for each env
-    # print("Max force for Each Env during the whole process:", max_force_array.max(axis=0), file=sys.stdout)
-    success_indices = np.where(lifted == 1)[0]
-    f_g = np.average(
-        max_force_array.max(axis=0)[success_indices] / np.array(mass_list)[success_indices] / 10
-        )
-    f_max = np.average(max_force_array.max(axis=0)[success_indices])
-    print(f"current F_max  (N) / G_obj (N) for success obj: {f_g} ; F_max: {f_max}" )
-    total_f_max_list.append(f_max)
-    total_f_g_list.append(copy(f_g))
-    
-    
-
-# ===== Final Statistics Report =====
-# Print failure statistics for each object after all evaluations
-print("\n===== Object Failure Statistics =====", file=sys.stdout)
-print(f"{'Object Name':<30} {'Failures':<10} {'Attempts':<10} {'Failure Rate (%)':<20}", file=sys.stdout)
-print("-" * 70, file=sys.stdout)
-
-# Sort objects by failure rate (highest to lowest) for better analysis
-sorted_stats = sorted(object_failure_stats.items(), 
-                     key=lambda x: x[1]["failures"] / x[1]["attempts"] if x[1]["attempts"] > 0 else 0, 
-                     reverse=True)
-
-# Print statistics for each object
-for obj_name, stats in sorted_stats:
-    failure_rate = (stats["failures"] / stats["attempts"] * 100) if stats["attempts"] > 0 else 0
-    print(f"{obj_name:<30} {stats['failures']:<10} {stats['attempts']:<10} {failure_rate:.2f}%", file=sys.stdout)
-
-# Calculate overall success metrics
-total_attempts = sum(stats["attempts"] for stats in object_failure_stats.values())
-total_failures = sum(stats["failures"] for stats in object_failure_stats.values())
-total_success_rate = ((total_attempts - total_failures) / total_attempts * 100) if total_attempts > 0 else 0
-
-# Print overall metrics: success rate F_max/G_obj, F_max
-print("\nObj Average Gravity: {:.2f}N".format(np.average(mass_list)))
-print("\nTotal success rate: {:.2f}%".format(total_success_rate), file=sys.stdout)
-print("\nTotal F_max / G_obj for success obj: {:.2f}".format(np.average(total_f_g_list)), file=sys.stdout)
-print("\nTotal F_max: {:.2f}N".format(np.average(total_f_max_list)), file=sys.stdout)
-
-
-
-# ===== End of Quantitative Evaluation =====
-# This script performs quantitative evaluation of robotic grasping using a pre-trained policy.
-# It tests the policy on multiple objects and reports success rates and failure statistics,
-# which are useful for assessing the robustness of the grasping approach across different object categories.
 
 

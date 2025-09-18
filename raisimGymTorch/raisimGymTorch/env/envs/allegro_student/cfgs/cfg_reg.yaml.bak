@@ -1,7 +1,6 @@
 seed: 1
 
 environment:
-
   hardware:
     kinematic_type: "simfk"
     arm_type: "ur5"                
@@ -31,20 +30,41 @@ environment:
     # Grasping frame position in hand frame
     hand_center: [-0.0091, 0.0, -0.095]
 
+    # Random friction values to sample from during domain randomization
+    randomize_friction: "0.5,0.6,0.7,0.8,0.9"
+    # Domain randomization parameters below
+    # Noise is added in range [-value, +value] and 0.0 means no randomization
+    
+    # PD controller gain randomization ratios (percentage of original value)
+    randomize_gains_hand_p: 0.1     # Hand proportional gain randomization (±10%)
+    randomize_gains_hand_d: 0.1     # Hand derivative gain randomization (±10%)
+    randomize_gains_arm_p: 0.05     # Arm proportional gain randomization (±5%)
+    randomize_gains_arm_d: 0.05     # Arm derivative gain randomization (±5%)
+    
+    # State randomization values
+    randomize_gc_hand: 0.02         # Hand generalized coordinates randomization [rad]
+    randomize_gc_arm: 0.005         # Arm generalized coordinates randomization [rad]
+    randomize_frame_position: 0.01  # Position frame randomization [m]
+    randomize_frame_orientation: 0.02 # Orientation frame randomization [rad]
+
+  # Enable domain randomization during evaluation
+  randomization_eval: False
   # Enable biased point cloud observation
   biased: False
   # Number of steps for grasp sequence
   grasp_steps: 70
   # Use top-down grasping
   top: False
-  # Use non-uniform sampling for object positions during training
-  non_uniform_sampling: True  
   # Run evaluation during training
   eval_during_training: False
+  # Use non-uniform sampling for object positions during training
+  non_uniform_sampling: True  
   # Camera position 
   camera_position: [0.035, -0.58, 1.531]
+  # Enable curriculum learning
+  curriculum: True
   # Number of samples of palm direction
-  sample_num: 10
+  sample_num: 20
   # Coefficients for scoring pre-grasp pose quality
   length_score_coeff: 5
   angle_score_coeff: 1
@@ -71,10 +91,6 @@ environment:
   # Standard deviation for arm action sampling
   rot_action_std: 0.005
   
-  # object settings
-  friction: 0.8  # object 2 finger
-  mass: 0.25 # object mass [kg]
-  
   # Reward components and their coefficients
   reward:
     # Positive rewards for successful manipulation
@@ -84,7 +100,6 @@ environment:
       coeff: 1.5                # Reward for making contact with objects
     affordance_impulse_reward:
       coeff: 1.0                # Reward based on x-y direction impulse with objects
-    
     # Negative rewards for table interaction
     table_reward:
       coeff: -0.03              # Penalty for proximity to table
@@ -97,7 +112,7 @@ environment:
     arm_height_reward:
       coeff: -0.05              # Penalty for arm being too low
     arm_contact_reward:
-      coeff: -0.1               # Penalty for arm contact with table
+      coeff: -0.1               # Penalty for arm contacgt with table
     arm_impulse_reward:
       coeff: -0.1               # Penalty based on arm impulses with table
     arm_collision_reward:
@@ -122,23 +137,7 @@ environment:
     arm_joint_vel_reward_:
       coeff: -1.0               # Penalty for high arm joint velocities
 
-    # P3O settings
-  p3o:
-    kappa: 20
-    rou: 1.2
-    kappa_max: 50
-    num_of_costs: 1
-    cost_limits:
-      force_closure_cost: # Force closure acc cost,  ||GF - G_{obj}||^2 / G_{obj} <= cost
-        limit: 0.1
-      friction_cone_cost: # Friction cone cost, \mu_{obj}- F_t / F_n <= cost
-        limit: 0.2 
- 
-      
-
-
 # Neural network architecture
 architecture:
   policy_net: [128, 128]
   value_net: [128, 128]
-  cost_net : [128, 128]

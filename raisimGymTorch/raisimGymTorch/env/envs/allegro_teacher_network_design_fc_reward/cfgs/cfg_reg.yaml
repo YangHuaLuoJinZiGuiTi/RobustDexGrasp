@@ -54,7 +54,7 @@ environment:
   # Policy update frequency (every n iterations)
   update_every_n: 20
   # Number of parallel simulation threads
-  num_threads: 16
+  num_threads: 56
   # Simulation time step [s]
   simulation_dt: 0.01
   # Control time step [s] (policy decision frequency)
@@ -121,6 +121,8 @@ environment:
       coeff: -5.0               # Penalty for object displacement
     arm_joint_vel_reward_:
       coeff: -1.0               # Penalty for high arm joint velocities
+    force_closure_reward_:
+      coeff: -5.0
 
     # P3O settings
   p3o:

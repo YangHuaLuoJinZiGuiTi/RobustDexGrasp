@@ -99,6 +99,7 @@ class RaisimGymEnv {
   virtual void control_switch(int right, int left){};
   virtual void control_switch_all(const Eigen::Ref<EigenVec>& right, const Eigen::Ref<EigenVec>& left){};
   virtual void curriculumUpdate() {};
+  
 
   virtual void close() { if(server_) server_->killServer(); };
   virtual void setSeed(int seed) {};

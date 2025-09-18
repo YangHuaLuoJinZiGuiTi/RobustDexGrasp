@@ -34,6 +34,7 @@ namespace raisim {
             }
             lift = false;
             lift_num = 0;
+
             /// Create physics world
             world_ = std::make_unique<raisim::World>();
             world_->addGround();
@@ -215,6 +216,8 @@ namespace raisim {
                 impulse_low[i] = -0.0;
             }
 
+
+
             /// Set PD gains and initialize forces
             mano_r_->setPdGains(0);
             mano_r_->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_));
@@ -302,47 +305,11 @@ namespace raisim {
         }
 
         void init() final { }
-        void load_object(const Eigen::Ref<EigenVecInt>& obj_idx, const Eigen::Ref<EigenVec>& obj_weight, const Eigen::Ref<EigenVec>& obj_dim, const Eigen::Ref<EigenVecInt>& obj_type) final {}
-        /// This function loads the object into the environment
-        void load_articulated(const std::string& obj_model){
-            obj_name = obj_model;
-            arctic = static_cast<raisim::ArticulatedSystem*>(world_->addArticulatedSystem(resourceDir_+"/"+load_set+"/"+obj_model, "", {}, raisim::COLLISION(2), raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63)));
-            arctic->setName("object");
-            
-            set_obj_weight();
-            if(visualizable_){
-                std::cout << "obj name: " << obj_model << std::endl;
-            }
-            
-            // Get object dimensions and initialize
-            gcDim_obj = arctic->getGeneralizedCoordinateDim();
-            gvDim_obj = arctic->getDOF();
-
-            Eigen::VectorXd gen_coord = Eigen::VectorXd::Zero(gcDim_obj);
-            arctic->setGeneralizedCoordinate(gen_coord);
-            arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
-            obj_weight = arctic->getTotalMass();
-
-                
-            // Set control mode
-            Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
-            objPgain.setZero();
-            objDgain.setZero();
-            arctic->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
-            arctic->setPdGains(objPgain, objDgain);
-            arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
-
-            // Check if there is a non-affordance part
-            auto non_affordance_id = arctic->getBodyIdx("bottom");
-            double non_aff_mass = arctic->getMass(non_affordance_id);
-            has_non_aff = (non_aff_mass > 0.001);
-        }
-
 
         void set_obj_weight(){
             // ---- Dynamically set object mass properties ----
             std::vector<std::string> body_names;
-            double total_mass = 0.5;
+            double total_mass = 0.25;
             body_names = arctic->getBodyNames();  // 正确的API
             double current_total = 0.0;
             std::vector<double> original_masses;
@@ -360,6 +327,42 @@ namespace raisim {
             arctic->updateMassInfo();
         }
         
+        void load_object(const Eigen::Ref<EigenVecInt>& obj_idx, const Eigen::Ref<EigenVec>& obj_weight, const Eigen::Ref<EigenVec>& obj_dim, const Eigen::Ref<EigenVecInt>& obj_type) final {}
+        /// This function loads the object into the environment
+        void load_articulated(const std::string& obj_model){
+            obj_name = obj_model;
+            arctic = static_cast<raisim::ArticulatedSystem*>(world_->addArticulatedSystem(resourceDir_+"/"+load_set+"/"+obj_model, "", {}, raisim::COLLISION(2), raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63)));
+            arctic->setName("object");
+    
+            set_obj_weight();
+            if(visualizable_){
+                std::cout << "obj name: " << obj_model << std::endl;
+            }
+            
+            // Get object dimensions and initialize
+            gcDim_obj = arctic->getGeneralizedCoordinateDim();
+            gvDim_obj = arctic->getDOF();
+
+            Eigen::VectorXd gen_coord = Eigen::VectorXd::Zero(gcDim_obj);
+            arctic->setGeneralizedCoordinate(gen_coord);
+            arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
+            obj_weight = arctic->getTotalMass();
+
+
+            // Set control mode
+            Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
+            objPgain.setZero();
+            objDgain.setZero();
+            arctic->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
+            arctic->setPdGains(objPgain, objDgain);
+            arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
+
+            // Check if there is a non-affordance part
+            auto non_affordance_id = arctic->getBodyIdx("bottom");
+            double non_aff_mass = arctic->getMass(non_affordance_id);
+            has_non_aff = (non_aff_mass > 0.001);
+        }
+
         void set_joint_sensor_visual(const Eigen::Ref<EigenVec>& joint_sensor_visual) final {
 
             raisim::Vec<3> joint_pos_w, mesh_pos_o, mesh_pos_w, vis_cylinder_pos_w;
@@ -585,7 +588,6 @@ namespace raisim {
             afford_center = target_center.cast<double>();
         }
 
-
         void set_goals(const Eigen::Ref<EigenVec>& obj_angle,
                        const Eigen::Ref<EigenVec>& obj_pos,
                        const Eigen::Ref<EigenVec>& ee_goal_pos_r,
@@ -680,6 +682,14 @@ namespace raisim {
             }
             table_contact_reward_r = contacts_r_table.cwiseProduct(finger_weights_contact).sum() / num_contacts;
 
+            // add impulse squared penalty
+            double impulse_squared_reward = 0.0;
+            for(int i = 0; i < num_contacts; i++) {
+                if(contacts_r_af[i] > 0) {  
+                    impulse_squared_reward += impulses_r_af[i] * impulses_r_af[i];  // ||I||^2
+                }
+            }
+
             Eigen::VectorXd impulses_r_af_clipped, impulses_r_non_af_clipped, impulses_r_table_clipped;
             impulses_r_af_clipped.setZero(num_contacts);
             impulses_r_non_af_clipped.setZero(num_contacts);
@@ -764,6 +774,7 @@ namespace raisim {
             rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
             rewards_r_.record("arm_joint_vel_reward_", std::max(0.0, arm_joint_vel_reward));
             rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
+            rewards_r_.record("impulse_squared_reward", impulse_squared_reward);
 
             rewards_sum_[0] = rewards_r_.sum();
             rewards_sum_[1] = 0;

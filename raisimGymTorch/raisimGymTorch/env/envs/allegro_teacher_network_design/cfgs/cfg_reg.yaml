@@ -54,7 +54,7 @@ environment:
   # Policy update frequency (every n iterations)
   update_every_n: 20
   # Number of parallel simulation threads
-  num_threads: 16
+  num_threads: 56
   # Simulation time step [s]
   simulation_dt: 0.01
   # Control time step [s] (policy decision frequency)

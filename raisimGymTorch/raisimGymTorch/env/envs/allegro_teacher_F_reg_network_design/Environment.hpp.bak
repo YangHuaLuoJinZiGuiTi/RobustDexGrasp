@@ -41,9 +41,8 @@ namespace raisim {
             world_->setERP(0.0);
 
             /// Set material properties
-            mu_finger2obj  = cfg['frition'].As<double>();
             world_->setMaterialPairProp("object", "object", 0.8, 0.0, 0.0, 0.8, 0.1);
-            world_->setMaterialPairProp("object", "finger", mu_finger2obj, 0.0, 0.0, 0.8, 0.1);
+            world_->setMaterialPairProp("object", "finger", 0.8, 0.0, 0.0, 0.8, 0.1);
             world_->setMaterialPairProp("finger", "finger", 0.8, 0.0, 0.0, 0.8, 0.1);
             world_->setDefaultMaterial(0.8, 0, 0, 0.8, 0.1);
 
@@ -247,12 +246,6 @@ namespace raisim {
             /// Initialize rewards
             rewards_r_.initializeFromConfigurationFile(cfg["reward"]);
 
-
-            // Initialize costs
-            force_closure_cost_ = 0.0;
-            friction_cone_cost_ = 0.0;
-            num_grasp_contacts_ = 0;
-            
             /// Build contact mappings
             for(int i = 0; i < num_contacts; i++){
                 contact_body_idx_r_[i] = mano_r_->getBodyIdx(contact_bodies_r_[i]);
@@ -1026,7 +1019,7 @@ namespace raisim {
             wrist_pos_obj_temp[1] = wrist_pos_w[1] - obj_pos_w[1];
             wrist_pos_obj_temp[2] = wrist_pos_w[2] - obj_pos_w[2];
             raisim::matvecmul(Obj_orientation, wrist_pos_obj_temp, wrist_pos_obj);
-            computeGraspCosts();
+
             global_state_ << obj_pose_wrist.e(),
                              frame_y_in_obj,
                              joint_pos_in_obj,
@@ -1055,173 +1048,6 @@ namespace raisim {
             gs = global_state_.cast<float>();
         }
         
-        void computeGraspCosts() {
-        // 重置cost
-        force_closure_cost_ = 0.0;
-        friction_cone_cost_ = 0.0;
-        num_grasp_contacts_ = 0;
-        
-        // 获取物体重量
-        double obj_mass = arctic->getTotalMass();
-        double obj_weight = obj_mass * 9.81; // 重力加速度
-        
-        // 获取抓取接触点
-        auto& contacts = mano_r_->getContacts();
-        auto affordance_id = arctic->getBodyIdx("top");
-        auto& contact_list_obj = arctic->getContacts();
-        
-        // 存储接触信息
-        std::vector<Eigen::Vector3d> contact_points;
-        std::vector<Eigen::Vector3d> contact_normals;
-        std::vector<Eigen::Vector3d> contact_forces;
-        
-        // 收集有效的抓取接触点
-        for(auto& contact: contacts) {
-            if (contact.skip() || contact.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
-            if (contact.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
-            if (contact_list_obj[contact.getPairContactIndexInPairObject()].getlocalBodyIndex() != affordance_id) continue;
-            if (contact.getImpulse().e().norm() < 0.001) continue;
-
-            
-            // 获取接触信息
-            Eigen::Vector3d contact_point = contact.getPosition().e();
-            Eigen::Vector3d contact_normal = contact.getContactFrame().e().col(2); // 法向量
-            Eigen::Vector3d contact_force = contact.getImpulse().e() / control_dt_; // 力 = 冲量/时间
-            
-            contact_points.push_back(contact_point);
-            contact_normals.push_back(contact_normal);
-            contact_forces.push_back(contact_force);
-        }
-        
-        num_grasp_contacts_ = contact_points.size();
-        if (num_grasp_contacts_ >= 1) { // 至少需要1个接触点才能计算力闭合
-            // 计算force closure cost
-            force_closure_cost_ = computeForceClosureCost(contact_points, contact_normals, contact_forces, obj_weight);
-            
-            // 计算friction cone cost
-            friction_cone_cost_ = computeFrictionConeCost(contact_normals, contact_forces);
-        }
-        else {
-            force_closure_cost_ = obj_weight; // 没有接触点，成本设为物体重量
-            friction_cone_cost_ = 0.0;
-        }
-    }
-
-        // 计算力闭合成本
-        double computeForceClosureCost(const std::vector<Eigen::Vector3d>& contact_points,
-                                    const std::vector<Eigen::Vector3d>& contact_normals,
-                                    const std::vector<Eigen::Vector3d>& contact_forces,
-                                    double obj_weight) {
-            int n_contacts = contact_points.size();
-            if (n_contacts < 1) return obj_weight;
-            
-            // 计算物体中心位置
-            auto affordance_id = arctic->getBodyIdx("top");
-            raisim::Vec<3> obj_com;
-            arctic->getPosition(affordance_id, obj_com);
-            
-            // 构建抓取矩阵 G (6 x 3n)
-            Eigen::MatrixXd G = Eigen::MatrixXd::Zero(6, 3 * n_contacts);
-            
-            for (int i = 0; i < n_contacts; i++) {
-                // 相对于质心的位置向量
-                Eigen::Vector3d r = contact_points[i] - obj_com.e();
-                
-                // 填充G矩阵
-                // 力分量
-                G(0, 3*i) = 1.0;     // fx
-                G(1, 3*i+1) = 1.0;   // fy
-                G(2, 3*i+2) = 1.0;   // fz
-                
-                // 力矩分量
-                // G(3, 3*i+1) = r(2);   // mx = y*fz - z*fy
-                // G(3, 3*i+2) = -r(1);
-                // G(4, 3*i) = -r(2);    // my = z*fx - x*fz
-                // G(4, 3*i+2) = r(0);
-                // G(5, 3*i) = r(1);     // mz = x*fy - y*fx
-                // G(5, 3*i+1) = -r(0);
-
-                G(3, 3*i+1) = -r(2);   // mx = y*fz - z*fy
-                G(3, 3*i+2) = r(1);
-                G(4, 3*i) = r(2);    // my = z*fx - x*fz
-                G(4, 3*i+2) = -r(0);
-                G(5, 3*i) = -r(1);     // mz = x*fy - y*fx
-                G(5, 3*i+1) = r(0);
-
-            }
-            
-            // 构建目标力旋量 (重力)
-            Eigen::VectorXd F_obj = Eigen::VectorXd::Zero(6);
-            F_obj(2) = -obj_weight; // z方向的重力
-            
-            // 计算接触力向量
-            Eigen::VectorXd F_contact = Eigen::VectorXd(3 * n_contacts);
-            for (int i = 0; i < n_contacts; i++) {
-                F_contact(3*i) = contact_forces[i](0);
-                F_contact(3*i+1) = contact_forces[i](1);
-                F_contact(3*i+2) = contact_forces[i](2);
-            }
-            
-            // 计算 ||GF - G_obj||^2
-            Eigen::VectorXd GF = G * F_contact;
-            Eigen::VectorXd diff = GF - F_obj;
-            double force_closure_norm = diff.squaredNorm();
-            
-            // 归一化
-            double normalized_cost = force_closure_norm / (obj_weight * obj_weight + 1e-8);
-            
-            return normalized_cost;
-        }
-        
-        // 计算摩擦锥成本
-        // NOTE: 如果一开始的接触点不好，他不就不想更新接触点了嘛？
-        double computeFrictionConeCost(const std::vector<Eigen::Vector3d>& contact_normals,
-                                    const std::vector<Eigen::Vector3d>& contact_forces) {
-            if (contact_normals.size() == 0) return 0.0;
-            
-            double max_friction_violation = 0.0;
-            double max_friction_ratio = -std::numeric_limits<double>::max(); // 初始化为负无穷大
-
-            
-            for (size_t i = 0; i < contact_normals.size(); i++) {
-                const Eigen::Vector3d& normal = contact_normals[i];
-                const Eigen::Vector3d& force = contact_forces[i];
-                
-                // 计算法向力
-                double normal_force = force.dot(normal);
-                if (normal_force < 1e-6) continue; // 忽略极小的法向力
-                
-                // 计算切向力
-                Eigen::Vector3d normal_force_vec = normal_force * normal;
-                Eigen::Vector3d tangential_force = force - normal_force_vec;
-                double tangential_force_mag = tangential_force.norm();
-                
-                // 计算摩擦比 μ - F_t/F_n
-                double friction_ratio = -mu_finger2obj +(tangential_force_mag / normal_force);
-                if (friction_ratio > max_friction_ratio) {
-                    max_friction_ratio = friction_ratio;
-                }
-
-                
-                // 如果摩擦比为负，说明违反了摩擦锥约束
-                // if (friction_ratio < 0) {
-                //     double violation = -friction_ratio;
-                //     if (violation > max_friction_violation) {
-                //         max_friction_violation = violation;
-                //     }
-                // }
-            }
-            
-            if (max_friction_ratio == -std::numeric_limits<double>::max()) {
-                    return 0.0;
-                }
-            return max_friction_ratio;
-        }
-
-        double getForceClosureCost() const { return force_closure_cost_; }
-        double getFrictionConeCost() const { return friction_cone_cost_; }
-        int getNumGraspContacts() const { return num_grasp_contacts_; }
-        double get_obj_weight() const { return obj_weight; }
 
 
         /// Set root guidance
@@ -1301,7 +1127,6 @@ namespace raisim {
         double obj_displacement_reward = 0.0;
         double arm_joint_vel_reward = 0.0;
         double obj_weight = 0.0;
-        double mu_finger2obj = 0;
 
 
         int num_contacts = 13;
@@ -1372,11 +1197,5 @@ namespace raisim {
         std::map<int,int> contactMapping_arm_;
         std::string resourceDir_;
         std::vector<raisim::Vec<2>> joint_limits_;
-
-        // cost 
-        double force_closure_cost_ = 0.0;
-        double friction_cone_cost_ = 0.0;
-        int num_grasp_contacts_ = 0;
-        
     };
 }

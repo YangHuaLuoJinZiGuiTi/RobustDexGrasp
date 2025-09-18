@@ -3,7 +3,7 @@
 from ruamel.yaml import YAML, dump, RoundTripDumper
 from raisimGymTorch.env.bin import allegro_teacher as hand
 from raisimGymTorch.env.RaisimGymVecEnvOther import RaisimGymVecEnvTest as VecEnv
-from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param_p3o
+from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param
 from raisimGymTorch.env.bin.allegro_teacher import NormalSampler
 from raisimGymTorch.helper.initial_pose_final import sample_rot_mats
 
@@ -15,10 +15,6 @@ import os
 import time
 import raisimGymTorch.algo.ppo.module as ppo_module
 import raisimGymTorch.algo.ppo.ppo as PPO
-
-import raisimGymTorch.algo.p3o.module as p3o_module
-import raisimGymTorch.algo.p3o.p3o as P3O
-
 import torch.nn as nn
 import numpy as np
 import torch
@@ -64,6 +60,8 @@ print(f"Experiment name: \"{args.exp_name}\"", file=sys.stdout)
 task_name = args.exp_name
 # Check if GPU is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:7')
+
 # Directory setup
 task_path = os.path.dirname(os.path.realpath(__file__))
 home_path = task_path + "/../../../../.."
@@ -130,7 +128,6 @@ for i in range(repeat_per_obj):
 
 # Set activation function for neural networks
 activations = nn.LeakyReLU
-activations_cost = nn.ReLU
 
 # Configure visualization mode when running without logging (for debugging)
 if args.log_name is None:
@@ -156,7 +153,6 @@ print('num envs', num_envs, file=sys.stdout)
 
 # ===== Environment Setup =====
 # Create vectorized environment with specified objects
-
 env = VecEnv(obj_list, hand.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
              cfg['environment'], cat_name=cat_name)
 
@@ -165,9 +161,10 @@ for obj_item in obj_list:
     obj_path_list.append(os.path.join(f"{obj_item}/{obj_item}.urdf"))
 env.load_multi_articulated(obj_path_list)
 
+
 # ===== Model Dimension Setup =====
 # Define observation and action dimensions
-ob_dim_r = 153  # Observation dimension
+ob_dim_r = 153 + 2  # Observation dimension + object weight + object mu
 act_dim = 22    # Action dimension (joint controls)
 print('ob dim', ob_dim_r, file=sys.stdout)
 print('act dim', act_dim, file=sys.stdout)
@@ -181,17 +178,13 @@ n_steps_r = cfg['environment']['grasp_steps']
 total_steps_r = n_steps_r * env.num_envs
 
 # ===== Build Neural Network Models =====
-
 # Actor network
-actor_r = p3o_module.Actor(
+actor_r = ppo_module.Actor(
     ppo_module.MLP(cfg['architecture']['policy_net'], activations, ob_dim_r, act_dim),
     ppo_module.MultivariateGaussianDiagonalCovariance(act_dim, num_envs, 1.0, NormalSampler(act_dim)), device)
 
-# Critic network for value and cost
-num_limits = cfg['environment']['p3o']['num_of_costs']
-critic_r = p3o_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], activations, ob_dim_r, 1), device)
-critic_cost_r = p3o_module.Critic(ppo_module.MLP(cfg['architecture']['cost_net'], activations, ob_dim_r, num_limits), device)
-
+# Critic network
+critic_r = ppo_module.Critic(ppo_module.MLP(cfg['architecture']['value_net'], activations, ob_dim_r, 1), device)
 
 # Flag for testing directory, set to False for normal training
 test_dir = False
@@ -202,33 +195,28 @@ saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + args.storedir
                            save_items=[task_path + "/cfgs/" + args.cfg, task_path + "/Environment.hpp",
                                        task_path + "/train.py", task_path + "/../../RaisimGymVecEnvOther.py"], test_dir=test_dir)
 
-# ===== Initialize P3O Algorithm =====
-cost_limits = []
-for cost_info in cfg['environment']['p3o']['cost_limits'].values():
-    if 'limit' in cost_info:
-        cost_limits.append(cost_info['limit'])
-p3o_r = P3O.P3O(
-    actor=actor_r,
-    critic_reward=critic_r,
-    critic_cost=critic_cost_r,
-    num_envs=num_envs,
-    num_transitions_per_env=n_steps_r,
-    num_learning_epochs=4,
-    num_mini_batches=4,
-    gamma=0.996,
-    lam=0.95,
-    device=device,
-    log_dir=saver.data_dir,
-    shuffle_batch=False,
-    kappa=cfg['environment']['p3o']['kappa'],
-    cost_limits=cost_limits,
-)
-
+# ===== Initialize PPO Algorithm =====
+ppo_r = PPO.PPO(actor=actor_r,
+                critic=critic_r,
+                num_envs=num_envs,
+                num_transitions_per_env=n_steps_r,
+                num_learning_epochs=4,
+                gamma=0.996,
+                lam=0.95,
+                num_mini_batches=4,
+                device=device,
+                log_dir=saver.data_dir,
+                shuffle_batch=False
+                # learning_rate=1e-4
+                )
 
 # ===== Load Pre-trained Student Model (if specified) =====
 if args.load_trained_policy:
-    load_param_p3o(saver.data_dir.split('eval')[0] + weight_path, env, actor_r, critic_r, critic_cost_r, p3o_r.optimizer, saver.data_dir, cfg_grasp)
-    
+    # load_param(saver.data_dir.split('eval')[0] + weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir,
+    #            cfg_grasp)
+    load_param(weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir,
+               cfg_grasp)
+
 # ===== Initialize Training Variables =====
 # Set finger weights for reward calculation (adjust importance of different fingers)
 finger_weights = np.ones((num_envs, 17)).astype('float32')
@@ -246,10 +234,6 @@ affordance_reward_r = np.zeros((num_envs, 1))
 table_reward_r = np.zeros((num_envs, 1))
 arm_height_reward_r = np.zeros((num_envs, 1))
 arm_collision_reward_r = np.zeros((num_envs, 1))
-
-# Initialize cost components
-force_closure_cost_r = np.zeros((num_envs, 1))
-friction_cone_cost_r = np.zeros((num_envs, 1))
 
 
 # Initialize state variables for robot and objects
@@ -308,8 +292,7 @@ for update in range(args.num_iterations):
             'actor_architecture_state_dict': actor_r.architecture.state_dict(),
             'actor_distribution_state_dict': actor_r.distribution.state_dict(),
             'critic_architecture_state_dict': critic_r.architecture.state_dict(),
-            'critic_cost_architecture_state_dict': critic_cost_r.architecture.state_dict(),
-            'optimizer_state_dict': p3o_r.optimizer.state_dict(),
+            'optimizer_state_dict': ppo_r.optimizer.state_dict(),
         }, saver.data_dir + "/full_" + str(update) + '_r.pt')
 
         # Save environment scaling parameters
@@ -573,16 +556,14 @@ for update in range(args.num_iterations):
                     obj_pose_reset,
                     )
 
-    obs_new_r, dis_info = env.observe_vision_new()
+    obs_new_r, dis_info = env.observe_vision_obj_new()
     env.update_target(target_center)
     rewards_r_sum = env.get_reward_info_r()
-    
     for i in range(len(rewards_r_sum)):
         rewards_r_sum[i]['affordance_reward'] = 0
         rewards_r_sum[i]['table_reward'] = 0
         rewards_r_sum[i]['arm_height_reward'] = 0
         rewards_r_sum[i]['arm_collision_reward'] = 0
-        
 
         for k in rewards_r_sum[i].keys():
             rewards_r_sum[i][k] = 0
@@ -595,12 +576,12 @@ for update in range(args.num_iterations):
     else:
         obj_pos_bias = np.zeros((num_envs, 3), dtype='float32')
 
-    # ==== Training Steps Loop ===== ?
+
     for step in range(current_steps):
         obs_r = obs_new_r
         obs_r = obs_r[:].astype('float32')
 
-        action_r = p3o_r.act(obs_r)
+        action_r = ppo_r.act(obs_r)
         action_l = np.zeros_like(action_r)
 
         # If in evaluation mode and grasp phase is completed, enter lift phase
@@ -614,7 +595,7 @@ for update in range(args.num_iterations):
 
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
-        obs_new_r, dis_info = env.observe_vision_new()
+        obs_new_r, dis_info = env.observe_vision_obj_new()
         obs_new_r = obs_new_r[:].astype('float32')
 
 
@@ -630,8 +611,6 @@ for update in range(args.num_iterations):
         global_state = env.get_global_state()
 
         rewards_r = env.get_reward_info_r()
-        cost_r = np.mean(env.get_cost_info_r(), axis=0)
-        print(">>> cost_r: ", cost_r)
         affordance_reward_r = - np.sum((dis_info[:, 1:17]) * finger_weights[:, 1:17], axis=1)
         table_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 70:87], a_min=0.002, a_max=0.02)) * finger_weights, axis=1)
         arm_height_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 89:93], a_min=0.002, a_max=0.02)), axis=1)
@@ -639,9 +618,7 @@ for update in range(args.num_iterations):
         one_check = global_state[:, 124:128]
         arm_collision_reward_r = np.sum(one_check, axis=1)
 
-
         for i in range(num_envs):
-            # reward
             rewards_r[i]['affordance_reward'] = affordance_reward_r[i] * cfg['environment']['reward']['affordance_reward']['coeff']
             rewards_r[i]['table_reward'] = table_reward_r[i] * cfg['environment']['reward']['table_reward']['coeff']
             rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
@@ -653,17 +630,15 @@ for update in range(args.num_iterations):
                         rewards_r[i]['arm_collision_reward'])
 
             reward_r[i] = rewards_r[i]['reward_sum']
-            
-    
         reward_r.clip(min=reward_clip)
 
         for i in range(len(rewards_r_sum)):
             for k in rewards_r_sum[i].keys():
-                rewards_r_sum[i][k] += rewards_r[i][k]
+                rewards_r_sum[i][k] = rewards_r_sum[i][k] + rewards_r[i][k]
 
         # Only collect training data in non-evaluation mode
         if not is_evaluation:
-            p3o_r.step(value_obs=obs_r, rews=reward_r, costs=cost_r, dones=dones)
+            ppo_r.step(value_obs=obs_r, rews=reward_r, dones=dones)
 
     # If in evaluation mode, calculate success rate
     if is_evaluation:
@@ -714,7 +689,7 @@ for update in range(args.num_iterations):
         # Disable root guidance
         env.switch_root_guidance(False)
 
-    obs_r, _ = env.observe_vision_new()
+    obs_r, _ = env.observe_vision_obj_new()
     obs_r = obs_r[:, :].astype('float32')
 
     if np.isnan(obs_r).any():
@@ -724,15 +699,15 @@ for update in range(args.num_iterations):
     # Only update policy in non-evaluation mode
     if not is_evaluation:
         # update policy
-        p3o_r.update(actor_obs=obs_r, value_obs=obs_r, log_this_iteration=update % 10 == 0, update=update)
+        ppo_r.update(actor_obs=obs_r, value_obs=obs_r, log_this_iteration=update % 10 == 0, update=update)
 
     actor_r.distribution.enforce_minimum_std((torch.ones(act_dim) * 0.2).to(device))
 
-    if p3o_r.check_exploding_gradient():
+    if ppo_r.check_exploding_gradient():
         print("------------------- exploding gradient !!! will reload param --------------------", file=sys.stdout)
-        p3o_r.is_exploding_gradient = False
+        ppo_r.is_exploding_gradient = False
         load_pth = saver.data_dir + "/full_" + str(saved_update_idx) + '_r.pt'
-        load_param_p3o(load_pth, env, actor_r, critic_r, p3o_r.optimizer, saver.data_dir, cfg_grasp)
+        load_param(load_pth, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
 
 
     end = time.time()

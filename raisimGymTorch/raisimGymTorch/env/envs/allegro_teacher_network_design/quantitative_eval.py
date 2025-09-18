@@ -539,7 +539,9 @@ for update in range(5):
         # print(env.get_obj_weight())
         max_force = np.array(env.get_global_state()[:, 128]).reshape(-1)
         max_force_list.append(max_force)
-
+        
+        cost_r = np.mean(env.get_cost_info_r(), axis=0)
+        print(">>> cost_r: ", cost_r)
 
 
         # Handle biased object positions (simulating uncertainty/disturbances)

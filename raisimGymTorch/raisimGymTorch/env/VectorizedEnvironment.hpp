@@ -42,7 +42,10 @@ class VectorizedEnvironment {
     std::cout << "THREAD_COUNT: " << THREAD_COUNT << std::endl;
     omp_set_num_threads(THREAD_COUNT);
     num_envs_ = cfg_["num_envs"].template As<int>();
-
+    forceClosureCosts_.resize(num_envs_);
+    frictionConeCosts_.resize(num_envs_);
+    forceClosureCosts_.setZero();
+    frictionConeCosts_.setZero();
     environments_.reserve(num_envs_);
     rewardInformation_r_.reserve(num_envs_);
     rewardInformation_r_.reserve(num_envs_);
@@ -72,8 +75,20 @@ class VectorizedEnvironment {
   void reset() {
     for (auto env: environments_)
       env->reset();
-  }
-
+      }
+  void getForceClosureCosts(Eigen::Ref<EigenVec> costs) {
+#pragma omp parallel for
+        for (int i = 0; i < num_envs_; i++) {
+            costs[i] = environments_[i]->getForceClosureCost();
+        }
+    }
+    
+  void getFrictionConeCosts(Eigen::Ref<EigenVec> costs) {
+#pragma omp parallel for
+        for (int i = 0; i < num_envs_; i++) {
+            costs[i] = environments_[i]->getFrictionConeCost();
+        }
+    }
   void set_pd_wrist() {
     for (auto env: environments_)
       env->set_pd_wrist();
@@ -241,6 +256,13 @@ void get_obj_weight(Eigen::Ref<EigenVec> weights) {
     }
 }
 
+void get_obj_mu(Eigen::Ref<EigenVec> mus) {
+    #pragma omp parallel for
+    for (int i = 0; i < num_envs_; i++) {
+        mus[i] = environments_[i]->get_obj_mu(); // 假设get_obj_weight()返回单个环境的权重
+    }
+}
+
     void get_global_state_l(Eigen::Ref<EigenRowMajorMat> &gs) {
 #pragma omp parallel for
     for (int i = 0; i < num_envs_; i++) 
@@ -391,7 +413,12 @@ void get_obj_weight(Eigen::Ref<EigenVec> weights) {
     for (auto *env: environments_)
       env->setControlTimeStep(dt);
   }
-
+//   void get_obj_weight(Eigen::Ref<EigenVec> weights) {
+// #pragma omp parallel for
+//     for (int i = 0; i < num_envs_; i++) {
+//         weights[i] = environments_[i]->get_obj_weight();  // 调用每个环境的 get_obj_weight
+//     }
+// }
   int getRightObDim() { return obDim_r_; }
   int getLeftObDim() {return obDim_l_;}
   int getActionDim() { return actionDim_; }
@@ -419,7 +446,7 @@ void get_obj_weight(Eigen::Ref<EigenVec> weights) {
       return obj->getMass(0);
   }
 
-  
+
 
 
 
@@ -529,7 +556,8 @@ void get_obj_weight(Eigen::Ref<EigenVec> weights) {
   std::vector<ChildEnvironment *> environments_;
   std::vector<std::map<std::string, float>> rewardInformation_r_;
   std::vector<std::map<std::string, float>> rewardInformation_l_;
-
+  Eigen::VectorXd forceClosureCosts_;
+  Eigen::VectorXd frictionConeCosts_;
   int num_envs_ = 1;
   int obDim_r_ = 0, obDim_l_ = 0, actionDim_ = 0, gsDim_ = 0;
   bool recordVideo_=false, render_=false;

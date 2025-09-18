@@ -51,10 +51,11 @@ class P3O:
             self.batch_sampler = self.storage.mini_batch_generator_inorder
 
         # Separate optimizers for actor and critics
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=learning_rate)
-        self.critic_reward_optimizer = optim.Adam(self.critic_reward.parameters(), lr=learning_rate)
-        self.critic_cost_optimizer = optim.Adam(self.critic_cost.parameters(), lr=learning_rate)
-
+        # self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=learning_rate)
+        # self.critic_reward_optimizer = optim.Adam(self.critic_reward.parameters(), lr=learning_rate)
+        # self.critic_cost_optimizer = optim.Adam(self.critic_cost.parameters(), lr=learning_rate)
+        self.optimizer = optim.Adam([*self.actor.parameters(), *self.critic_reward.parameters(), *self.critic_cost.parameters()], lr=learning_rate)
+        
         self.device = device
 
         # Environment parameters
@@ -190,7 +191,7 @@ class P3O:
                         elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:
                             self.learning_rate = min(1e-2, self.learning_rate * 1.2)
 
-                        for param_group in self.actor_optimizer.param_groups:
+                        for param_group in self.optimizer.param_groups:
                             param_group['lr'] = self.learning_rate
 
                 # Reward surrogate loss (same as PPO)
@@ -276,30 +277,16 @@ class P3O:
                              self.kappa * total_cost_surrogate_loss - 
                              self.entropy_coef * entropy_batch.mean())
 
-                # Update kappa
+                total_loss = actor_loss + self.value_loss_coef * reward_value_loss + self.cost_value_loss_coef * cost_value_loss
+                # Update kappa if not normalize the cost 
                 if not self.advantage_normalization:
                     self.kappa = np.min(self.kappa * self.rou, self.kappa_max)
+
+                self.optimizer.zero_grad()
+                total_loss.backward()
+                nn.utils.clip_grad_norm_([*self.actor.parameters(), *self.critic_reward.parameters(), *self.critic_cost.parameters()], self.max_grad_norm)
+                self.optimizer.step()
                 
-                # Gradient steps
-                # Update actor
-                self.actor_optimizer.zero_grad()
-                actor_loss.backward()
-                nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
-                self.actor_optimizer.step()
-
-                # Update reward critic
-                self.critic_reward_optimizer.zero_grad()
-                (self.value_loss_coef * reward_value_loss).backward()
-                nn.utils.clip_grad_norm_(self.critic_reward.parameters(), self.max_grad_norm)
-                self.critic_reward_optimizer.step()
-
-                # Update cost critic (处理所有约束)
-                if self.num_constraints > 0:
-                    self.critic_cost_optimizer.zero_grad()
-                    (self.cost_value_loss_coef * cost_value_loss).backward()
-                    nn.utils.clip_grad_norm_(self.critic_cost.parameters(), self.max_grad_norm)
-                    self.critic_cost_optimizer.step()
-
                 # Check for exploding gradients
                 for name, parameters in self.actor.architecture.state_dict().items():
                     if "weight" in name:

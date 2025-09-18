@@ -34,6 +34,7 @@ namespace raisim {
             }
             lift = false;
             lift_num = 0;
+
             /// Create physics world
             world_ = std::make_unique<raisim::World>();
             world_->addGround();
@@ -302,42 +303,6 @@ namespace raisim {
         }
 
         void init() final { }
-        void load_object(const Eigen::Ref<EigenVecInt>& obj_idx, const Eigen::Ref<EigenVec>& obj_weight, const Eigen::Ref<EigenVec>& obj_dim, const Eigen::Ref<EigenVecInt>& obj_type) final {}
-        /// This function loads the object into the environment
-        void load_articulated(const std::string& obj_model){
-            obj_name = obj_model;
-            arctic = static_cast<raisim::ArticulatedSystem*>(world_->addArticulatedSystem(resourceDir_+"/"+load_set+"/"+obj_model, "", {}, raisim::COLLISION(2), raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63)));
-            arctic->setName("object");
-            
-            set_obj_weight();
-            if(visualizable_){
-                std::cout << "obj name: " << obj_model << std::endl;
-            }
-            
-            // Get object dimensions and initialize
-            gcDim_obj = arctic->getGeneralizedCoordinateDim();
-            gvDim_obj = arctic->getDOF();
-
-            Eigen::VectorXd gen_coord = Eigen::VectorXd::Zero(gcDim_obj);
-            arctic->setGeneralizedCoordinate(gen_coord);
-            arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
-            obj_weight = arctic->getTotalMass();
-
-                
-            // Set control mode
-            Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
-            objPgain.setZero();
-            objDgain.setZero();
-            arctic->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
-            arctic->setPdGains(objPgain, objDgain);
-            arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
-
-            // Check if there is a non-affordance part
-            auto non_affordance_id = arctic->getBodyIdx("bottom");
-            double non_aff_mass = arctic->getMass(non_affordance_id);
-            has_non_aff = (non_aff_mass > 0.001);
-        }
-
 
         void set_obj_weight(){
             // ---- Dynamically set object mass properties ----
@@ -360,6 +325,42 @@ namespace raisim {
             arctic->updateMassInfo();
         }
         
+        void load_object(const Eigen::Ref<EigenVecInt>& obj_idx, const Eigen::Ref<EigenVec>& obj_weight, const Eigen::Ref<EigenVec>& obj_dim, const Eigen::Ref<EigenVecInt>& obj_type) final {}
+        /// This function loads the object into the environment
+        void load_articulated(const std::string& obj_model){
+            obj_name = obj_model;
+            arctic = static_cast<raisim::ArticulatedSystem*>(world_->addArticulatedSystem(resourceDir_+"/"+load_set+"/"+obj_model, "", {}, raisim::COLLISION(2), raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63)));
+            arctic->setName("object");
+    
+            set_obj_weight();
+            if(visualizable_){
+                std::cout << "obj name: " << obj_model << std::endl;
+            }
+            
+            // Get object dimensions and initialize
+            gcDim_obj = arctic->getGeneralizedCoordinateDim();
+            gvDim_obj = arctic->getDOF();
+
+            Eigen::VectorXd gen_coord = Eigen::VectorXd::Zero(gcDim_obj);
+            arctic->setGeneralizedCoordinate(gen_coord);
+            arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
+            obj_weight = arctic->getTotalMass();
+
+
+            // Set control mode
+            Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
+            objPgain.setZero();
+            objDgain.setZero();
+            arctic->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
+            arctic->setPdGains(objPgain, objDgain);
+            arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
+
+            // Check if there is a non-affordance part
+            auto non_affordance_id = arctic->getBodyIdx("bottom");
+            double non_aff_mass = arctic->getMass(non_affordance_id);
+            has_non_aff = (non_aff_mass > 0.001);
+        }
+
         void set_joint_sensor_visual(const Eigen::Ref<EigenVec>& joint_sensor_visual) final {
 
             raisim::Vec<3> joint_pos_w, mesh_pos_o, mesh_pos_w, vis_cylinder_pos_w;
@@ -585,7 +586,6 @@ namespace raisim {
             afford_center = target_center.cast<double>();
         }
 
-
         void set_goals(const Eigen::Ref<EigenVec>& obj_angle,
                        const Eigen::Ref<EigenVec>& obj_pos,
                        const Eigen::Ref<EigenVec>& ee_goal_pos_r,
@@ -764,6 +764,7 @@ namespace raisim {
             rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
             rewards_r_.record("arm_joint_vel_reward_", std::max(0.0, arm_joint_vel_reward));
             rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
+            rewards_r_.record("force_closure_reward_", std::max(0.0, force_closure_cost_));
 
             rewards_sum_[0] = rewards_r_.sum();
             rewards_sum_[1] = 0;
@@ -1125,7 +1126,7 @@ namespace raisim {
             friction_cone_cost_ = computeFrictionConeCost(contact_normals, contact_forces);
         }
         else {
-            force_closure_cost_ = obj_weight; // 没有接触点，成本设为物体重量
+            force_closure_cost_ = 1.0; // 没有接触点，成本设为物体重量
             friction_cone_cost_ = 0.0;
         }
     }
@@ -1136,7 +1137,7 @@ namespace raisim {
                                     const std::vector<Eigen::Vector3d>& contact_forces,
                                     double obj_weight) {
             int n_contacts = contact_points.size();
-            if (n_contacts < 1) return obj_weight;
+            if (n_contacts < 1) return 1.0;
             
             // 计算物体中心位置
             auto affordance_id = arctic->getBodyIdx("top");

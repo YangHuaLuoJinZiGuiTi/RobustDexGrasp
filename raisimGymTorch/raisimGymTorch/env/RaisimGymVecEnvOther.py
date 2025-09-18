@@ -41,7 +41,12 @@ class RaisimGymVecEnvTest:
         self._reward_l = np.zeros(self.num_envs, dtype=np.float32)
         self._done = np.zeros(self.num_envs, dtype=np.bool)
         self.rewards = [[] for _ in range(self.num_envs)]
-
+        
+        # cost
+        self._force_closure_cost = np.zeros(self.num_envs, dtype=np.float32)
+        self._friction_cone_cost = np.zeros(self.num_envs, dtype=np.float32)
+        self.num_constraints = int(cfg['p3o']['num_of_costs'])
+                
         self.affordance_pcd = np.zeros([len(obj_list),200,3])
         self.affordance_normals = np.zeros([len(obj_list),200,3])
         self.aff_mesh = [None] * len(obj_list)
@@ -110,6 +115,8 @@ class RaisimGymVecEnvTest:
 
     def start_video_recording(self, file_name):
         self.wrapper.startRecordingVideo(file_name)
+        
+    
 
     def stop_video_recording(self):
         self.wrapper.stopRecordingVideo()
@@ -129,7 +136,27 @@ class RaisimGymVecEnvTest:
         self.wrapper.step_imitate(action_r, action_l, obj_pose_r, hand_ee_r, hand_pose_r, obj_pose_l, hand_ee_l, hand_pose_l, imitate_right, imitate_left, self._reward_r, self._reward_l, self._done)
         return self._reward_r.copy(), self._reward_l.copy(), self._done.copy()
     
+    def get_force_closure_costs(self):
+        """获取力闭合成本"""
+        self.wrapper.getForceClosureCosts(self._force_closure_cost)
+        return self._force_closure_cost.copy()
+
+    def get_friction_cone_costs(self):
+        """获取摩擦锥成本"""
+        self.wrapper.getFrictionConeCosts(self._friction_cone_cost)
+        return self._friction_cone_cost.copy()
     
+    def get_cost_info_r(self):
+        # print(">>> force_closure_cost: ", self.get_force_closure_costs())
+        # print(">>> friction_cone_cost: ", self.get_friction_cone_costs())
+        
+        force_closure_costs = self.get_force_closure_costs()
+        friction_cone_costs = self.get_friction_cone_costs()
+        
+        # 组合成costs数组
+        costs = np.stack([force_closure_costs, friction_cone_costs], axis=1)[:, :self.num_constraints]
+        assert costs.shape == (self.num_envs, self.num_constraints)
+        return costs
 
     def load_scaling(self, dir_name, iteration, count=1e5, cent_training=False):
         mean_file_name_r = dir_name + "/mean_r" + str(iteration) + ".csv"
@@ -184,6 +211,40 @@ class RaisimGymVecEnvTest:
 
         return rotation_matrices    
 
+
+    def observe_vision_obj_new(self):
+        self.wrapper.observe(self._observation_r, self._observation_l)
+        self.wrapper.get_global_state(self._global_state)
+
+        global_state = self._global_state.copy()
+        obs_r = self._observation_r.copy()
+
+        num_envs = global_state.shape[0]
+
+        joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+
+        af_dists = torch.cdist(joints, self.affordance_pcd)
+        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+
+        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+        af_vec = af_points - joints
+
+        obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
+        obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
+
+        r_obj = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
+        af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
+        af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
+
+        obj_weight, obj_mu = self.get_obj_weight().reshape(num_envs, -1), self.get_obj_mu().reshape(num_envs, -1)
+
+        obs_r = np.concatenate([obs_r, af_vec, obj_weight, obj_mu], axis=-1)
+
+        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
+
+
+        return obs_r, dis_info
     def observe_vision_new(self):
         self.wrapper.observe(self._observation_r, self._observation_l)
         self.wrapper.get_global_state(self._global_state)
@@ -213,9 +274,15 @@ class RaisimGymVecEnvTest:
         show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
         dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
 
+
         return obs_r, dis_info
 
-
+    def get_obj_mu(self):
+        mu = np.zeros(self.num_envs, dtype=np.float32)
+        self.wrapper.get_obj_mu(mu)
+        return mu
+    
+    
     def observe_student_aff(self, visible_points):
         self.wrapper.observe(self._observation_r, self._observation_l)
         self.wrapper.get_global_state(self._global_state)
@@ -326,6 +393,10 @@ class RaisimGymVecEnvTest:
     def load_multi_articulated(self, obj_models):
         self.wrapper.load_multi_articulated(obj_models)
 
+    def get_obj_weight(self):
+        weights = np.zeros(self.num_envs, dtype=np.float32)
+        self.wrapper.get_obj_weight(weights)  # 调用 C++ 接口
+        return weights
     def reset_state(self, init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose):
         self.wrapper.reset_state(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
 

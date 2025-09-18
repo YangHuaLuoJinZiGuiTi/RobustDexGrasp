@@ -102,6 +102,10 @@ environment:
       coeff: -0.1               # Penalty based on arm impulses with table
     arm_collision_reward:
       coeff: -1.0               # Penalty for arm self-collisions
+    impulse_squared_reward: 
+      coeff: -0.01              # Penalty for hand objection impulse
+
+
       
     # Object interaction penalties
     push_reward:

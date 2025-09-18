@@ -5,15 +5,19 @@
 
 #pragma once
 
+// Project header files
 #include "../../hardware/hardware.hpp"
+#include "../../RaisimGymEnv.hpp"
 
+// Standard libraries
 #include <stdlib.h>
 #include <set>
-#include "../../RaisimGymEnv.hpp"
-#include "raisim/World.hpp"
 #include <vector>
-#include "raisim/math.hpp"
 #include <math.h>
+
+// RaiSim libraries
+#include "raisim/World.hpp"
+#include "raisim/math.hpp"
 
 namespace raisim {
     class ENVIRONMENT : public RaisimGymEnv {
@@ -26,53 +30,58 @@ namespace raisim {
             visualizable_ = cfg["visualize"].As<bool>();
             load_set = cfg["load_set"].As<std::string>();
             if (visualizable_) {
-                std::cout<<"visualizable_: "<<visualizable_<<std::endl;
+                std::cout << "visualizable_: " << visualizable_ << std::endl;
             }
             lift = false;
             lift_num = 0;
 
-            // Create world
+            /// Create physics world
             world_ = std::make_unique<raisim::World>();
             world_->addGround();
             world_->setERP(0.0);
 
+            /// Set material properties
+            // mu_finger2obj  = cfg['friction'].As<double>();
+            mu_finger2obj = 0.8;
             world_->setMaterialPairProp("object", "object", 0.8, 0.0, 0.0, 0.8, 0.1);
-            world_->setMaterialPairProp("object", "finger", 0.8, 0.0, 0.0, 0.8, 0.1);
+            world_->setMaterialPairProp("object", "finger", mu_finger2obj, 0.0, 0.0, 0.8, 0.1);
             world_->setMaterialPairProp("finger", "finger", 0.8, 0.0, 0.0, 0.8, 0.1);
             world_->setDefaultMaterial(0.8, 0, 0, 0.8, 0.1);
 
-            // Add hand model
+            /// Add hand model
             std::string hand_model_r = cfg["hardware"]["sim_model"].As<std::string>();
             if(visualizable_){
-                std::cout<<"hand_model_r: "<<hand_model_r<<std::endl;
+                std::cout << "hand_model_r: " << hand_model_r << std::endl;
             }
             resourceDir_ = resourceDir;
             mano_r_ = std::make_unique<Hardware>(resourceDir, cfg["hardware"], world_);
             mano_r_->setName("Allegro");
 
+            /// Get contact bodies and body parts
             num_contacts = mano_r_->getBodies(contact_bodies_r_, false, true);
             num_bodyparts = mano_r_->getBodies(body_parts_r_, false, false);
             mano_r_->getBodies(contact_arm_bodies, true, true);
             mano_r_->getBodies(arm_parts, true, false);
 
-            // Add table
+            /// Add table
             box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "table", raisim::COLLISION(1)));
             box->setPosition(0.2, -0.75152, 0.3855);
             box->setAppearance("0.0 0.0 0.0 0.0");
 
-            // Set PD control mode
+            /// Set PD control mode
             mano_r_->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
 
+            /// Set base pose
             raisim::Vec<4> quat_base;
             raisim::Vec<3> euler_base;
             euler_base[0] = 0;
             euler_base[1] = 0;
             euler_base[2] = 0;
-            raisim::eulerToQuat(euler_base,quat_base);
-            raisim::quatToRotMat(quat_base,base_mat);
+            raisim::eulerToQuat(euler_base, quat_base);
+            raisim::quatToRotMat(quat_base, base_mat);
 
-            base_pos[0] = 0.;
-            base_pos[1] = 0.;
+            base_pos[0] = 0.0;
+            base_pos[1] = 0.0;
             base_pos[2] = -0.;
             mano_r_->setBasePos(base_pos);
 
@@ -94,27 +103,28 @@ namespace raisim {
             hand_center[1] = values[1];
             hand_center[2] = values[2];
 
-            // Get actuation dimensions
+            /// Get control dimensions
             gcDim_ = mano_r_->getGeneralizedCoordinateDim();
             gvDim_ = mano_r_->getDOF();
 
+            /// Initialize state variables
             gc_r_.setZero(gcDim_);
             gv_r_.setZero(gvDim_);
             gc_set_r_.setZero(gcDim_); 
             gv_set_r_.setZero(gvDim_);
-
-            // Initialize all variables
             pTarget_r_.setZero(gcDim_); 
             vTarget_r_.setZero(gvDim_);
+            right_hand_torque.setZero(gcDim_);
+            
+            /// Initialize action space
             actionDim_ = gcDim_;
             actionMean_r_.setZero(actionDim_);
             actionStd_r_.setOnes(actionDim_);
             joint_limit_high.setZero(actionDim_); 
             joint_limit_low.setZero(actionDim_);
             arm_gc_lift.setZero(6);
-
-            right_hand_torque.setZero(gcDim_);
-
+            
+            /// Initialize pose and position variables
             init_or_r_.setZero();  
             init_rot_r_.setZero(); 
             init_root_r_.setZero();
@@ -126,26 +136,17 @@ namespace raisim {
             wrist_euler_init.setZero();
             wrist_mat_r_init.setZero();
             wrist_euler_previous.setZero();
+            
+            /// Initialize velocity variables
             wrist_vel.setZero(); 
             wrist_qvel.setZero(); 
             wrist_vel_in_wrist.setZero(); 
             wrist_qvel_in_wrist.setZero();
+            
+            /// Initialize object-related variables
             afford_center.setZero();
             obj_base_pos.setZero();
-            frame_y_in_obj.setZero(num_bodyparts*3);
-            joint_pos_in_obj.setZero(num_bodyparts*3);
-            joint_pos_in_world.setZero(num_bodyparts*3);
-            arm_joint_pos_in_world.setZero(6*3);
-
-            joint_height_w.setZero(num_bodyparts);
-            arm_height_w.setZero(6);
-
-            init_arcticCoord.setZero(8);
-
-            contact_body_idx_r_.setZero(num_contacts);
-            contact_arm_idx.setZero(6);
-
-            obj_pos_init_.setZero(8);
+            init_center.setZero();
             Position.setZero();
             Obj_Position.setZero(); 
             Obj_Position_init.setZero(); 
@@ -157,35 +158,47 @@ namespace raisim {
             Obj_linvel.setZero();
             obj_vel_in_wrist.setZero(); 
             obj_qvel_in_wrist.setZero();
+            obj_pos_init_.setZero(8);
             target_center_dif.setZero();
-
+            init_arcticCoord.setZero(8);
+            
+            /// Initialize position and contact-related arrays
+            frame_y_in_obj.setZero(num_bodyparts*3);
+            joint_pos_in_obj.setZero(num_bodyparts*3);
+            joint_pos_in_world.setZero(num_bodyparts*3);
+            arm_joint_pos_in_world.setZero(6*3);
+            joint_height_w.setZero(num_bodyparts);
+            arm_height_w.setZero(6);
+            contact_body_idx_r_.setZero(num_contacts);
+            contact_arm_idx.setZero(6);
+            
+            /// Initialize contact and impulse variables
             contacts_r_af.setZero(num_contacts); 
             contacts_r_non_af.setZero(num_contacts);
-            contact_normals_r_vector.setZero(num_contacts*3);
             impulses_r_af.setZero(num_contacts); 
             impulses_r_non_af.setZero(num_contacts);
             impulses_r_af_vector.setZero(num_contacts*3); 
             impulses_r_non_af_vector.setZero(num_contacts*3);
-            impulses_r_table_vector.setZero(num_contacts*3);
+            impulses_r_table_vector.setZero(num_contacts*3); 
             impulses_arm_table_vector.setZero(6*3);
             impulses_r_af_xy.setZero(num_contacts*2); 
             impulses_r_af_z.setZero(num_contacts);
             impulse_high.setZero(num_contacts); 
             impulse_low.setZero(num_contacts);
-
             contacts_r_table.setZero(num_contacts); 
             impulses_r_table.setZero(num_contacts);
             contacts_arm_table.setZero(6); 
             impulses_arm_table.setZero(6);
             contacts_arm_all.setZero(6);
-
+            
+            /// Initialize target position variables
             pTarget_clipped_r.setZero(gcDim_);
             pTarget_prev_r.setZero(gcDim_);
 
-            // Initialize 3D positions weights for fingertips higher than for other fingerparts
+            /// Initialize contact point weights (fingertips have higher weights than other finger parts)
             finger_weights_contact.setOnes(num_contacts);
             for(int i=1; i < 5; i++){
-                finger_weights_contact(3*i) *= 3;
+                finger_weights_contact(3*i) *= 3;  // Increase fingertip weights
             }
             finger_weights_contact(0) = 0;
             finger_weights_contact.segment(10,3) *= 2;
@@ -193,86 +206,90 @@ namespace raisim {
             finger_weights_contact /= finger_weights_contact.sum();
             finger_weights_contact *= num_contacts;
 
-            for(int i=0; i< (num_contacts - 3); i++){
+            /// Set impulse thresholds
+            for(int i=0; i < (num_contacts - 3); i++){
                 impulse_high[i] = 0.1;
                 impulse_low[i] = -0.0;
             }
-            for(int i=(num_contacts - 3); i< num_contacts; i++){
+            for(int i=(num_contacts - 3); i < num_contacts; i++){
                 impulse_high[i] = 0.2;
                 impulse_low[i] = -0.0;
             }
 
-            // Set PD gains
+            /// Set PD gains and initialize forces
             mano_r_->setPdGains(0);
             mano_r_->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_));
             mano_r_->setGeneralizedCoordinate(Eigen::VectorXd::Zero(gcDim_));
 
-            // Initialize environment dimensions
-            obDim_single = 102;
+            /// Initialize observation space
+            obDim_r_ = 102;
             obDim_l_ = 1;
-            gsDim_ = 179 + 1; // max_force
-            history_len = 10;
-            tobeEncode_dim = 44;
-            obDim_r_ = history_len * tobeEncode_dim + obDim_single;
-            obDouble_r_.setZero(obDim_single);
+            gsDim_ = 128 + 1 ; // add one dimension for max contact force
+            obDouble_r_.setZero(obDim_r_);
             obDouble_l_.setZero(obDim_l_);
             global_state_.setZero(gsDim_);
-            ob_delay_r.setZero(obDim_single);
-            ob_concat_r.setZero(obDim_r_);
 
+            /// Set action standard deviations
             float finger_action_std = cfg["finger_action_std"].As<float>();
             float rot_action_std = cfg["rot_action_std"].As<float>();
 
-            // Retrieve joint limits from model
+            /// Get joint limits
             joint_limits_ = mano_r_->getJointLimits();
-
             for(int i=0; i < int(gcDim_); i++){
-                actionMean_r_[i] = (joint_limits_[i][1]+joint_limits_[i][0])/2.0;
+                actionMean_r_[i] = (joint_limits_[i][1] + joint_limits_[i][0]) / 2.0;
                 joint_limit_low[i] = joint_limits_[i][0];
                 joint_limit_high[i] = joint_limits_[i][1];
             }
 
-            // Set actuation parameters
+            /// Set actuation parameters
             actionStd_r_.setConstant(finger_action_std);
             actionStd_r_.head(6).setConstant(rot_action_std);
 
-            // Initialize reward
+            /// Initialize rewards
             rewards_r_.initializeFromConfigurationFile(cfg["reward"]);
 
-            for(int i = 0; i < num_contacts ;i++){
-                contact_body_idx_r_[i] =  mano_r_->getBodyIdx(contact_bodies_r_[i]);
-                contactMapping_r_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_bodies_r_[i])),i));
+
+            // Initialize costs
+            force_closure_cost_ = 0.0;
+            friction_cone_cost_ = 0.0;
+            num_grasp_contacts_ = 0;
+            
+            /// Build contact mappings
+            for(int i = 0; i < num_contacts; i++){
+                contact_body_idx_r_[i] = mano_r_->getBodyIdx(contact_bodies_r_[i]);
+                contactMapping_r_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_bodies_r_[i])), i));
             }
 
-            for(int i = 0; i < 6 ;i++){
-                contact_arm_idx[i] =  mano_r_->getBodyIdx(contact_arm_bodies[i]);
-                contactMapping_arm_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_arm_bodies[i])),i));
+            for(int i = 0; i < 6; i++){
+                contact_arm_idx[i] = mano_r_->getBodyIdx(contact_arm_bodies[i]);
+                contactMapping_arm_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_arm_bodies[i])), i));
             }
 
-            // Start visualization server
+            /// Start visualization server
             if (visualizable_) {
                 if(server_) server_->lockVisualizationServerMutex();
                 server_ = std::make_unique<raisim::RaisimServer>(world_.get());
                 server_->launchServer();
 
-                // Create table
+                /// Create table
                 table_top = server_->addVisualBox("tabletop", 2.0, 1.0, 0.05, 0.44921875, 0.30859375, 0.1953125, 1, "");
                 table_top->setPosition(0.2, -0.75152, 0.746);
                 leg1 = server_->addVisualCylinder("leg1", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
                 leg2 = server_->addVisualCylinder("leg2", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
                 leg3 = server_->addVisualCylinder("leg3", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
                 leg4 = server_->addVisualCylinder("leg4", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
-                leg1->setPosition(-0.7875,-0.28402,0.373);
-                leg2->setPosition(1.1775,-0.26402,0.373);
-                leg3->setPosition(-0.7875,-1.21902,0.373);
-                leg4->setPosition(1.1775,-1.23902,0.373);
+                leg1->setPosition(-0.7875, -0.28402, 0.373);
+                leg2->setPosition(1.1775, -0.26402, 0.373);
+                leg3->setPosition(-0.7875, -1.21902, 0.373);
+                leg4->setPosition(1.1775, -1.23902, 0.373);
 
-                // Initialize Cylinders for sensor
+                /// Initialize sensor visualization elements
                 for(int i = 0; i < num_bodyparts; i++){
                     Cylinder[i] = server_->addVisualCylinder(body_parts_r_[i]+"_cylinder", 0.005, 0.1, 1, 0, 1);
                     sphere[i] = server_->addVisualSphere(body_parts_r_[i]+"_sphere", 0.005, 0, 1, 0, 1);
                     joints_sphere[i] = server_->addVisualSphere(body_parts_r_[i]+"_joints_sphere", 0.01, 0, 0, 1, 1);
                 }
+                
                 for(int i = 0; i < 5; i++){
                     aff_center_visual[i] = server_->addVisualSphere(body_parts_r_[i]+"_aff_center", 0.01, 0, 0, 1, 1);
                 }
@@ -287,15 +304,17 @@ namespace raisim {
 
         void init() final { }
         void load_object(const Eigen::Ref<EigenVecInt>& obj_idx, const Eigen::Ref<EigenVec>& obj_weight, const Eigen::Ref<EigenVec>& obj_dim, const Eigen::Ref<EigenVecInt>& obj_type) final {}
-        
-        // This function loads the object into the environment
+        /// This function loads the object into the environment
         void load_articulated(const std::string& obj_model){
             obj_name = obj_model;
             arctic = static_cast<raisim::ArticulatedSystem*>(world_->addArticulatedSystem(resourceDir_+"/"+load_set+"/"+obj_model, "", {}, raisim::COLLISION(2), raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63)));
             arctic->setName("object");
+            
             if(visualizable_){
-                std::cout<<"obj name: "<<obj_model<<std::endl;
+                std::cout << "obj name: " << obj_model << std::endl;
             }
+            
+            // Get object dimensions and initialize
             gcDim_obj = arctic->getGeneralizedCoordinateDim();
             gvDim_obj = arctic->getDOF();
 
@@ -303,7 +322,9 @@ namespace raisim {
             arctic->setGeneralizedCoordinate(gen_coord);
             arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
             obj_weight = arctic->getTotalMass();
-            
+
+
+            // Set control mode
             Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
             objPgain.setZero();
             objDgain.setZero();
@@ -311,6 +332,7 @@ namespace raisim {
             arctic->setPdGains(objPgain, objDgain);
             arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
 
+            // Check if there is a non-affordance part
             auto non_affordance_id = arctic->getBodyIdx("bottom");
             double non_aff_mass = arctic->getMass(non_affordance_id);
             has_non_aff = (non_aff_mass > 0.001);
@@ -324,8 +346,10 @@ namespace raisim {
 
                 mano_r_->getFramePosition(body_parts_r_[i], joint_pos_w);
 
-                // Get the point position in world frame
-                mesh_pos_w = joint_sensor_visual.segment(i*3,3).cast<double>();
+                // get the point position in wrold frame
+                mesh_pos_o = joint_sensor_visual.segment(i*3,3).cast<double>();
+                raisim::matvecmul(Obj_orientation_temp, mesh_pos_o, mesh_pos_w);
+                vecadd(Obj_Position, mesh_pos_w);
 
                 // Given the starting and ending 3D points,
                 // find the center point, rotation, and length of the visualized cylinder.
@@ -360,36 +384,40 @@ namespace raisim {
                 Cylinder[i]->setOrientation(q.w(), q.x(), q.y(), q.z());
                 Cylinder[i]->setCylinderSize(0.001, dis);
             }
+
         }
 
-        /// Resets the object and hand to its initial pose
+        /// Reset the object and hand to initial pose
         void reset() final {
-            if (first_reset_)
-            {
-                first_reset_=false;
+            if (first_reset_) {
+                first_reset_ = false;
             }
-            else{
+            else {
                 lift = false;
                 lift_num = 0;
                 
-                // All settings to initial state configuration
+                // Restore initial state configuration
                 actionMean_r_.setZero();
                 mano_r_->setBasePos(base_pos);
                 mano_r_->setBaseOrientation(base_mat);
                 mano_r_->setState(gc_set_r_, gv_set_r_);
 
+                // Reset object position
                 gvDim_obj = arctic->getDOF();
                 arctic->setBasePos(init_obj_);
                 arctic->setBaseOrientation(init_obj_rot_);
                 arctic->setState(init_arcticCoord, Eigen::VectorXd::Zero(gvDim_obj));
 
+                // Reset table
                 box->clearExternalForcesAndTorques();
                 box->setPosition(0.2, -0.75152, 0.3855);
-                box->setOrientation(1,0,0,0);
-                box->setVelocity(0,0,0,0,0,0);
+                box->setOrientation(1, 0, 0, 0);
+                box->setVelocity(0, 0, 0, 0, 0, 0);
 
+                // Reset forces and states
                 auto affordance_id = arctic->getBodyIdx("top");
                 arctic->getAngularVelocity(affordance_id, Obj_qvel);
+                
                 Eigen::VectorXd gen_force;
                 gen_force.setZero(gcDim_);
                 mano_r_->setGeneralizedForce(gen_force);
@@ -397,7 +425,8 @@ namespace raisim {
                 gen_force.setZero(gcDim_obj);
                 arctic->setGeneralizedForce(gen_force);
 
-                gc_r_=gc_set_r_;
+                // Reset various state variables
+                gc_r_ = gc_set_r_;
                 right_hand_torque.setZero(gcDim_);
                 gv_r_.setZero(gvDim_);
                 gv_set_r_.setZero(gvDim_);
@@ -406,6 +435,8 @@ namespace raisim {
                 pTarget_prev_r = gc_set_r_;
                 vTarget_r_.setZero(gvDim_);
                 actionMean_r_ = gc_set_r_;
+                
+                // Reset velocities and positions
                 wrist_vel.setZero(); 
                 wrist_qvel.setZero(); 
                 wrist_vel_in_wrist.setZero(); 
@@ -417,38 +448,36 @@ namespace raisim {
                 Obj_linvel.setZero();
                 wrist_mat_r_init.setZero();
                 wrist_euler_previous.setZero();
+                
                 updateObservation();
             }
         }
 
-        /// Resets the state to a user defined input
+        /// Reset state to user-defined input
         // obj_pose: 8 DOF [trans(3), ori(4, quat), joint angle(1)]
-        // init_state_l in right-hand coord
         void reset_state(const Eigen::Ref<EigenVec>& init_state_r,
-                         const Eigen::Ref<EigenVec>& init_state_l,
-                         const Eigen::Ref<EigenVec>& init_vel_r,
-                         const Eigen::Ref<EigenVec>& init_vel_l,
-                         const Eigen::Ref<EigenVec>& obj_pose) final {
+                        const Eigen::Ref<EigenVec>& init_state_l,
+                        const Eigen::Ref<EigenVec>& init_vel_r,
+                        const Eigen::Ref<EigenVec>& init_vel_l,
+                        const Eigen::Ref<EigenVec>& obj_pose) final {
             lift = false;
             lift_num = 0;
-            obs_history.clear();
             
-            // Reset gains (only required in case for inference)
+            // Reset gains and state
             mano_r_->setPdGains(0);
+            pTarget_clipped_r.setZero(gcDim_); 
+            pTarget_prev_r.setZero(gcDim_);
 
             Eigen::VectorXd gen_force;
             gen_force.setZero(gcDim_);
             mano_r_->setGeneralizedForce(gen_force);
 
-            // Reset state
-            pTarget_clipped_r.setZero(gcDim_); 
-            pTarget_prev_r.setZero(gcDim_);
-
-            // Reset table position (only required in case for inference)
+            // Reset table position
             box->setPosition(0.2, -0.75152, 0.3855);
-            box->setOrientation(1,0,0,0);
-            box->setVelocity(0,0,0,0,0,0);
+            box->setOrientation(1, 0, 0, 0);
+            box->setVelocity(0, 0, 0, 0, 0, 0);
 
+            // Reset object control
             Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
             objPgain.setZero();
             objDgain.setZero();
@@ -457,6 +486,7 @@ namespace raisim {
             mano_r_->setGeneralizedForce(Eigen::VectorXd::Zero(gcDim_));
             arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
 
+            // Set hand state
             gc_set_r_ = init_state_r.cast<double>();
             gv_set_r_ = init_vel_r.cast<double>();
             mano_r_->setState(gc_set_r_, gv_set_r_);
@@ -464,60 +494,68 @@ namespace raisim {
             pTarget_clipped_r = gc_set_r_;
             pTarget_prev_r = gc_set_r_;
 
-            // Set initial root position in global frame as origin in new coordinate frame
+            // Set initial object position
             init_obj_ = obj_pose.head(3).cast<double>();
 
-            // Set initial root orientation in global frame as origin in new coordinate frame
+            /// Set initial root direction
             raisim::Vec<4> quat;
-            raisim::eulerToQuat(init_state_r.segment(3,3),quat); // initial base ori, in quat
-            raisim::quatToRotMat(quat, init_rot_r_); // ..., in matrix
-            raisim::transpose(init_rot_r_, init_or_r_); // ..., inverse
+            raisim::eulerToQuat(init_state_r.segment(3,3), quat); // Initial base direction (quaternion)
+            raisim::quatToRotMat(quat, init_rot_r_); // Convert to rotation matrix
+            raisim::transpose(init_rot_r_, init_or_r_); // Inverse
 
+            // Set object state
             int arcticCoordDim = arctic->getGeneralizedCoordinateDim();
             int arcticVelDim = arctic->getDOF();
-            Eigen::VectorXd arcticCoord, arcticVel;
-            arcticCoord.setZero(arcticCoordDim);
-            arcticVel.setZero(arcticVelDim);
-            arcticCoord = obj_pose.cast<double>().tail(arcticCoordDim);
+            Eigen::VectorXd arcticCoord = obj_pose.cast<double>().tail(arcticCoordDim);
+            Eigen::VectorXd arcticVel = Eigen::VectorXd::Zero(arcticVelDim);
 
             init_arcticCoord = arcticCoord;
 
+            // Set object position and direction
             raisim::quatToRotMat(obj_pose.segment(3,4), init_obj_rot_);
             raisim::transpose(init_obj_rot_, init_obj_or_);
             arctic->setBasePos(init_obj_);
             arctic->setBaseOrientation(init_obj_rot_);
             arctic->setState(arcticCoord, arcticVel);
+            
+            // Set hand position
             mano_r_->setBasePos(base_pos);
             mano_r_->setBaseOrientation(base_mat);
             mano_r_->setState(gc_set_r_, gv_set_r_);
 
-            // Set initial object state
-            obj_pos_init_  = obj_pose.cast<double>(); // 8 dof
+            // Save initial object state
+            obj_pos_init_ = obj_pose.cast<double>(); // 8 dof
 
             // Set action mean to initial pose
             actionMean_r_ = gc_set_r_;
 
+            // Set force to zero
             gen_force.setZero(gcDim_);
             mano_r_->setGeneralizedForce(gen_force);
 
-            obj_weight = arctic->getTotalMass();
-
+            // Set object mass and friction
+            obj_weight = arctic->getTotalMass() * 9.81;
             mano_r_->setMaterialFriction(world_, arctic);
 
             mano_r_->updateObservation();
 
-           auto affordance_id = arctic->getBodyIdx("top");
-           arctic->getOrientation(affordance_id, Obj_orientation_init);
-           raisim::Mat<3,3> wrist_mat_r;
-           mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
-           raisim::Mat<3,3> Obj_orientation_init_trans;
-           raisim::transpose(Obj_orientation_init, Obj_orientation_init_trans);
-           raisim::matmul(Obj_orientation_init_trans, wrist_mat_r, wrist_mat_r_in_obj_init);
-           raisim::RotmatToEuler(wrist_mat_r_in_obj_init, wrist_euler_in_obj_init);
-           raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
-           wrist_mat_r_init = wrist_mat_r;
-           wrist_euler_previous.setZero();
-
+            // Get initial direction and pose
+            auto affordance_id = arctic->getBodyIdx("top");
+            arctic->getOrientation(affordance_id, Obj_orientation_init);
+            
+            raisim::Mat<3,3> wrist_mat_r;
+            mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
+            
+            raisim::Mat<3,3> Obj_orientation_init_trans;
+            raisim::transpose(Obj_orientation_init, Obj_orientation_init_trans);
+            raisim::matmul(Obj_orientation_init_trans, wrist_mat_r, wrist_mat_r_in_obj_init);
+            
+            raisim::RotmatToEuler(wrist_mat_r_in_obj_init, wrist_euler_in_obj_init);
+            raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
+            
+            wrist_mat_r_init = wrist_mat_r;
+            wrist_euler_previous.setZero();
+            
             updateObservation();
         }
 
@@ -537,7 +575,6 @@ namespace raisim {
                        const Eigen::Ref<EigenVec>& goal_contacts_l) final {}
 
         /// This function takes an environment step given an action (26DoF) input
-        // action_l in left-hand coord
         float* step(const Eigen::Ref<EigenVec>& action_r, const Eigen::Ref<EigenVec>& action_l) final {
 
             auto affordance_id = arctic->getBodyIdx("top");
@@ -546,6 +583,7 @@ namespace raisim {
             arctic->getPosition(affordance_id, obj_pos_w);
             arctic->getOrientation(affordance_id, obj_rot_w);
             raisim::matvecmul(obj_rot_w, afford_center, afford_center_w);
+
 
             raisim::Vec<3> wrist_pos_w;
             raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
@@ -569,26 +607,28 @@ namespace raisim {
                 aff_center_visual[5]->setPosition(hand_center_w);
             }
 
-            // Compute position target for actuators
+            /// Compute position target for actuators
             pTarget_r_ = action_r.cast<double>();
-            pTarget_r_ = pTarget_r_.cwiseProduct(actionStd_r_); // Residual action * scaling
-            pTarget_r_ += actionMean_r_; // Add current state
+            pTarget_r_ = pTarget_r_.cwiseProduct(actionStd_r_); //residual action * scaling
+            pTarget_r_ += actionMean_r_; //add current state
             if (lift){
                 lift_num += 1;
                 if(lift_num > 80) lift_num = 80;
                 pTarget_r_.head(6) = arm_gc_lift + (action_r.cast<double>().head(6) - arm_gc_lift) * lift_num / 80;
             }
 
-            // Clip targets to limits
+            /// Clip targets to limits
+
             pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
 
-            // Randomly sample delay_flag with C++:
+
+            // randomly sample delay_flag with C++:
             std::random_device rd;
             std::mt19937 gen(rd());
             std::uniform_int_distribution<> dis(0, 1);
             bool delay_flag = dis(gen);
 
-            // Apply N control steps
+            /// Apply N control steps
             for (int i = 0; i < int(control_dt_ / simulation_dt_ + 1e-10); i++){
                 if((delay_flag == 0)&&(i == 0)){
                     mano_r_->setPdTarget(pTarget_prev_r, vTarget_r_);
@@ -604,7 +644,7 @@ namespace raisim {
 
             pTarget_prev_r = pTarget_clipped_r;
 
-            // Update observation and set new mean to the latest pose
+            /// update observation and set new mean to the latest pose
             updateObservation();
             actionMean_r_ = gc_r_;
 
@@ -661,6 +701,9 @@ namespace raisim {
             obj_vel_reward_r = Obj_linvel.e().squaredNorm();
             obj_qvel_reward_r = Obj_qvel.e().squaredNorm();
 
+
+
+
             if(wrist_vel_in_wrist.norm() > 0.25){
                 wrist_vel_reward_r *= 10;
             }
@@ -685,7 +728,6 @@ namespace raisim {
            raisim::matmul(obj_rot_w_trans, wrist_mat_r, wrist_mat_r_in_obj);
            raisim::RotmatToEuler(wrist_mat_r_in_obj, wrist_euler_in_obj);
 
-
             rewards_r_.record("affordance_contact_reward", std::max(0.0, affordance_contact_reward_r));
             rewards_r_.record("push_reward", std::max(0.0, push_reward_r));
             rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
@@ -696,26 +738,28 @@ namespace raisim {
             rewards_r_.record("arm_impulse_reward", std::max(0.0, arm_table_impulse_reward));
             rewards_r_.record("wrist_vel_reward_", std::max(0.0, wrist_vel_reward_r));
             rewards_r_.record("wrist_qvel_reward_", std::max(0.0, wrist_qvel_reward_r));
-            rewards_r_.record("arm_joint_vel_reward_", std::max(0.0, arm_joint_vel_reward));
             rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
+            rewards_r_.record("arm_joint_vel_reward_", std::max(0.0, arm_joint_vel_reward));
             rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
 
             rewards_sum_[0] = rewards_r_.sum();
             rewards_sum_[1] = 0;
 
             return rewards_sum_;
+
+//            mano_r_->setState(action_r.cast<double>(), gv_set_r_);
         }
 
         /// This function computes and updates the observation/state space
         void updateObservation() {
             mano_r_->updateObservation();
-            
-            contacts_r_af.setZero();
-            contacts_r_non_af.setZero();
+            // update observation
             impulses_r_af.setZero();
-            impulses_r_non_af.setZero();
-            contacts_r_table.setZero();
+            contacts_r_af.setZero();
             impulses_r_table.setZero();
+            contacts_r_table.setZero();
+            impulses_r_non_af.setZero();
+            contacts_r_non_af.setZero();
             contacts_arm_table.setZero();
             impulses_arm_table.setZero();
             contacts_arm_all.setZero();
@@ -725,7 +769,6 @@ namespace raisim {
             impulses_arm_table_vector.setZero();
             impulses_r_af_xy.setZero();
             impulses_r_af_z.setZero();
-            contact_normals_r_vector.setZero();
 
             raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
             mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
@@ -738,7 +781,7 @@ namespace raisim {
 
             mano_r_->getState(gc_r_, gv_r_);
 
-            // Get updated object pose
+            /// Get updated object pose
             auto affordance_id = arctic->getBodyIdx("top");
             auto non_affordance_id = arctic->getBodyIdx("bottom");
             arctic->getPosition(affordance_id, Obj_Position);
@@ -747,11 +790,13 @@ namespace raisim {
             arctic->getAngularVelocity(affordance_id, Obj_qvel);
             arctic->getVelocity(affordance_id, Obj_linvel);
 
-            // Object velocity in wrist frame
-            obj_vel_in_wrist = wrist_mat_r.e().transpose() * Obj_linvel.e() - wrist_vel_in_wrist;
-            obj_qvel_in_wrist = wrist_mat_r.e().transpose() * Obj_qvel.e() - wrist_qvel_in_wrist;
 
-            // Compute current contacts of hand parts and the contact force
+            obj_vel_in_wrist = wrist_mat_r.e().transpose() * Obj_linvel.e() - wrist_vel_in_wrist; // object velocity in wrist frame
+            obj_qvel_in_wrist = wrist_mat_r.e().transpose() * Obj_qvel.e() - wrist_qvel_in_wrist; // object angular velocity in wrist frame
+
+
+
+            /// compute current contacts of hand parts and the contact force
             auto& contact_list_obj = arctic->getContacts();
 
             for(auto& contact_af: mano_r_->getContacts()) {
@@ -759,6 +804,7 @@ namespace raisim {
                 if (contact_af.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
                 if (contact_list_obj[contact_af.getPairContactIndexInPairObject()].getlocalBodyIndex() != affordance_id) continue;
                 if (contact_af.getImpulse().e().norm() < 0.001) continue;
+
                 int idx = contactMapping_r_[contact_af.getlocalBodyIndex()];
                 Eigen::Vector3d impulse = contact_af.getContactFrame().e().transpose() * contact_af.getImpulse().e();
                 if (!contact_af.isObjectA()) impulse = -impulse;
@@ -766,7 +812,7 @@ namespace raisim {
                 impulses_r_af_vector[idx*3+1] += impulse[1];
                 impulses_r_af_vector[idx*3+2] += impulse[2];
 
-                
+
             }
 
             for(int i = 0; i < num_contacts; i++){
@@ -781,7 +827,7 @@ namespace raisim {
                 }
             }
             
-            // Get max contact force
+            // get max contact force
             max_contact_force_ = impulses_r_af.maxCoeff()/control_dt_;
             if(max_contact_force_ < 0.01/control_dt_){
                 max_contact_force_ = 0.0;
@@ -792,6 +838,7 @@ namespace raisim {
                 if (contact_non_af.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
                 if (contact_list_obj[contact_non_af.getPairContactIndexInPairObject()].getlocalBodyIndex() != non_affordance_id) continue;
                 if (contact_non_af.getImpulse().e().norm() < 0.001) continue;
+
                 int idx = contactMapping_r_[contact_non_af.getlocalBodyIndex()];
                 Eigen::Vector3d impulse = contact_non_af.getContactFrame().e().transpose() * contact_non_af.getImpulse().e();
                 if (!contact_non_af.isObjectA()) impulse = -impulse;
@@ -812,13 +859,14 @@ namespace raisim {
 
             for(auto& contact_table: mano_r_->getContacts()) {
                 if (contact_table.skip() || contact_table.getPairObjectIndex() != box->getIndexInWorld()) continue;
+
                 if (contact_table.getImpulse().e().norm() < 0.001) continue;
-                int idx = contactMapping_r_[contact_table.getlocalBodyIndex()];
-                Eigen::Vector3d impulse = contact_table.getContactFrame().e().transpose() * contact_table.getImpulse().e();
-                if (!contact_table.isObjectA()) impulse = -impulse;
-                impulses_r_table_vector[idx*3] += impulse[0];
-                impulses_r_table_vector[idx*3+1] += impulse[1];
-                impulses_r_table_vector[idx*3+2] += impulse[2];
+                    int idx = contactMapping_r_[contact_table.getlocalBodyIndex()];
+                    Eigen::Vector3d impulse = contact_table.getContactFrame().e().transpose() * contact_table.getImpulse().e();
+                    if (!contact_table.isObjectA()) impulse = -impulse;
+                    impulses_r_table_vector[idx*3] += impulse[0];
+                    impulses_r_table_vector[idx*3+1] += impulse[1];
+                    impulses_r_table_vector[idx*3+2] += impulse[2];
             }
 
             for(int i = 0; i < num_contacts; i++){
@@ -832,8 +880,8 @@ namespace raisim {
             }   
             
             for(auto& contact_arm: mano_r_->getContacts()) {
-                if ((contact_arm.skip() || contact_arm.getPairObjectIndex() != arctic->getIndexInWorld()) && 
-                    (contact_arm.skip() || contact_arm.getPairObjectIndex() != box->getIndexInWorld())) continue;
+                if ((contact_arm.skip() || contact_arm.getPairObjectIndex() != arctic->getIndexInWorld()) && (contact_arm.skip() || contact_arm.getPairObjectIndex() != box->getIndexInWorld())) continue;
+
                 if (contact_arm.getImpulse().e().norm() < 0.001) continue;
                 int idx = contactMapping_arm_[contact_arm.getlocalBodyIndex()];
                 Eigen::Vector3d impulse = contact_arm.getContactFrame().e().transpose() * contact_arm.getImpulse().e();
@@ -851,11 +899,12 @@ namespace raisim {
                 else{
                     contacts_arm_table[i] = 0;
                 }
-            }
-
+            }   
+            
             for(auto& contact_arm: mano_r_->getContacts()) {
                 contacts_arm_all[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
             }
+
 
             for(int i=0; i<num_contacts; i++){
                 if (contacts_r_non_af[i] == 1){
@@ -864,7 +913,9 @@ namespace raisim {
                 }
             }
 
-            if (!has_non_aff){
+            if (has_non_aff){
+            }
+            else{
                 contacts_r_non_af.setZero();
                 impulses_r_non_af.setZero();
             }
@@ -891,6 +942,7 @@ namespace raisim {
             target_center_dif_world = target_center - hand_center_w;
             target_center_dif = wrist_mat_r.e().transpose() * target_center_dif_world;
 
+
             raisim::transpose(Obj_orientation_temp, Obj_orientation);
 
             raisim::Mat<3,3> obj_pose_wrist_mat;
@@ -903,7 +955,9 @@ namespace raisim {
             raisim::Vec<3> frame_y_frame, frame_y_w, frame_y_o;
 
             for(int i = 0; i < num_bodyparts ; i++){
+
                 mano_r_->getFramePosition(body_parts_r_[i], joint_pos_w);
+
                 joint_pos_in_world[i * 3] = joint_pos_w[0];
                 joint_pos_in_world[i * 3 + 1] = joint_pos_w[1];
                 joint_pos_in_world[i * 3 + 2] = joint_pos_w[2];
@@ -920,6 +974,7 @@ namespace raisim {
                 joint_pos_in_obj[i * 3 + 2] = joint_pos_o[2];
             }
 
+
             for(int i = 0; i < 6 ; i++){
                 mano_r_->getFramePosition(arm_parts[i], joint_pos_w);
                 arm_joint_pos_in_world[i * 3] = joint_pos_w[0];
@@ -935,16 +990,14 @@ namespace raisim {
                 for (int i = 0; i < 3; i++) {
                     if (wrist_euler_current[i] - wrist_euler_previous[i] > M_PI) {
                         wrist_euler_current[i] -= 2 * M_PI;
-                    } else if (wrist_euler_current[i] - wrist_euler_previous[i] < -M_PI) {
+                } else if (wrist_euler_current[i] - wrist_euler_previous[i] < -M_PI) {
                         wrist_euler_current[i] += 2 * M_PI;
                     }
                 }
             }
-
             wrist_euler_previous = wrist_euler_current;
 
             Eigen::Vector3d euler_diff;
-
             raisim::Vec<3> euler_diff_raisim;
             raisim::Mat<3,3> wrist_mat_r_init_trans, wrist_mat_diff;
             raisim::transpose(wrist_mat_r_init, wrist_mat_r_init_trans);
@@ -952,29 +1005,29 @@ namespace raisim {
             raisim::RotmatToEuler(wrist_mat_diff, euler_diff_raisim);
             euler_diff = euler_diff_raisim.e();
 
-            obDouble_r_ << gc_r_,
-                           right_hand_torque,
-                           contacts_r_af,
-                           impulses_r_af,
-                           joint_height_w,
-                           arm_height_w,
-                           hand_center_w,
-                           euler_diff,
-                           wrist_euler_current.e();
-                           
-            obs_history.push_back(obDouble_r_);
+                obDouble_r_ << gc_r_,
+                            right_hand_torque,
+                            contacts_r_af,
+                            impulses_r_af,
+                            joint_height_w,
+                            arm_height_w,
 
-            raisim::Vec<3> obj_pose;
-            raisim::RotmatToEuler(Obj_orientation_temp, obj_pose);
-            raisim::Vec<3> hand_pose_trans;
-            raisim::RotmatToEuler(wrist_mat_r_trans, hand_pose_trans);
+                            hand_center_w,
+                            euler_diff,
+                            wrist_euler_current.e();
+
+
+           raisim::Vec<3> obj_pose;
+           raisim::RotmatToEuler(Obj_orientation_temp, obj_pose);
+           raisim::Vec<3> hand_pose_trans;
+           raisim::RotmatToEuler(wrist_mat_r_trans, hand_pose_trans);
 
             raisim::Vec<3> wrist_pos_obj_temp, wrist_pos_obj;
             wrist_pos_obj_temp[0] = wrist_pos_w[0] - obj_pos_w[0];
             wrist_pos_obj_temp[1] = wrist_pos_w[1] - obj_pos_w[1];
             wrist_pos_obj_temp[2] = wrist_pos_w[2] - obj_pos_w[2];
             raisim::matvecmul(Obj_orientation, wrist_pos_obj_temp, wrist_pos_obj);
-
+            computeGraspCosts();
             global_state_ << obj_pose_wrist.e(),
                              frame_y_in_obj,
                              joint_pos_in_obj,
@@ -989,48 +1042,201 @@ namespace raisim {
                              contacts_arm_all[2],
                              contacts_arm_all[3],
                              contacts_arm_all[4],
-                             joint_pos_in_world,
                              max_contact_force_;
         }
 
         /// Set observation in wrapper to current observation
         void observe(Eigen::Ref<EigenVec> ob_r, Eigen::Ref<EigenVec> ob_l) final {
-            int lag = 1;
-            int vec_size = obs_history.size();
-            ob_delay_r << obs_history[vec_size - lag];
-            // initialize: when first observe, only one observation is available, so fill (history_len-1) obs with the first obs
-            if (vec_size == 1)
-            {
-                for (int i = 1; i < history_len; i++)
-                {
-                    obs_history.push_back(obDouble_r_);
-                }
-            }
-            vec_size = obs_history.size();
-            for (int i = 0; i < history_len; i++)
-            {
-                ob_concat_r.segment(tobeEncode_dim * i, tobeEncode_dim) << obs_history[vec_size - history_len + i].head(tobeEncode_dim);
-            }
-            ob_concat_r.tail(obDim_single) << ob_delay_r;
-
-            ob_r = ob_concat_r.cast<float>();
+            ob_r = obDouble_r_.cast<float>();
             ob_l = obDouble_l_.cast<float>();
         }
 
         void get_global_state(Eigen::Ref<EigenVec> gs) {
             gs = global_state_.cast<float>();
         }
+        
+        void computeGraspCosts() {
+        // 重置cost
+        force_closure_cost_ = 0.0;
+        friction_cone_cost_ = 0.0;
+        num_grasp_contacts_ = 0;
+        
+        // 获取物体重量
+        double obj_mass = arctic->getTotalMass();
+        double obj_weight = obj_mass * 9.81; // 重力加速度
+        
+        // 获取抓取接触点
+        auto& contacts = mano_r_->getContacts();
+        auto affordance_id = arctic->getBodyIdx("top");
+        auto& contact_list_obj = arctic->getContacts();
+        
+        // 存储接触信息
+        std::vector<Eigen::Vector3d> contact_points;
+        std::vector<Eigen::Vector3d> contact_normals;
+        std::vector<Eigen::Vector3d> contact_forces;
+        
+        // 收集有效的抓取接触点
+        for(auto& contact: contacts) {
+            if (contact.skip() || contact.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
+            if (contact.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
+            if (contact_list_obj[contact.getPairContactIndexInPairObject()].getlocalBodyIndex() != affordance_id) continue;
+            if (contact.getImpulse().e().norm() < 0.001) continue;
 
+            
+            // 获取接触信息
+            Eigen::Vector3d contact_point = contact.getPosition().e();
+            Eigen::Vector3d contact_normal = contact.getContactFrame().e().col(2); // 法向量
+            Eigen::Vector3d contact_force = contact.getImpulse().e() / control_dt_; // 力 = 冲量/时间
+            
+            contact_points.push_back(contact_point);
+            contact_normals.push_back(contact_normal);
+            contact_forces.push_back(contact_force);
+        }
+        
+        num_grasp_contacts_ = contact_points.size();
+        if (num_grasp_contacts_ >= 1) { // 至少需要1个接触点才能计算力闭合
+            // 计算force closure cost
+            force_closure_cost_ = computeForceClosureCost(contact_points, contact_normals, contact_forces, obj_weight);
+            
+            // 计算friction cone cost
+            friction_cone_cost_ = computeFrictionConeCost(contact_normals, contact_forces);
+        }
+        else {
+            force_closure_cost_ = obj_weight; // 没有接触点，成本设为物体重量
+            friction_cone_cost_ = 0.0;
+        }
+    }
+
+        // 计算力闭合成本
+        double computeForceClosureCost(const std::vector<Eigen::Vector3d>& contact_points,
+                                    const std::vector<Eigen::Vector3d>& contact_normals,
+                                    const std::vector<Eigen::Vector3d>& contact_forces,
+                                    double obj_weight) {
+            int n_contacts = contact_points.size();
+            if (n_contacts < 1) return obj_weight;
+            
+            // 计算物体中心位置
+            auto affordance_id = arctic->getBodyIdx("top");
+            raisim::Vec<3> obj_com;
+            arctic->getPosition(affordance_id, obj_com);
+            
+            // 构建抓取矩阵 G (6 x 3n)
+            Eigen::MatrixXd G = Eigen::MatrixXd::Zero(6, 3 * n_contacts);
+            
+            for (int i = 0; i < n_contacts; i++) {
+                // 相对于质心的位置向量
+                Eigen::Vector3d r = contact_points[i] - obj_com.e();
+                
+                // 填充G矩阵
+                // 力分量
+                G(0, 3*i) = 1.0;     // fx
+                G(1, 3*i+1) = 1.0;   // fy
+                G(2, 3*i+2) = 1.0;   // fz
+                
+                // 力矩分量
+                // G(3, 3*i+1) = r(2);   // mx = y*fz - z*fy
+                // G(3, 3*i+2) = -r(1);
+                // G(4, 3*i) = -r(2);    // my = z*fx - x*fz
+                // G(4, 3*i+2) = r(0);
+                // G(5, 3*i) = r(1);     // mz = x*fy - y*fx
+                // G(5, 3*i+1) = -r(0);
+
+                G(3, 3*i+1) = -r(2);   // mx = y*fz - z*fy
+                G(3, 3*i+2) = r(1);
+                G(4, 3*i) = r(2);    // my = z*fx - x*fz
+                G(4, 3*i+2) = -r(0);
+                G(5, 3*i) = -r(1);     // mz = x*fy - y*fx
+                G(5, 3*i+1) = r(0);
+
+            }
+            
+            // 构建目标力旋量 (重力)
+            Eigen::VectorXd F_obj = Eigen::VectorXd::Zero(6);
+            F_obj(2) = -obj_weight; // z方向的重力
+            
+            // 计算接触力向量
+            Eigen::VectorXd F_contact = Eigen::VectorXd(3 * n_contacts);
+            for (int i = 0; i < n_contacts; i++) {
+                F_contact(3*i) = contact_forces[i](0);
+                F_contact(3*i+1) = contact_forces[i](1);
+                F_contact(3*i+2) = contact_forces[i](2);
+            }
+            
+            // 计算 ||GF - G_obj||^2
+            Eigen::VectorXd GF = G * F_contact;
+            Eigen::VectorXd diff = GF + F_obj;
+            double force_closure_norm = diff.squaredNorm();
+            
+            // 归一化
+            double normalized_cost = force_closure_norm / (obj_weight/9.81 * obj_weight/9.81 + 1e-8);
+            return force_closure_cost_;
+        }
+        
+        // 计算摩擦锥成本
+        // NOTE: 如果一开始的接触点不好，他不就不想更新接触点了嘛？
+        double computeFrictionConeCost(const std::vector<Eigen::Vector3d>& contact_normals,
+                                    const std::vector<Eigen::Vector3d>& contact_forces) {
+            if (contact_normals.size() == 0) return 0.0;
+            
+            double max_friction_violation = 0.0;
+            double max_friction_ratio = -std::numeric_limits<double>::max(); // 初始化为负无穷大
+
+            
+            for (size_t i = 0; i < contact_normals.size(); i++) {
+                const Eigen::Vector3d& normal = contact_normals[i];
+                const Eigen::Vector3d& force = contact_forces[i];
+                
+                // 计算法向力
+                double normal_force = force.dot(normal);
+                if (normal_force < 1e-6) continue; // 忽略极小的法向力
+                
+                // 计算切向力
+                Eigen::Vector3d normal_force_vec = normal_force * normal;
+                Eigen::Vector3d tangential_force = force - normal_force_vec;
+                double tangential_force_mag = tangential_force.norm();
+                
+                // 计算摩擦比 μ - F_t/F_n
+                double friction_ratio = -mu_finger2obj +(tangential_force_mag / normal_force);
+                if (friction_ratio > max_friction_ratio) {
+                    max_friction_ratio = friction_ratio;
+                }
+
+                
+                // 如果摩擦比为负，说明违反了摩擦锥约束
+                // if (friction_ratio < 0) {
+                //     double violation = -friction_ratio;
+                //     if (violation > max_friction_violation) {
+                //         max_friction_violation = violation;
+                //     }
+                // }
+            }
+            
+            if (max_friction_ratio == -std::numeric_limits<double>::max()) {
+                    return 0.0;
+                }
+            return max_friction_ratio;
+        }
+
+        double getForceClosureCost() const { return force_closure_cost_; }
+        double getFrictionConeCost() const { return friction_cone_cost_; }
+        int getNumGraspContacts() const { return num_grasp_contacts_; }
+        double get_obj_weight() const { return obj_weight; }
+
+        double get_obj_mu() const { return mu_finger2obj; }
+
+        /// Set root guidance
         void set_rootguidance() final {}
+        
+        /// Switch root guidance
         void switch_root_guidance(bool is_on) {
             lift = true;
             arm_gc_lift = gc_r_.head(6);
             lift_num = 0;
         }
-
+        
+        /// Switch object position
         void switch_obj_pos(Eigen::Ref<EigenVec> obj_pos_bias) {
-            Eigen::Vector3d obj_pos_bias_temp;
-            obj_pos_bias_temp = obj_pos_bias.cast<double>();
+            Eigen::Vector3d obj_pos_bias_temp = obj_pos_bias.cast<double>();
             obj_base_pos.setZero();
             arctic->getBasePosition(obj_base_pos);
             obj_base_pos[0] += obj_pos_bias_temp[0];
@@ -1038,50 +1244,36 @@ namespace raisim {
             arctic->setBasePos(obj_base_pos);
             updateObservation();
         }
-
-        /// Since the episode lengths are fixed, this function is used to catch instabilities in simulation and reset the env in such cases
+        
+        /// Check if terminal state (used to capture instability in simulation and reset environment)
         bool isTerminalState(float& terminalReward) final {
             raisim::Vec<3> obj_current_pos;
             auto top_id = arctic->getBodyIdx("top");
             arctic->getPosition(top_id, obj_current_pos);
 
-            for(int i = 0; i < num_bodyparts ; i++){
-                if (joint_height_w[i] < -0.0){
+            // Check if joint height is too low
+            for (int i = 0; i < num_bodyparts; i++) {
+                if (joint_height_w[i] < -0.0) {
                     terminalReward = -10;
-                    std::cout<<"joint_height_w: "<<joint_height_w[i]<<std::endl;
+                    std::cout << "joint_height_w: " << joint_height_w[i] << std::endl;
                     return true;
                 }
             }
 
-            if(obDouble_r_.hasNaN() || global_state_.hasNaN())
-            {
-                std::cout<<"obj name: "<<obj_name<<std::endl;
-                if (obDouble_r_.hasNaN()) std::cout<<"NaN detected obdouble"<< obDouble_r_.transpose()<<std::endl<<std::endl<<std::endl;
-                if (global_state_.hasNaN()) std::cout<<"NaN detected global"<< global_state_.transpose()<<std::endl<<std::endl<<std::endl;
+            // Check if observation contains NaN
+            if (obDouble_r_.hasNaN() || global_state_.hasNaN()) {
+                std::cout << "NaN detected in obj" << obj_name << std::endl;
+                std::cout << "NaN detected obs" << obDouble_r_.transpose() << std::endl << std::endl;
+                std::cout << "NaN detected global" << global_state_.transpose() << std::endl << std::endl;
                 return true;
             }
 
             return false;
         }
-        int getNumContacts() const {
-            return num_contacts;
-        }
-
-        // 在 public 区域添加以下函数
-        const Eigen::VectorXd& getContactForces() const {
-            return impulses_r_af_vector;  // 所有接触点的力向量（世界坐标系）
-        }
-
-        const Eigen::VectorXd& getContactPositions() const {
-            return joint_pos_in_world;  // 所有接触点的位置（世界坐标系）
-        }
-
-        const Eigen::VectorXd& getContactNormals() const {
-            return contacts_r_af;  // 接触点的法线信息（当前示例中为二值表示）
-        }
 
     private:
-        int gcDim_, gvDim_, tobeEncode_dim, history_len, obDim_single;
+        // Dimension information
+        int gcDim_, gvDim_;
         int gcDim_obj, gvDim_obj;
         bool visualizable_ = false;
         bool lift = false;
@@ -1090,8 +1282,8 @@ namespace raisim {
         Eigen::VectorXd obj_pos_init_;
         Eigen::VectorXd joint_pos_in_world;
         Eigen::VectorXd arm_joint_pos_in_world;
-        Eigen::VectorXd contact_normals_r_vector; // 接触法线向量，形状为 num_contacts * 3
         std::string load_set;
+        std::string obj_name;
 
         double affordance_contact_reward_r= 0.0;
         double not_affordance_contact_reward_r = 0.0;
@@ -1109,19 +1301,20 @@ namespace raisim {
         double obj_displacement_reward = 0.0;
         double arm_joint_vel_reward = 0.0;
         double obj_weight = 0.0;
+        double mu_finger2obj = 0;
 
-        std::string obj_name;
 
-        int num_contacts = 0;
-        int num_bodyparts = 0;
+        int num_contacts = 13;
+        int num_bodyparts = 17;
         double max_contact_force_ = 0.0;
 
         raisim::Mat<3,3> init_rot_r_, init_or_r_, init_obj_rot_, init_obj_or_, wrist_mat_r_in_obj_init;
         raisim::Vec<3> init_root_r_, init_obj_;
+        Eigen::Vector3d init_center;
         Eigen::VectorXd joint_limit_high, joint_limit_low;
         Eigen::VectorXd impulse_high, impulse_low;
         Eigen::VectorXd actionMean_r_, actionStd_r_, arm_gc_lift;
-        Eigen::VectorXd obDouble_r_, obDouble_l_, global_state_, ob_delay_r, ob_concat_r;
+        Eigen::VectorXd obDouble_r_, obDouble_l_, global_state_;
         Eigen::VectorXd finger_weights_contact;
         Eigen::VectorXd contacts_r_af, impulses_r_af;
         Eigen::VectorXd contacts_r_non_af, impulses_r_non_af;
@@ -1129,6 +1322,9 @@ namespace raisim {
         Eigen::VectorXd contacts_arm_table, impulses_arm_table, contacts_arm_all;
         Eigen::VectorXd contact_body_idx_r_, contact_arm_idx;
         Eigen::VectorXd frame_y_in_obj, joint_pos_in_obj, joint_height_w, arm_height_w;
+
+        Eigen::VectorXd impulses_r_af_vector, impulses_r_non_af_vector, impulses_r_table_vector, impulses_arm_table_vector, impulses_r_af_xy, impulses_r_af_z;
+
         raisim::Vec<3> Position;
         raisim::Vec<3> wrist_vel, wrist_qvel;
         raisim::Vec<3> obj_base_pos;
@@ -1136,13 +1332,12 @@ namespace raisim {
         Eigen::VectorXd right_hand_torque;
         Eigen::VectorXd pTarget_clipped_r, pTarget_prev_r;
         Eigen::Vector3d hand_center, afford_center;
-        std::deque<Eigen::VectorXd> obs_history;
 
         Eigen::VectorXd init_arcticCoord;
 
         raisim::Box *box;
         raisim::ArticulatedSystem *arctic;
-        std::unique_ptr<Hardware> mano_r_;
+        std::unique_ptr<Hardware> mano_r_; 
         raisim::Mat<3,3> Obj_orientation, Obj_orientation_temp, Obj_orientation_init;
         raisim::Vec<3> wrist_euler_in_obj_init, wrist_euler_init;
         raisim::Vec<4> obj_quat;
@@ -1153,13 +1348,14 @@ namespace raisim {
         float rewards_sum_[2];
         bool has_non_aff = false;
 
+
         std::vector<std::string> body_parts_r_;
 
         std::vector<std::string> contact_bodies_r_;
-
         std::vector<std::string> arm_parts;
         std::vector<std::string> contact_arm_bodies;
 
+        raisim::PolyLine *lines[17];
         raisim::Visuals *table_top, *leg1,*leg2,*leg3,*leg4;
         raisim::Visuals *Cylinder[17];
         raisim::Visuals *sphere[17];
@@ -1171,12 +1367,16 @@ namespace raisim {
         raisim::Mat<3,3> base_mat;
         raisim::Mat<3,3> wrist_mat_r_init;
         raisim::Vec<3> wrist_euler_previous;
-
+        
         std::map<int,int> contactMapping_r_;
         std::map<int,int> contactMapping_arm_;
         std::string resourceDir_;
         std::vector<raisim::Vec<2>> joint_limits_;
 
-        Eigen::VectorXd impulses_r_af_vector, impulses_r_non_af_vector, impulses_r_table_vector, impulses_arm_table_vector, impulses_r_af_xy, impulses_r_af_z;
+        // cost 
+        double force_closure_cost_ = 0.0;
+        double friction_cone_cost_ = 0.0;
+        int num_grasp_contacts_ = 0;
+        
     };
 }

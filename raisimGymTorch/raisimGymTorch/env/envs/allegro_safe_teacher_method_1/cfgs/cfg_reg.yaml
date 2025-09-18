@@ -129,10 +129,10 @@ environment:
     kappa_max: 50
     num_of_costs: 1
     cost_limits:
-      force_closure_cost: # Force closure acc cost,  ||GF - G_{obj}||^2 / G_{obj} <= cost
+      force_closure_cost: # Force closure acc cost.
         limit: 0.1
-      friction_cone_cost: # Friction cone cost, \mu_{obj}- F_t / F_n <= cost
-        limit: 0.2 
+      # friction_cone_cost: # Friction cone cost, \mu_{obj}- F_t / F_n <= cost
+      #   limit: 0.2 
  
       
 
