@@ -267,12 +267,16 @@ def update_label(label):
  
             while True:
                 flag, object_cmd, len = vlm.start_detection()
-                if flag is True and len > 8:
+                if flag is True:
                     print(f"get the audio text: {object_cmd}, len = {len}")
                     label.after(0, lambda: label.config(text=f"\n\n\n {object_cmd} ", font=("Helvetica", 72), wraplength=1700))
                     break
+                elif len < 5:
+                    print(f" !!!!!!!!!!!!!!! {object_cmd} can not awake, Please say longer")
+                    time.sleep(2)
                 else:
                     print(f" !!!!!!!!!!!!!!! {object_cmd} can not awake, Please say 小迪, 小迪 at frist")
+                    time.sleep(2)
 
             t2 = time.time()
             print(f"-------------t12 = {t2 - t1}")

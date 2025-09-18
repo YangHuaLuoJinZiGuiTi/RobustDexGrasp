@@ -36,8 +36,8 @@ environment:
     arm_real:
       ip: "192.168.56.101"
       freq_hz: 500.0
-      move_vel: 0.8 #1.1
-      move_acc: 0.5 #1.0
+      move_vel: 1.6 #1.1
+      move_acc: 0.8 #1.0
       servoJ_ahead_time: 0.17 # range [0.03,0.2] smoothens the trajectory with this lookahead time 0.18 for sysID
       servoJ_gain: 1500 # for following target position, range [100,2000] 400 for sysID
       real_velocity_dt_s: 0.1
