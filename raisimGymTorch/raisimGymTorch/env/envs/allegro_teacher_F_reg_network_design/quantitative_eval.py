@@ -161,7 +161,7 @@ print(">>> Avg: ", np.mean(mass_list))
 
 # ===== Model Dimensions Setup =====
 # Define observation and action dimensions
-ob_dim_r = 153  # Observation dimension
+ob_dim_r = 153 + 2 # Observation dimension
 act_dim = 22    # Action dimension (joint controls)
 print('ob dim', ob_dim_r, file=sys.stdout)
 print('act dim', act_dim, file=sys.stdout)
@@ -204,7 +204,8 @@ ppo_r = PPO.PPO(actor=actor_r,
                 )
 
 # Load pre-trained policy from specified weight path
-load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
+# load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
+load_param(weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
 
 # ===== Object Data Loading =====
 # Load lowest points of objects for proper placement

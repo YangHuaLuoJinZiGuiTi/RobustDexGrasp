@@ -145,13 +145,6 @@ FOREACH(subdir ${SUBDIRS})
     target_compile_definitions(${subdir} PRIVATE "$<$<CONFIG:Release>:EIGEN_NO_DEBUG>")
     target_compile_definitions(${subdir} PRIVATE EIGEN_DONT_PARALLELIZE)
 
-    if(${subdir} STREQUAL "allegro_safe_teacher")
-        target_compile_definitions(${subdir} PRIVATE 
-            "YAML_CPP_DLL"
-            "YAML_CPP_INLINE_NAMESPACE=YAML"
-        )
-    endif()
-
     message("raisim os ${RAISIM_OS}")
     message("raisim arch ${RAISIM_ARCH}")
 

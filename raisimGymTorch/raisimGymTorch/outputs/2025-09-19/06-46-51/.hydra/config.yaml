@@ -1,0 +1,12 @@
+exp:
+  logdir: null
+  log_name: null
+  seed: 1
+  num_iterations: 12500
+  load_trained_policy: false
+exp_name: null
+weight: null
+task_name: null
+task_path: null
+data:
+  storedir: data_all

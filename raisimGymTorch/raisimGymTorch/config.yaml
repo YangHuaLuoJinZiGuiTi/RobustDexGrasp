@@ -1,0 +1,24 @@
+# general config.yaml
+
+mode: train # or eval (quantitative)
+
+exp:
+  logdir: null
+  log_name: null
+  seed: 1
+  num_iterations: 12500
+  load_trained_policy: false
+
+exp_name: null # Train mode: User defined experiment name
+weight: null
+task_name: null # the experiment environment, in /envs/${task_name}
+task_path: null 
+
+load_param_path: null # load pretrainded model path 
+
+data:
+  storedir: data_all
+
+
+# defaults:
+#   - env: allegro_teacher/cfgs/cfg_reg  

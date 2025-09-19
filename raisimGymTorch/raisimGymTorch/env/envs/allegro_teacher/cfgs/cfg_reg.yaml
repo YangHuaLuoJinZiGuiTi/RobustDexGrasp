@@ -1,5 +1,5 @@
 seed: 1
-
+name: "teacher"
 environment:
 
   hardware:
@@ -138,6 +138,8 @@ environment:
 
 
 # Neural network architecture
+## Still Can be polished
+
 architecture:
   policy_net: [128, 128]
   value_net: [128, 128]

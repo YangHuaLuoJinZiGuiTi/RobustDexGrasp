@@ -25,13 +25,15 @@ from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5
 from raisimGymTorch.helper.utils import *
 
 import torch
-import sys
+import sys 
 from copy import copy
 sys.stdout.reconfigure(line_buffering=True)  # Enable line buffering for real-time output logging
 
 
 # ===== Configuration Parameters =====
-exp_name = "teacher"
+
+
+
 
 
 
@@ -161,7 +163,7 @@ print(">>> Avg: ", np.mean(mass_list))
 
 # ===== Model Dimensions Setup =====
 # Define observation and action dimensions
-ob_dim_r = 153  # Observation dimension
+ob_dim_r = 153 + 2  # Observation dimension
 act_dim = 22    # Action dimension (joint controls)
 print('ob dim', ob_dim_r, file=sys.stdout)
 print('act dim', act_dim, file=sys.stdout)
@@ -204,7 +206,8 @@ ppo_r = PPO.PPO(actor=actor_r,
                 )
 
 # Load pre-trained policy from specified weight path
-load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
+# load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
+load_param(weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
 
 # ===== Object Data Loading =====
 # Load lowest points of objects for proper placement
@@ -487,7 +490,7 @@ for update in range(5):
                     )
 
     # Get initial observations and sensor data
-    obs_new_r, dis_info = env.observe_vision_new()
+    obs_new_r, dis_info = env.observe_vision_obj_new()
 
     # Update target centers
     env.update_target(target_center)
@@ -535,13 +538,13 @@ for update in range(5):
         reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
         # Get new observations and sensor data
-        obs_new_r, dis_info = env.observe_vision_new()
+        obs_new_r, dis_info = env.observe_vision_obj_new()
         # print(env.get_obj_weight())
         max_force = np.array(env.get_global_state()[:, 128]).reshape(-1)
         max_force_list.append(max_force)
         
-        cost_r = np.mean(env.get_cost_info_r(), axis=0)
-        print(">>> cost_r: ", cost_r)
+        # cost_r = np.mean(env.get_cost_info_r(), axis=0)
+        # print(">>> cost_r: ", cost_r)
 
 
         # Handle biased object positions (simulating uncertainty/disturbances)

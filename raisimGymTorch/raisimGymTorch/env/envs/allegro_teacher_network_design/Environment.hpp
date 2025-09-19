@@ -41,12 +41,13 @@ namespace raisim {
             world_->setERP(0.0);
 
             /// Set material properties
-            // mu_finger2obj  = cfg['friction'].As<double>();
-            mu_finger2obj = 0.8;
+            mu_finger2obj  = cfg["friction"].As<double>();
             world_->setMaterialPairProp("object", "object", 0.8, 0.0, 0.0, 0.8, 0.1);
             world_->setMaterialPairProp("object", "finger", mu_finger2obj, 0.0, 0.0, 0.8, 0.1);
             world_->setMaterialPairProp("finger", "finger", 0.8, 0.0, 0.0, 0.8, 0.1);
             world_->setDefaultMaterial(0.8, 0, 0, 0.8, 0.1);
+            obj_mass = cfg["mass"].As<double>();
+            obj_weight = obj_mass * 9.81;
 
             /// Add hand model
             std::string hand_model_r = cfg["hardware"]["sim_model"].As<std::string>();
@@ -304,10 +305,10 @@ namespace raisim {
 
         void init() final { }
 
-        void set_obj_weight(){
+
+        void init_obj_weight(){
             // ---- Dynamically set object mass properties ----
             std::vector<std::string> body_names;
-            double total_mass = 0.25;
             body_names = arctic->getBodyNames();  
             double current_total = 0.0;
             std::vector<double> original_masses;
@@ -320,7 +321,7 @@ namespace raisim {
 
             for (size_t i = 0; i < body_names.size(); i++) {
                 auto idx = arctic->getBodyIdx(body_names[i]);
-                arctic->setMass(idx, original_masses[i] * (total_mass / current_total));
+                arctic->setMass(idx, original_masses[i] * (obj_mass / current_total));
             }
             arctic->updateMassInfo();
         }
@@ -332,7 +333,7 @@ namespace raisim {
             arctic = static_cast<raisim::ArticulatedSystem*>(world_->addArticulatedSystem(resourceDir_+"/"+load_set+"/"+obj_model, "", {}, raisim::COLLISION(2), raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63)));
             arctic->setName("object");
     
-            set_obj_weight();
+            init_obj_weight();
             if(visualizable_){
                 std::cout << "obj name: " << obj_model << std::endl;
             }
@@ -344,7 +345,7 @@ namespace raisim {
             Eigen::VectorXd gen_coord = Eigen::VectorXd::Zero(gcDim_obj);
             arctic->setGeneralizedCoordinate(gen_coord);
             arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
-            obj_weight = arctic->getTotalMass();
+
 
 
             // Set control mode
@@ -556,8 +557,7 @@ namespace raisim {
             gen_force.setZero(gcDim_);
             mano_r_->setGeneralizedForce(gen_force);
 
-            // Set object mass and friction
-            obj_weight = arctic->getTotalMass() * 9.81;
+            // Set Obj friction
             mano_r_->setMaterialFriction(world_, arctic);
 
             mano_r_->updateObservation();
@@ -1084,10 +1084,6 @@ namespace raisim {
         friction_cone_cost_ = 0.0;
         num_grasp_contacts_ = 0;
         
-        // 获取物体重量
-        double obj_mass = arctic->getTotalMass();
-        double obj_weight = obj_mass * 9.81; // 重力加速度
-        
         // 获取抓取接触点
         auto& contacts = mano_r_->getContacts();
         auto affordance_id = arctic->getBodyIdx("top");
@@ -1119,7 +1115,7 @@ namespace raisim {
         num_grasp_contacts_ = contact_points.size();
         if (num_grasp_contacts_ >= 1) { // 至少需要1个接触点才能计算力闭合
             // 计算force closure cost
-            force_closure_cost_ = computeForceClosureCost(contact_points, contact_normals, contact_forces, obj_weight);
+            force_closure_cost_ = computeForceClosureCost(contact_points, contact_normals, contact_forces);
             
             // 计算friction cone cost
             friction_cone_cost_ = computeFrictionConeCost(contact_normals, contact_forces);
@@ -1133,8 +1129,7 @@ namespace raisim {
         // 计算力闭合成本
         double computeForceClosureCost(const std::vector<Eigen::Vector3d>& contact_points,
                                     const std::vector<Eigen::Vector3d>& contact_normals,
-                                    const std::vector<Eigen::Vector3d>& contact_forces,
-                                    double obj_weight) {
+                                    const std::vector<Eigen::Vector3d>& contact_forces) {
             int n_contacts = contact_points.size();
             if (n_contacts < 1) return obj_weight;
             
@@ -1324,6 +1319,7 @@ namespace raisim {
         double obj_displacement_reward = 0.0;
         double arm_joint_vel_reward = 0.0;
         double obj_weight = 0.0;
+        double obj_mass =0.0;
         double mu_finger2obj = 0;
 
 
