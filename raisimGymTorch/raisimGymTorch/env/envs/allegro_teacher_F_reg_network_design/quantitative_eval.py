@@ -36,7 +36,8 @@ exp_name = "teacher"
 
 
 # Selected model weights for quantitative evaluation
-weight_saved = 'teacher_ckpt/full_12500_r.pt'
+# weight_saved = 'teacher_ckpt/full_12500_r.pt'
+weight_saved = '../add_object_properties/OBJMASS025/full_3500_r.pt'
 
 
 # ===== Command Line Arguments =====

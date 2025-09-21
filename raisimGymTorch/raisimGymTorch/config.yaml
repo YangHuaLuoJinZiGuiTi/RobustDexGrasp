@@ -6,11 +6,11 @@ exp:
   logdir: null
   log_name: null
   seed: 1
-  num_iterations: 12500
+  num_iterations: 4001
   load_trained_policy: false
 
 exp_name: null # Train mode: User defined experiment name
-weight: null
+weight: /home/hang/raisim/RobustDexGrasp/raisimGymTorch/data_all/add_object_properties/OBJMASS025/full_3500_r.pt
 task_name: null # the experiment environment, in /envs/${task_name}
 task_path: null 
 

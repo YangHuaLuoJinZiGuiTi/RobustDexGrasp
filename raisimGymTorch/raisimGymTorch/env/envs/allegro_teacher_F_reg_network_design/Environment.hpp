@@ -630,6 +630,15 @@ namespace raisim {
                 aff_center_visual[5]->setPosition(hand_center_w);
             }
 
+            // 计算冲量平方和奖励 ||impulse||^2
+            impulse_squared_reward_r = 0.0;
+            for(int i = 0; i < num_contacts; i++) {
+                if(contacts_r_af[i] > 0.5) {  // 只计算有接触的点
+                    impulse_squared_reward_r += impulses_r_af[i] * impulses_r_af[i];  // 累加冲量的平方
+                }
+            }
+            impulse_squared_reward_r = impulse_squared_reward_r / (num_contacts + 1e-8);
+
             /// Compute position target for actuators
             pTarget_r_ = action_r.cast<double>();
             pTarget_r_ = pTarget_r_.cwiseProduct(actionStd_r_); //residual action * scaling
@@ -698,6 +707,9 @@ namespace raisim {
                 not_affordance_impulse_reward_r = 0;
             }
 
+            // Calculate object&hand contact impulse reward
+
+
             // Calculate push reward based on sum of impulses_r_af_z
             push_reward_r = 0;
             if (impulses_r_af_z[0] > 1.0){
@@ -764,6 +776,8 @@ namespace raisim {
             rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
             rewards_r_.record("arm_joint_vel_reward_", std::max(0.0, arm_joint_vel_reward));
             rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
+            rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
+            rewards_r_.record("impulse_squared_reward", impulse_squared_reward_r);
 
             rewards_sum_[0] = rewards_r_.sum();
             rewards_sum_[1] = 0;
@@ -1121,7 +1135,7 @@ namespace raisim {
             friction_cone_cost_ = computeFrictionConeCost(contact_normals, contact_forces);
         }
         else {
-            force_closure_cost_ = obj_weight; // 没有接触点，成本设为物体重量
+            force_closure_cost_ = 9.8; // no contact, cost as  g
             friction_cone_cost_ = 0.0;
         }
     }
@@ -1303,6 +1317,7 @@ namespace raisim {
         std::string load_set;
         std::string obj_name;
 
+        // RDgrasp reward
         double affordance_contact_reward_r= 0.0;
         double not_affordance_contact_reward_r = 0.0;
         double table_contact_reward_r = 0.0;
@@ -1318,6 +1333,10 @@ namespace raisim {
         double arm_table_impulse_reward = 0.0;
         double obj_displacement_reward = 0.0;
         double arm_joint_vel_reward = 0.0;
+        
+        // SafeGrasp reward
+        double impulse_squared_reward_r = 0.0;
+
         double obj_weight = 0.0;
         double obj_mass =0.0;
         double mu_finger2obj = 0;

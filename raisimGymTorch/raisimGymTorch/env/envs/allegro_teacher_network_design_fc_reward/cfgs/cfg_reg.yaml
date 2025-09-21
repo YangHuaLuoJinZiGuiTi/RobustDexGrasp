@@ -55,6 +55,8 @@ environment:
   update_every_n: 20
   # Number of parallel simulation threads
   num_threads: 56
+  # num_threads: 100
+
   # Simulation time step [s]
   simulation_dt: 0.01
   # Control time step [s] (policy decision frequency)
@@ -73,7 +75,7 @@ environment:
   
   # object settings
   friction: 0.8  # object 2 finger
-  mass: 0.25 # object mass [kg]
+  mass: 0.50 # object mass [kg]
   
   # Reward components and their coefficients
   reward:
@@ -122,7 +124,7 @@ environment:
     arm_joint_vel_reward_:
       coeff: -1.0               # Penalty for high arm joint velocities
     force_closure_reward_:
-      coeff: -5.0
+      coeff: -0.1
 
     # P3O settings
   p3o:

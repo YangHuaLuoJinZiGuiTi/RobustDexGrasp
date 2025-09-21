@@ -764,6 +764,7 @@ namespace raisim {
             rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
             rewards_r_.record("arm_joint_vel_reward_", std::max(0.0, arm_joint_vel_reward));
             rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
+            rewards_r_.record("force_closure_reward_", force_closure_cost_); //std::max(0.0, force_closure_cost_));
 
             rewards_sum_[0] = rewards_r_.sum();
             rewards_sum_[1] = 0;
@@ -1121,7 +1122,7 @@ namespace raisim {
             friction_cone_cost_ = computeFrictionConeCost(contact_normals, contact_forces);
         }
         else {
-            force_closure_cost_ = obj_weight; // 没有接触点，成本设为物体重量
+            force_closure_cost_ = 9.8; // 没有接触点，成本设为物体重量
             friction_cone_cost_ = 0.0;
         }
     }
@@ -1131,7 +1132,7 @@ namespace raisim {
                                     const std::vector<Eigen::Vector3d>& contact_normals,
                                     const std::vector<Eigen::Vector3d>& contact_forces) {
             int n_contacts = contact_points.size();
-            if (n_contacts < 1) return obj_weight;
+            if (n_contacts < 1) return 9.8;
             
             // 计算物体中心位置
             auto affordance_id = arctic->getBodyIdx("top");
@@ -1186,7 +1187,7 @@ namespace raisim {
             double force_closure_norm = diff.squaredNorm();
             
             // 归一化
-            double normalized_cost = force_closure_norm / (obj_weight/9.81 * obj_weight/9.81 + 1e-8);
+            double normalized_cost = force_closure_norm / (obj_mass * obj_mass + 1e-8);
             return force_closure_cost_;
         }
         

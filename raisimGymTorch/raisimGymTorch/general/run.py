@@ -14,7 +14,7 @@ def main(cfg: DictConfig) -> None:
         cfg.task_name = task_name_default
         
     cfg.task_path = f'/home/hang/raisim/RobustDexGrasp/raisimGymTorch/raisimGymTorch/env/envs/{cfg.task_name}/cfgs/cfg_reg.yaml'
-    cfg.weight = f'../{cfg.exp_name}_ckpt/full_12500_r.pt'
+    # cfg.weight = f'../{cfg.exp_name}_ckpt/full_12500_r.pt'
 
     print("===== Config =====")
     print(OmegaConf.to_yaml(cfg))

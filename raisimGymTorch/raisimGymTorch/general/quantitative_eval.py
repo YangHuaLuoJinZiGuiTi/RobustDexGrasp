@@ -202,11 +202,9 @@ def quantitative_eval(main_cfg: DictConfig):
                     )
 
     # Load pre-trained policy from specified weight path
-    print(saver.data_dir.split('eval')[0])
-    print(weight_path)
     
-    load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
-    # load_param(weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
+    # load_param(saver.data_dir.split('eval')[0]+weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
+    load_param(weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir, cfg_grasp)
 
     # ===== Object Data Loading =====
     # Load lowest points of objects for proper placement
