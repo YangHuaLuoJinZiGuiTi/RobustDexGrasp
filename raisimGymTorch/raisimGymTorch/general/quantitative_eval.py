@@ -36,6 +36,7 @@ sys.stdout.reconfigure(line_buffering=True)  # Enable line buffering for real-ti
 
 
 
+
 def quantitative_eval(main_cfg: DictConfig):
     # ===== Configuration Parameters =====
     exp_name = "teacher"
@@ -86,7 +87,8 @@ def quantitative_eval(main_cfg: DictConfig):
 
     # ===== Object Loading Setup =====
     # Set dataset for quantitative evaluation
-    cat_name = 'new_training_set'
+    cat_name = 'new_training_set' # simplified version of Fe new_training_set_origin, 1/2 .obj mesh faces. 
+    # cat_name = 'new_training_set_origin' 
     # cat_name = 'shapenet-30obj'
 
 
@@ -116,6 +118,7 @@ def quantitative_eval(main_cfg: DictConfig):
     obj_path_list = []
     obj_ori_list = folder_names
 
+    # raise ValueError(obj_ori_list)
     # Calculate total number of environments based on objects and repetitions
     num_envs = len(obj_ori_list) * repeat_per_obj
     # Create the complete object list with repetitions
@@ -236,11 +239,15 @@ def quantitative_eval(main_cfg: DictConfig):
     total_f_g_list = []
     total_f_max_list = []
 
+    # For time debug 
+    start_time = time.time()
+    step_time_list, obs_time_list = [], []
     # ===== Main Evaluation Loop =====
     for update in range(5):
         # Start time measurement for this evaluation batch
         start = time.time()
-
+  
+        
         # Initialize robot joint positions and object poses
         qpos_reset_r = np.zeros((num_envs, 22), dtype='float32')  # Right hand joint positions
         qpos_reset_l = np.zeros((num_envs, 22), dtype='float32')  # Left hand joint positions
@@ -532,10 +539,15 @@ def quantitative_eval(main_cfg: DictConfig):
                     env.switch_root_guidance(True)
 
             # Execute action in the environment
+            step_start_time = time.time()
             reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
-
+            step_time_list.append(time.time() - step_start_time)
+            print("step time: ", time.time() - step_start_time)
             # Get new observations and sensor data
+            obs_start_time = time.time()
             obs_new_r, dis_info = env.observe_vision_obj_new()
+            obs_time_list.append(time.time() - obs_start_time)
+            
             # print(env.get_obj_weight())
             max_force = np.array(env.get_global_state()[:, 128]).reshape(-1)
             max_force_list.append(max_force)
@@ -565,7 +577,7 @@ def quantitative_eval(main_cfg: DictConfig):
         lifted = global_state[:, 107] - obj_pose_reset[:, 2] > 0.1
         # Print success rate for current batch
         print("current success rate", np.sum(lifted) / num_envs, file=sys.stdout)
-
+        print(f">>> Time Cost: step time:{np.sum(step_time_list)}.  obs time:{np.sum(obs_time_list)}.")
         # Update overall success rate using running average
         success_rate = (update * success_rate + np.sum(lifted) / num_envs) / (update + 1)
         print("average success rate", success_rate, file=sys.stdout)
@@ -589,21 +601,26 @@ def quantitative_eval(main_cfg: DictConfig):
         # Max Force Static Analysis
         max_force_array = np.array(max_force_list)
         ## 1. Force Trajectory for 35 Envs plot
-
         plot_force_trajectories(max_force_array,
                                 obj_name=obj_list,
                                 save_path=os.path.join(saver.data_dir, f'force_trajectories_{update}.png'))
         
+        # name='f_reg_reward'
+        # force_save_path = os.path.join('/home/hang/raisim/RobustDexGrasp/raisimGymTorch/raisimGymTorch/general/force_data', f'max_force_array_{name}.npy')
+        # np.save(force_save_path, max_force_array)
+        # raise
         ## 2. Force_max during the whole process for each env
         # print("Max force for Each Env during the whole process:", max_force_array.max(axis=0), file=sys.stdout)
         success_indices = np.where(lifted == 1)[0]
         f_g = np.average(
             max_force_array.max(axis=0)[success_indices] / np.array(mass_list)[success_indices] / 10
             )
-        f_max = np.average(max_force_array.max(axis=0)[success_indices])
+        f_max = np.average(max_force_array.mean(axis=0)[success_indices])
         print(f"current F_max  (N) / G_obj (N) for success obj: {f_g} ; F_max: {f_max}" )
         total_f_max_list.append(f_max)
         total_f_g_list.append(copy(f_g))
+        
+        print(env.get_reward_info_r())
         
         
 
@@ -634,6 +651,8 @@ def quantitative_eval(main_cfg: DictConfig):
     print("\nTotal F_max / G_obj for success obj: {:.2f}".format(np.average(total_f_g_list)), file=sys.stdout)
     print("\nTotal F_max: {:.2f}N".format(np.average(total_f_max_list)), file=sys.stdout)
 
+    print("total_cost_time: ", time.time()-start_time)
+    print(f"step time : {np.sum(step_time_list)}.     obs time: {np.sum(obs_time_list)}.")
 
 
     # ===== End of Quantitative Evaluation =====

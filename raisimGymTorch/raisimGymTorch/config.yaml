@@ -19,6 +19,11 @@ load_param_path: null # load pretrainded model path
 data:
   storedir: data_all
 
+random_prior:
+  use: True
+  mass_bound: [0.02, 0.6] # kg
+  mu_bound: [0.1, 1.2] #  friciton coefficient
+
 
 # defaults:
 #   - env: allegro_teacher/cfgs/cfg_reg  

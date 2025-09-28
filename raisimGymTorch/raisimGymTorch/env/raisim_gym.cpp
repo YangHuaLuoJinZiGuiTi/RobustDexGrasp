@@ -78,6 +78,7 @@ PYBIND11_MODULE(RAISIMGYM_TORCH_ENV_NAME, m) {
     .def("getForceClosureCosts", &VectorizedEnvironment<ENVIRONMENT>::getForceClosureCosts)
     .def("get_obj_weight", &VectorizedEnvironment<ENVIRONMENT>::get_obj_weight)
     .def("get_obj_mu", &VectorizedEnvironment<ENVIRONMENT>::get_obj_mu)
+    .def("set_random_obj_prior_info", &VectorizedEnvironment<ENVIRONMENT>::set_random_obj_prior_info)
     .def(py::pickle(
         [](const VectorizedEnvironment<ENVIRONMENT> &p) { // __getstate__ --> Pickling to Python
             /* Return a tuple that fully encodes the state of the object */

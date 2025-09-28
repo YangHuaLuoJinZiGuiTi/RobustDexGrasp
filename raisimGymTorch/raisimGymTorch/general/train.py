@@ -75,6 +75,7 @@ def train(main_cfg: DictConfig):
 
     # Set dataset type for training
     cat_name = 'new_training_set'
+    # cat_name = 'new_training_set_origin'
 
     # Set number of repetitions per object
     repeat_per_obj = 3
@@ -562,7 +563,15 @@ def train(main_cfg: DictConfig):
         else:
             obj_pos_bias = np.zeros((num_envs, 3), dtype='float32')
 
-        print(">>> Obj setting:", np.mean(env.get_obj_mu()), np.mean(env.get_obj_weight()))
+        
+        if main_cfg['random_prior']['use'] == True:
+            mass_lower, mass_upper = main_cfg['random_prior']['mass_bound']
+            mu_lower, mu_upper = main_cfg['random_prior']['mu_bound']
+            env.set_random_obj_prior_info(mass_lower, mass_upper, mu_lower, mu_upper)
+            print(f">>> Obj setting mass { np.mean(env.get_obj_weight())} N .  mu {np.mean(env.get_obj_mu())}")
+
+            
+        # ===== Training Loop =====
         for step in range(current_steps):
             obs_r = obs_new_r
             obs_r = obs_r[:].astype('float32')
@@ -718,6 +727,8 @@ def train(main_cfg: DictConfig):
         print('{:>6}th iteration'.format(update), file=sys.stdout)
         print('{:<40} {:>6}'.format("average reward: ", '{:0.10f}'.format(ave_reward['reward_sum'])), file=sys.stdout)
         print('{:<40} {:>6}'.format("time elapsed in this iteration: ", '{:6.4f}'.format(end - start)), file=sys.stdout)
+        print('{:<40} {:>6}'.format("Time to finish: ", '{:6.0f} h'.format( (end-start) * (main_cfg.exp.num_iterations - update) / 3600
+            )), file=sys.stdout)
         print('{:<40} {:>6}'.format("fps: ", '{:6.0f}'.format(total_steps / (end - start))), file=sys.stdout)
         print('{:<40} {:>6}'.format("real time factor: ", '{:6.0f}'.format(total_steps / (end - start)
                                                                     * cfg['environment']['control_dt'])), file=sys.stdout)

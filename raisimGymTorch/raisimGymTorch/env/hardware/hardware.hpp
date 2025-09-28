@@ -356,6 +356,7 @@ public:
         kinematic_->getFramePosition(frameName, hand_->changeJointToLinkName(frameName), point_W);
     }
 
+
     /**
      * Get angular velocity in sim world frame or real arm base frame [only used while training. so more accurate is better]
      * @param[in] frameName the name of the frame

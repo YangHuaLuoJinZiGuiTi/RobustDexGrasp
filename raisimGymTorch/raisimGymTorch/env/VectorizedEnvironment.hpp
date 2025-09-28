@@ -148,6 +148,30 @@ class VectorizedEnvironment {
                                           );
     }
 
+  // Add this method to the VectorizedEnvironment class in VectorizedEnvironment.hpp
+  // Place it with the other public methods like set_goals_r, etc.
+
+  /**
+   * Set random object properties (mass and friction) for all environments
+   * @param mass_lower_limit Lower bound for object mass sampling
+   * @param mass_upper_limit Upper bound for object mass sampling
+   * @param mu_lower_limit Lower bound for friction coefficient sampling
+   * @param mu_upper_limit Upper bound for friction coefficient sampling
+   */
+  void set_random_obj_prior_info(double mass_lower_limit,
+                                double mass_upper_limit,
+                                double mu_lower_limit,
+                                double mu_upper_limit) {
+  #pragma omp parallel for
+      for (int i = 0; i < num_envs_; i++) {
+          environments_[i]->set_random_obj_prior_info(
+              mass_lower_limit,
+              mass_upper_limit,
+              mu_lower_limit,
+              mu_upper_limit
+          );
+      }
+  }
 
     void set_goals_r2(Eigen::Ref<EigenRowMajorMat> &obj_pos_r,
                       Eigen::Ref<EigenRowMajorMat> &ee_pos_r,
