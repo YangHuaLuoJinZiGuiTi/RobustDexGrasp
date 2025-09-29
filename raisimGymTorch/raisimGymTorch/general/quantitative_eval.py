@@ -46,7 +46,7 @@ def quantitative_eval(main_cfg: DictConfig):
     # Selected model weights for quantitative evaluation
     weight_saved = 'teacher_ckpt/full_12500_r.pt'
 
-
+    
     # ===== Command Line Arguments =====
     weight_path = main_cfg.weight
     cfg_grasp = "cfg_reg.yaml"
@@ -84,7 +84,16 @@ def quantitative_eval(main_cfg: DictConfig):
     # Disable visualization for quantitative evaluation
     cfg['environment']['visualize'] = False
 
-
+    # if main_cfg['random_prior']['use'] == True:
+    #     mass_lower, mass_upper = main_cfg['random_prior']['mass_bound']
+    #     mu_lower, mu_upper = main_cfg['random_prior']['mu_bound']
+        
+    #     # env.set_random_obj_prior_info(mass_lower, mass_upper, mu_lower, mu_upper)
+    #     random_mass, random_mu = np.random.uniform(mass_lower, mass_upper), np.random.uniform(mu_lower, mu_upper)
+    #     print(random_mass, random_mu)
+    #     cfg['environment']['mass'], cfg['environment']['friction'] = random_mass, random_mu
+    #     # env.set_random_obj_prior_info(random_mass, random_mu)
+        
     # ===== Object Loading Setup =====
     # Set dataset for quantitative evaluation
     cat_name = 'new_training_set' # simplified version of Fe new_training_set_origin, 1/2 .obj mesh faces. 
@@ -541,8 +550,10 @@ def quantitative_eval(main_cfg: DictConfig):
             # Execute action in the environment
             step_start_time = time.time()
             reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
-            step_time_list.append(time.time() - step_start_time)
-            print("step time: ", time.time() - step_start_time)
+            
+            # step_time_list.append(time.time() - step_start_time)
+            # print("step time: ", time.time() - step_start_time)
+            
             # Get new observations and sensor data
             obs_start_time = time.time()
             obs_new_r, dis_info = env.observe_vision_obj_new()
@@ -620,7 +631,7 @@ def quantitative_eval(main_cfg: DictConfig):
         total_f_max_list.append(f_max)
         total_f_g_list.append(copy(f_g))
         
-        print(env.get_reward_info_r())
+        # print(env.get_reward_info_r())
         
         
 

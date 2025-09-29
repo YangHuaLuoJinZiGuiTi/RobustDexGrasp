@@ -158,17 +158,12 @@ class VectorizedEnvironment {
    * @param mu_lower_limit Lower bound for friction coefficient sampling
    * @param mu_upper_limit Upper bound for friction coefficient sampling
    */
-  void set_random_obj_prior_info(double mass_lower_limit,
-                                double mass_upper_limit,
-                                double mu_lower_limit,
-                                double mu_upper_limit) {
+  void set_random_obj_prior_info(double random_mass,
+                                double random_mu) {
   #pragma omp parallel for
       for (int i = 0; i < num_envs_; i++) {
           environments_[i]->set_random_obj_prior_info(
-              mass_lower_limit,
-              mass_upper_limit,
-              mu_lower_limit,
-              mu_upper_limit
+                  random_mass, random_mu
           );
       }
   }

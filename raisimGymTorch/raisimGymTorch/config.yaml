@@ -21,8 +21,8 @@ data:
 
 random_prior:
   use: True
-  mass_bound: [0.02, 0.6] # kg
-  mu_bound: [0.1, 1.2] #  friciton coefficient
+  mass_bound: [0.05, 0.5] # kg
+  mu_bound: [0.4, 1.0] #  friction coefficient
 
 
 # defaults:

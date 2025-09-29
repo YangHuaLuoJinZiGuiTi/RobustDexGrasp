@@ -60,6 +60,11 @@ def train(main_cfg: DictConfig):
     # Load configuration from YAML file
     # cfg = YAML().load(open(task_path + '/cfgs/' + args.cfg, 'r'))
     cfg = YAML().load(open(main_cfg['task_path'], 'r'))
+    
+    
+
+    
+    
     # ===== Initialize Experiment Tracking =====
     # Initialize Weights & Biases if log_name is provided
     if main_cfg.exp.log_name is not None:
@@ -92,7 +97,7 @@ def train(main_cfg: DictConfig):
 
     # Initialize object lists
     obj_path_list = []
-    obj_ori_list = folder_names
+    obj_ori_list = folder_names[:int(len(folder_names)/2)]
 
     # Increase the number of repetitions for difficult objects to improve training
     obj_ori_list.append('037_scissors')
@@ -119,7 +124,8 @@ def train(main_cfg: DictConfig):
     if main_cfg.exp.log_name is None:
         # For local testing without logging, use fewer environments and enable visualization
         num_envs = repeat_per_obj
-        obj_list = choices(obj_list, k=1)  # Select just one object
+        # obj_list = choices(obj_list, k=1)  # Select just one object
+        obj_list = ['small_block']
         obj_list.append(obj_list[0])       # Duplicate it for multiple trials
         obj_list.append(obj_list[0])
         cfg['environment']['visualize'] = True
@@ -563,14 +569,20 @@ def train(main_cfg: DictConfig):
         else:
             obj_pos_bias = np.zeros((num_envs, 3), dtype='float32')
 
-        
+        #  ===========
         if main_cfg['random_prior']['use'] == True:
             mass_lower, mass_upper = main_cfg['random_prior']['mass_bound']
             mu_lower, mu_upper = main_cfg['random_prior']['mu_bound']
-            env.set_random_obj_prior_info(mass_lower, mass_upper, mu_lower, mu_upper)
-            print(f">>> Obj setting mass { np.mean(env.get_obj_weight())} N .  mu {np.mean(env.get_obj_mu())}")
-
             
+            # env.set_random_obj_prior_info(mass_lower, mass_upper, mu_lower, mu_upper)
+            random_mass, random_mu = np.random.uniform(mass_lower, mass_upper), np.random.uniform(mu_lower, mu_upper)
+            print(random_mass, random_mu)
+            
+            env.set_random_obj_prior_info(random_mass, random_mu)
+            
+        #     print(f">>> Obj setting mass { np.mean(env.get_obj_weight())} N .  mu {np.mean(env.get_obj_mu())}")
+        # ===========
+        print(f">>> Obj setting mass { np.mean(env.get_obj_weight())} N .  mu {np.mean(env.get_obj_mu())}")
         # ===== Training Loop =====
         for step in range(current_steps):
             obs_r = obs_new_r

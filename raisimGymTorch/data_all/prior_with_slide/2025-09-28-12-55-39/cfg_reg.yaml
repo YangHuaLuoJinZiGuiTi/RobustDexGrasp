@@ -108,7 +108,7 @@ environment:
       # coeff: -15.0              # Penalty for pushing objects to the table
       coeff: -0.0              # Penalty for pushing objects to the table
     sliding_reward:
-      coeff: -3.0             # Penalty for sliding objects on the table
+      coeff: -0.5              # Penalty for sliding objects on the table
 
     # Velocity and motion penalties
     wrist_vel_reward_:
