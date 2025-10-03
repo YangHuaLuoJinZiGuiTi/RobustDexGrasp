@@ -729,6 +729,7 @@ namespace raisim {
             impulses_r_non_af_clipped = impulses_r_non_af.cwiseMax(impulse_low).cwiseMin(impulse_high);
             impulses_r_table_clipped = impulses_r_table.cwiseMax(impulse_low).cwiseMin(impulse_high);
 
+            affordance_force_penalty = impulses_r_af_clipped.sum();
 
             affordance_impulse_reward_r = impulses_r_af_clipped.cwiseProduct(finger_weights_contact).sum();
             if (has_non_aff){
@@ -806,6 +807,7 @@ namespace raisim {
             rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
             // rewards_r_.record("grasp_acceleration_error_norm", std::max(0.0, std::min(grasp_acceleration_error_norm.norm(), 5.0)));
             rewards_r_.record("grasp_acceleration_error_norm", std::min(grasp_acceleration_error_norm.norm(), 5.0));
+            rewards_r_.record("affordance_force_penalty", std::max(affordance_force_penalty, 0.0));
             // rewards_r_.record("contact_coeff", std::min(1.0, min_contact_coef));
             rewards_sum_[0] = rewards_r_.sum();
             rewards_sum_[1] = 0;
@@ -1444,6 +1446,9 @@ namespace raisim {
         double arm_table_impulse_reward = 0.0;
         double obj_displacement_reward = 0.0;
         double arm_joint_vel_reward = 0.0;
+
+        //for adaptive force strategy
+        double affordance_force_penalty = 0.0;
 
         // obj info
         double obj_weight = 0.0;

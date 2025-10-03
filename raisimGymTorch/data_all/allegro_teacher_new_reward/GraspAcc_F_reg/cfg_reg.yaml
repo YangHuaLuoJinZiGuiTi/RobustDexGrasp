@@ -54,7 +54,7 @@ environment:
   # Policy update frequency (every n iterations)
   update_every_n: 20
   # Number of parallel simulation threads
-  num_threads: 200
+  num_threads: 32
   # Simulation time step [s]
   simulation_dt: 0.01
   # Control time step [s] (policy decision frequency)
@@ -73,7 +73,7 @@ environment:
   
   # object settings
   friction: 0.8  # object 2 finger
-  mass: 0.50 # object mass [kg]
+  mass: 0.250 # object mass [kg]
   
   # Reward components and their coefficients
   reward:
@@ -88,8 +88,10 @@ environment:
     # Reward for force adaptive stategy
     grasp_acceleration_error_norm:
       coeff: -0.05
-    contact_coeff:
-      coeff: 0.1               # reward for contact coeficient
+    # contact_coeff:
+    #   coeff: 0.1               # reward for contact coeficient
+    affordance_force_penalty:
+      coeff: -0.05              # Penalty for affordance impulse
     
     # Negative rewards for table interaction 
     table_reward:

@@ -111,6 +111,9 @@ def train(main_cfg: DictConfig):
     obj_ori_list.append('hammer')
     obj_ori_list.append('small_block')
 
+    # NOTE: Just For Validaton, training in single OBJ
+    obj_ori_list, repeat_per_obj = folder_names[:1],  32
+    
     # Calculate total number of environments based on objects and repetitions
     num_envs = len(obj_ori_list) * repeat_per_obj
     # Create the complete object list with repetitions
@@ -125,9 +128,9 @@ def train(main_cfg: DictConfig):
         # For local testing without logging, use fewer environments and enable visualization
         num_envs = repeat_per_obj
         # obj_list = choices(obj_list, k=1)  # Select just one object
-        obj_list = ['small_block']
-        obj_list.append(obj_list[0])       # Duplicate it for multiple trials
-        obj_list.append(obj_list[0])
+        # obj_list = ['small_block']
+        # obj_list.append(obj_list[0])       # Duplicate it for multiple trials
+        # obj_list.append(obj_list[0])
         cfg['environment']['visualize'] = True
 
     # ===== Sampling Configuration =====
@@ -142,7 +145,7 @@ def train(main_cfg: DictConfig):
     # Update environment configuration with number of environments
     cfg['environment']['num_envs'] = num_envs
     print('num envs', num_envs, file=sys.stdout)
-    raise ValueError(obj_list)
+    
     # ===== Environment Setup =====
     # Create vectorized environment with specified objects
     env = VecEnv(obj_list, hand.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),

@@ -253,6 +253,7 @@ def quantitative_eval(main_cfg: DictConfig):
     # ==== For Force Metrics ==== 
     total_f_g_list = []
     total_f_max_list = []
+    total_f_max_mean_list = []
 
     # For time debug 
     start_time = time.time()
@@ -636,20 +637,21 @@ def quantitative_eval(main_cfg: DictConfig):
         ## 2. Force_max during the whole process for each env
         # print("Max force for Each Env during the whole process:", max_force_array.max(axis=0), file=sys.stdout)
         success_indices = np.where(lifted == 1)[0]
-        f_g = np.average(
-            max_force_array.max(axis=0)[success_indices] / np.array(mass_list)[success_indices] / 10
-            )
+        if len(success_indices) > 0:
+            f_g = np.average(
+                max_force_array.max(axis=0)[success_indices] / np.array(mass_list)[success_indices] / 10
+                )
 
-
-        # Calculate non-zero means for each environment
-        mask = max_force_array != 0
-        non_zero_means = np.sum(max_force_array * mask, axis=0) / np.sum(mask, axis=0)
-        f_max = np.average(non_zero_means[success_indices])
-
-        print(f"current F_max (NOTE: HAVE BUG)  (N) / G_obj (N) for success obj: {f_g} ; F_max: {f_max}" )
-        total_f_max_list.append(f_max)
-        total_f_g_list.append(copy(f_g))
-        
+            # Calculate non-zero means for each environment
+            mask = max_force_array != 0
+            non_zero_means = np.sum(max_force_array * mask, axis=0) / np.sum(mask, axis=0)
+            f_max_mean = np.average(non_zero_means[success_indices])
+            f_max = np.max(max_force_array, axis=0)
+            print(f"current F_max (NOTE: HAVE BUG)  (N) / G_obj (N) for success obj: {f_g} ; F_max_mean: {f_max_mean }N; F_max_mean: {f_max}N" )
+            total_f_max_list.append(copy(f_max))
+            total_f_max_mean_list.append(copy(f_max_mean))
+            total_f_g_list.append(copy(f_g))
+                
         # print(env.get_reward_info_r())
         
         
@@ -680,7 +682,7 @@ def quantitative_eval(main_cfg: DictConfig):
     print("\nTotal success rate: {:.2f}%".format(total_success_rate), file=sys.stdout)
     print("\nTotal F_max / G_obj for success obj: {:.2f}".format(np.average(total_f_g_list)), file=sys.stdout)
     print("\nTotal F_max: {:.2f}N".format(np.average(total_f_max_list)), file=sys.stdout)
-
+    print("\nTotal F_max_mean: {:.2f}N".format(np.average(total_f_max_mean_list)), file=sys.stdout)
     print("total_cost_time: ", time.time()-start_time)
     print(f"step time : {np.sum(step_time_list)}.     obs time: {np.sum(obs_time_list)}.")
 
