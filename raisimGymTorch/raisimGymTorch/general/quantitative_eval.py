@@ -96,10 +96,10 @@ def quantitative_eval(main_cfg: DictConfig):
         
     # ===== Object Loading Setup =====
     # Set dataset for quantitative evaluation
-    cat_name = 'new_training_set' # simplified version of Fe new_training_set_origin, 1/2 .obj mesh faces. 
-    # cat_name = 'new_training_set_origin' 
+    # cat_name = 'new_training_set' 
+    cat_name = 'new_training_set_small_faces'
     # cat_name = 'shapenet-30obj'
-
+    
 
 
     # Whether should load stable states ## random place (obj easy to change pos) or stable place
@@ -125,8 +125,13 @@ def quantitative_eval(main_cfg: DictConfig):
     # Initialize lists for objects and paths
     obj_list = []
     obj_path_list = []
-    obj_ori_list = folder_names
-
+    obj_ori_list = folder_names[:len(folder_names)]
+    obj_ori_list = folder_names[:1] # NOTE: for debug only
+    
+    
+    # obj_ori_list = ['hammer', '037_scissors', 'off_water_body', '019_pitcher_base', '011_banana', 'mouse']
+    
+    # obj_ori_list = ['small_block']
     # raise ValueError(obj_ori_list)
     # Calculate total number of environments based on objects and repetitions
     num_envs = len(obj_ori_list) * repeat_per_obj
@@ -134,7 +139,7 @@ def quantitative_eval(main_cfg: DictConfig):
     for i in range(repeat_per_obj):
         for item in obj_ori_list:
             obj_list.append(item)
-
+    print(">>> num envs:\n", obj_ori_list)
 
     # Set activation function for neural networks
     activations = nn.LeakyReLU
@@ -171,7 +176,8 @@ def quantitative_eval(main_cfg: DictConfig):
 
     # ===== Model Dimensions Setup =====
     # Define observation and action dimensions
-    ob_dim_r = 153 + 2  # Observation dimension
+    # ob_dim_r = 153 + 2  # Observation dimension
+    ob_dim_r = cfg['architecture'].get('obs_dim', 155)  # 155 is the default
     act_dim = 22    # Action dimension (joint controls)
     print('ob dim', ob_dim_r, file=sys.stdout)
     print('act dim', act_dim, file=sys.stdout)
@@ -252,7 +258,7 @@ def quantitative_eval(main_cfg: DictConfig):
     start_time = time.time()
     step_time_list, obs_time_list = [], []
     # ===== Main Evaluation Loop =====
-    for update in range(5):
+    for update in range(10):
         # Start time measurement for this evaluation batch
         start = time.time()
   
@@ -503,7 +509,9 @@ def quantitative_eval(main_cfg: DictConfig):
                         )
 
         # Get initial observations and sensor data
-        obs_new_r, dis_info = env.observe_vision_obj_new()
+        # obs_new_r, dis_info = env.observe_vision_obj_new()
+        # obs_new_r, dis_info = env.observe_vision_new() if ob_dim_r ==153 else env.observe_vision_obj_new()
+        obs_new_r, dis_info = env.observe_vision_new_sum(ob_dim_r)
 
         # Update target centers
         env.update_target(target_center)
@@ -556,12 +564,17 @@ def quantitative_eval(main_cfg: DictConfig):
             
             # Get new observations and sensor data
             obs_start_time = time.time()
-            obs_new_r, dis_info = env.observe_vision_obj_new()
+            # obs_new_r, dis_info = env.observe_vision_obj_new()
+            # obs_new_r, dis_info = env.observe_vision_new() if ob_dim_r == 153 else env.observe_vision_obj_new()
+            obs_new_r, dis_info = env.observe_vision_new_sum(ob_dim_r)
+            
             obs_time_list.append(time.time() - obs_start_time)
             
             # print(env.get_obj_weight())
+            # print(">>> len:", len(env.get_global_state()[0]))
             max_force = np.array(env.get_global_state()[:, 128]).reshape(-1)
             max_force_list.append(max_force)
+            print(">>> max force recieve: ", max_force)
             
             # cost_r = np.mean(env.get_cost_info_r(), axis=0)
             # print(">>> cost_r: ", cost_r)
@@ -626,8 +639,14 @@ def quantitative_eval(main_cfg: DictConfig):
         f_g = np.average(
             max_force_array.max(axis=0)[success_indices] / np.array(mass_list)[success_indices] / 10
             )
-        f_max = np.average(max_force_array.mean(axis=0)[success_indices])
-        print(f"current F_max  (N) / G_obj (N) for success obj: {f_g} ; F_max: {f_max}" )
+
+
+        # Calculate non-zero means for each environment
+        mask = max_force_array != 0
+        non_zero_means = np.sum(max_force_array * mask, axis=0) / np.sum(mask, axis=0)
+        f_max = np.average(non_zero_means[success_indices])
+
+        print(f"current F_max (NOTE: HAVE BUG)  (N) / G_obj (N) for success obj: {f_g} ; F_max: {f_max}" )
         total_f_max_list.append(f_max)
         total_f_g_list.append(copy(f_g))
         

@@ -137,8 +137,6 @@ environment:
         limit: 0.2 
  
       
-
-
 # Neural network architecture
 architecture:
   policy_net: [128, 128]

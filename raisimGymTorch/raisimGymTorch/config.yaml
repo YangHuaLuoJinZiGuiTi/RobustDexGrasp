@@ -22,8 +22,10 @@ data:
 random_prior:
   use: True
   mass_bound: [0.05, 0.5] # kg
-  mu_bound: [0.4, 1.0] #  friction coefficient
+  mu_bound: [0.4, 0.8] #  friction coefficient
 
 
 # defaults:
 #   - env: allegro_teacher/cfgs/cfg_reg  
+
+# python raisimGymTorch/general/run.py mode=train task_name=allegro_teacher_new_reward exp.log_name=single_obj_new_reward exp.num_iterations=10000 random_prior.use=False exp_name=allegro_teacher_new_reward

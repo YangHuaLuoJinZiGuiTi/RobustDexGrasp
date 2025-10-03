@@ -79,7 +79,8 @@ def train(main_cfg: DictConfig):
     obj_list = []
 
     # Set dataset type for training
-    cat_name = 'new_training_set'
+    # cat_name = 'new_training_set'
+    cat_name = 'new_training_set_small_faces'
     # cat_name = 'new_training_set_origin'
 
     # Set number of repetitions per object
@@ -94,10 +95,10 @@ def train(main_cfg: DictConfig):
 
     # Filter out only the folders (directories) from the list of items
     folder_names = [item for item in items if os.path.isdir(os.path.join(directory_path, item))]
-
     # Initialize object lists
     obj_path_list = []
-    obj_ori_list = folder_names[:int(len(folder_names)/2)]
+    # obj_ori_list = folder_names[:int(len(folder_names)/2)]
+    obj_ori_list = folder_names[:1]
 
     # Increase the number of repetitions for difficult objects to improve training
     obj_ori_list.append('037_scissors')
@@ -116,7 +117,6 @@ def train(main_cfg: DictConfig):
     for i in range(repeat_per_obj):
         for item in obj_ori_list:
             obj_list.append(item)
-
     # Set activation function for neural networks
     activations = nn.LeakyReLU
 
@@ -142,10 +142,9 @@ def train(main_cfg: DictConfig):
     # Update environment configuration with number of environments
     cfg['environment']['num_envs'] = num_envs
     print('num envs', num_envs, file=sys.stdout)
-
+    raise ValueError(obj_list)
     # ===== Environment Setup =====
     # Create vectorized environment with specified objects
-
     env = VecEnv(obj_list, hand.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper)),
                 cfg['environment'], cat_name=cat_name)
 
@@ -157,10 +156,13 @@ def train(main_cfg: DictConfig):
 
     # ===== Model Dimension Setup =====
     # Define observation and action dimensions
-    ob_dim_r = 153 + 2  # Observation dimension + object weight + object mu
+    # ob_dim_r = 153 + 2  # Observation dimension + object weight + object mu
+    print(cfg['architecture'])
+    ob_dim_r = cfg['architecture'].get('obs_dim', 153)  # 155 is the default
     act_dim = 22    # Action dimension (joint controls)
     print('ob dim', ob_dim_r, file=sys.stdout)
     print('act dim', act_dim, file=sys.stdout)
+
 
     # ===== Training Parameters =====
     # Configure reward clipping to prevent extreme updates
@@ -249,7 +251,7 @@ def train(main_cfg: DictConfig):
 
 
     # ===== Main Training Loop =====
-    for update in range(main_cfg.exp.num_iterations):
+    for update in range(main_cfg.exp.num_iterations + 1):
         # Start timing for performance measurement
         start = time.time()
 
@@ -549,7 +551,8 @@ def train(main_cfg: DictConfig):
                         obj_pose_reset,
                         )
 
-        obs_new_r, dis_info = env.observe_vision_obj_new()
+        # obs_new_r, dis_info = env.observe_vision_obj_new()
+        obs_new_r, dis_info = env.observe_vision_new_sum(ob_dim_r)
         env.update_target(target_center)
         rewards_r_sum = env.get_reward_info_r()
         for i in range(len(rewards_r_sum)):
@@ -602,7 +605,8 @@ def train(main_cfg: DictConfig):
 
             reward_r, _, dones = env.step(action_r.astype('float32'), action_l.astype('float32'))
 
-            obs_new_r, dis_info = env.observe_vision_obj_new()
+            # obs_new_r, dis_info = env.observe_vision_obj_new()
+            obs_new_r, dis_info = env.observe_vision_new_sum(ob_dim_r)
             obs_new_r = obs_new_r[:].astype('float32')
 
 
@@ -696,7 +700,7 @@ def train(main_cfg: DictConfig):
             # Disable root guidance
             env.switch_root_guidance(False)
 
-        obs_r, _ = env.observe_vision_obj_new()
+        obs_r, _ = env.observe_vision_new_sum(ob_dim_r)
         obs_r = obs_r[:, :].astype('float32')
 
         if np.isnan(obs_r).any():
