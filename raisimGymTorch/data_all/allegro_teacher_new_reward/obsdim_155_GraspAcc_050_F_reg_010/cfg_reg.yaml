@@ -73,7 +73,7 @@ environment:
   
   # object settings
   friction: 0.8  # object 2 finger
-  mass: 0.30 # object mass [kg]
+  mass: 0.25 # object mass [kg]
   
   # Reward components and their coefficients
   reward:
@@ -87,11 +87,11 @@ environment:
 
     # Reward for force adaptive stategy
     grasp_acceleration_error_norm:
-      coeff: -0.30
+      coeff: -0.5
     # contact_coeff:
     #   coeff: 0.1               # reward for contact coeficient
     affordance_force_penalty:
-      coeff: -0.10          # Penalty for affordance impulse
+      coeff: -0.1            # Penalty for affordance impulse
     
     # Negative rewards for table interaction 
     table_reward:

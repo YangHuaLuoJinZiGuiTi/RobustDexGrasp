@@ -73,7 +73,7 @@ environment:
   
   # object settings
   friction: 0.8  # object 2 finger
-  mass: 0.30 # object mass [kg]
+  mass: 0.25 # object mass [kg]
   
   # Reward components and their coefficients
   reward:

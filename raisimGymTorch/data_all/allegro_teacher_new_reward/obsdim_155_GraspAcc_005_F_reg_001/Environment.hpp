@@ -885,9 +885,7 @@ namespace raisim {
 
             }
 
-            // std::cerr << "====== impulses_r_af_vector: "<< impulses_r_af_vector.transpose() << std::endl;
             for(int i = 0; i < num_contacts; i++){
-                // std::cerr << ">>> "<< impulses_r_af_vector.segment<3>(i*3).norm()<<" " <<std::endl;
                 impulses_r_af[i] = impulses_r_af_vector.segment<3>(i*3).norm();
                 impulses_r_af_xy[i] = impulses_r_af_vector.segment<2>(i*3).norm();
                 impulses_r_af_z[i] = impulses_r_af_vector[i*3+2];
@@ -1219,7 +1217,6 @@ namespace raisim {
             std::map<int, double> total_force_magnitude; // For weighted averaging
             
             // Collect and aggregate valid grasp contacts
-
             for(auto& contact: contacts) {
                 if (contact.skip() || contact.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
                 if (contact.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
@@ -1232,7 +1229,6 @@ namespace raisim {
                 Eigen::Vector3d contact_point = contact.getPosition().e().transpose();
                 Eigen::Vector3d contact_normal = contact.getNormal().e().transpose(); // Normal vector
                 Eigen::Vector3d contact_force = contact.getContactFrame().e().transpose() * contact.getImpulse().e()/ simulation_dt_; // Force = impulse/time
-
                 double force_magnitude = contact_force.norm();
                 
                 // Aggregate contact information for the same body part
