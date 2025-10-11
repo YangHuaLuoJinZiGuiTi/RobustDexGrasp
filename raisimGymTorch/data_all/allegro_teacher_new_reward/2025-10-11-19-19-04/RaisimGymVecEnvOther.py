@@ -14,7 +14,6 @@ import os
 from scipy.spatial.transform import Rotation as R
 import torch
 import trimesh
-from raisimGymTorch.helper.qp_solver import *
 
 from raisimGymTorch.helper import rotations
 class RaisimGymVecEnvTest:
@@ -42,22 +41,6 @@ class RaisimGymVecEnvTest:
         self._reward_l = np.zeros(self.num_envs, dtype=np.float32)
         self._done = np.zeros(self.num_envs, dtype=np.bool)
         self.rewards = [[] for _ in range(self.num_envs)]
-
-        # contact info
-        self.max_contacts = 13
-        self.points = np.zeros((self.num_envs, self.max_contacts * 3), dtype=np.float64, order='F')
-        self.normals = np.zeros((self.num_envs, self.max_contacts * 3), dtype=np.float64, order='F')
-        self.forces = np.zeros((self.num_envs, self.max_contacts * 3), dtype=np.float64, order='F')
-        self.normal_forces = np.zeros((self.num_envs, self.max_contacts * 3), dtype=np.float64, order='F')
-        self.contact_ids = np.full((self.num_envs, self.max_contacts), -1, dtype=np.int32, order='F') 
-        self.contact_counts = np.zeros(self.num_envs, dtype=np.int32, order='F')
-        self.contact_info_list = [{} for _ in range(self.num_envs)]     # num_envs * contact_info directory
-        
-        # for QP computation
-        self.solver = QP_Solver()
-
-        # object info
-        self.object_info_list = [{} for _ in range(self.num_envs)]     # num_envs * object_info directory
         
         # cost
         self._force_closure_cost = np.zeros(self.num_envs, dtype=np.float32)
@@ -243,89 +226,13 @@ class RaisimGymVecEnvTest:
         
         elif obs_dim == 159: # Grasp Acc extraction.
             return self.observe_vision_GraspAcc_new()
-        
-        elif obs_dim == 153 + 13*3 + 1: # QP as reference
-            return self.observe_vision_QP_new()
-        else:
-            raise ValueError("Invalid observation dimension")
-    
-    
-    def update_contact_info(self):
-        self.wrapper.get_contact_info(self.points, self.normals, self.forces, self.normal_forces, self.contact_ids, self.contact_counts)
-        
-        
-    def get_object_info(self):
-        self.object_info_list = [{} for _ in range(self.num_envs)]
-        obj_weight, obj_mu = self.get_obj_weight().reshape(self.num_envs, -1), self.get_obj_mu().reshape(self.num_envs, -1)
-        self.wrapper.get_global_state(self._global_state)
-        global_state = self._global_state.copy()
-        obj_com = global_state[:, 129:132].reshape(self.num_envs, -1)
-        for i in range(self.num_envs):
-            # print(type(obj_mu[i]), obj_mu[i].shape)
-            self.object_info_list[i] = {
-                "object_weight": obj_weight[i],
-                "miu_coef": [obj_mu[i][0], 0.02],
-                "object_gravity_center" : obj_com[i],
-                "env_id": i,
-            }
-        return self.object_info_list
-        
-    def get_contact_info(self):
-        """
-        Update self.contact_info_list: a list of dictionaries, each dictionary contains the following keys:
-            contact_info_dict = {
-                'env_index': env_index,
-                'points': points, # contact points in world frame
-                'normals': normals, # contact normals point from object to hand
-                'forces': forces, # contact forces from hand to object
-                "contact_ids": contact_ids, # contact ids, relates to allegro's affordance id
-                "num_contact": count,
-            }
-        """
-        
-        self.update_contact_info()
-        self.contact_info_list = []
-        for env_index in range(self.num_envs):
-            count = self.contact_counts[env_index]
-            contact_info_dict = {}
-            points, normals, forces, contact_ids, normal_forces = [], [], [], [], []
-            for j in range(count):
-                point_idx = j * 3
-                point = self.points[env_index, point_idx:point_idx+3]
-                normal = self.normals[env_index, point_idx:point_idx+3]
-                force = self.forces[env_index, point_idx:point_idx+3]
-                normal_force = self.normal_forces[env_index, point_idx:point_idx+3]
-                contact_id = self.contact_ids[env_index, j]
-                points.append(point.copy().tolist())
-                normals.append(normal.copy().tolist())
-                forces.append(force.copy().tolist())
-                normal_forces.append(normal_force.copy().tolist())
-                contact_ids.append(contact_id)
-                
-            contact_info_dict = {
-                'env_index': env_index,
-                'points': points, # contact points in world frame
-                'normals': normals, # contact normals point from object to hand
-                'forces': forces, # contact forces from hand to object
-                'normal_forces': normal_forces,
-                "contact_ids": contact_ids, # contact ids, relates to allegro's affordance id
-                "num_contact": count,
-            }
-            # print("PYTHON:\n normal_forces:\n",np.array(contact_info_dict['normal_forces']))
-            # print("forces:\n",np.array(contact_info_dict['forces']))
-            # print("normals:\n",np.array(contact_info_dict['normals']))
-            # print(repr(contact_info_dict))
-            # print(repr(self.get_object_info()))
-            self.contact_info_list.append(contact_info_dict)
-        return self.contact_info_list
-    
     
     def observe_vision_GraspAcc_new(self):
         self.wrapper.observe(self._observation_r, self._observation_l)
         self.wrapper.get_global_state(self._global_state)
 
         global_state = self._global_state.copy()
-        obs_r = self._observation_r.copy() 
+        obs_r = self._observation_r.copy()
 
         num_envs = global_state.shape[0]
 

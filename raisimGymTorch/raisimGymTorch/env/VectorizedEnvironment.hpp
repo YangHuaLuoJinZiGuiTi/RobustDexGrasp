@@ -268,6 +268,61 @@ class VectorizedEnvironment {
       environments_[i]->get_global_state(gs.row(i));
   }
 
+
+void get_contact_info(Eigen::Ref<Eigen::MatrixXd> points,
+                     Eigen::Ref<Eigen::MatrixXd> normals,
+                     Eigen::Ref<Eigen::MatrixXd> forces,
+                     Eigen::Ref<Eigen::MatrixXd> normal_forces,
+                     Eigen::Ref<Eigen::MatrixXi> contact_ids,
+                     Eigen::Ref<Eigen::VectorXi> contact_counts) {
+    
+    int num_envs = num_envs_;
+    int max_contacts = points.cols() / 3;  // 每3列代表一个接触点
+    
+    contact_counts.resize(num_envs);
+    
+#pragma omp parallel for
+    for (int i = 0; i < num_envs; i++) {
+        // 获取单个环境的接触信息
+        std::vector<Eigen::Vector3d> env_points, env_normals, env_forces, env_normal_forces;
+        std::vector<int> env_ids;
+        environments_[i]->get_contact_info(env_points, env_normals, env_forces, env_normal_forces, env_ids);
+        
+        int num_contacts = std::min(static_cast<int>(env_points.size()), max_contacts);
+        contact_counts(i) = num_contacts;
+        
+        // 将接触信息填充到矩阵中
+        for (int j = 0; j < num_contacts; j++) {
+            // 每个接触点占用3列：x, y, z
+            points(i, j*3)     = env_points[j].x();
+            points(i, j*3 + 1) = env_points[j].y();
+            points(i, j*3 + 2) = env_points[j].z();
+            
+            normals(i, j*3)     = env_normals[j].x();
+            normals(i, j*3 + 1) = env_normals[j].y();
+            normals(i, j*3 + 2) = env_normals[j].z();
+            
+            forces(i, j*3)     = env_forces[j].x();
+            forces(i, j*3 + 1) = env_forces[j].y();
+            forces(i, j*3 + 2) = env_forces[j].z();
+
+            normal_forces(i, j*3) = env_normal_forces[j].x();
+            normal_forces(i, j*3 + 1) = env_normal_forces[j].y();
+            normal_forces(i, j*3 + 2) = env_normal_forces[j].z();
+
+            contact_ids(i, j) = env_ids[j];
+        }
+        
+        // 如果实际接触点少于最大数量，剩余部分保持为0
+        for (int j = num_contacts; j < 13; j++) {
+            points(i, j*3) = points(i, j*3 + 1) = points(i, j*3 + 2) = 0.0;
+            normals(i, j*3) = normals(i, j*3 + 1) = normals(i, j*3 + 2) = 0.0;
+            forces(i, j*3) = forces(i, j*3 + 1) = forces(i, j*3 + 2) = 0.0;
+            normal_forces(i, j*3) = normal_forces(i, j*3 + 1) = normal_forces(i, j*3 + 2) = 0.0;
+            contact_ids(i, j) = -1;
+        }
+    }
+}
 void get_obj_weight(Eigen::Ref<EigenVec> weights) {
     #pragma omp parallel for
     for (int i = 0; i < num_envs_; i++) {

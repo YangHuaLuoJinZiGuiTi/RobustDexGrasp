@@ -1,0 +1,22 @@
+mode: train
+exp:
+  logdir: null
+  log_name: Feature_extraction_DEBUG
+  seed: 1
+  num_iterations: 10000
+  load_trained_policy: false
+exp_name: allegro_teacher_new_reward
+weight: /home/hang/raisim/RobustDexGrasp/raisimGymTorch/data_all/add_object_properties/OBJMASS025/full_3500_r.pt
+task_name: feature_extraction_graspAcc_F_reg
+task_path: null
+load_param_path: null
+data:
+  storedir: data_all
+random_prior:
+  use: false
+  mass_bound:
+  - 0.05
+  - 0.5
+  mu_bound:
+  - 0.4
+  - 0.8

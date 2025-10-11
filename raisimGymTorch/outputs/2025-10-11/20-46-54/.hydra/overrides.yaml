@@ -1,0 +1,6 @@
+- mode=train
+- task_name=feature_extraction_graspAcc_F_reg
+- exp.log_name=Feature_extraction_DEBUG
+- exp.num_iterations=10000
+- random_prior.use=False
+- exp_name=allegro_teacher_new_reward
