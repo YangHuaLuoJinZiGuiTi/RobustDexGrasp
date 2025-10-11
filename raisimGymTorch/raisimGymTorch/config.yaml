@@ -28,4 +28,4 @@ random_prior:
 # defaults:
 #   - env: allegro_teacher/cfgs/cfg_reg  
 
-# python raisimGymTorch/general/run.py mode=train task_name=allegro_teacher_new_reward exp.log_name=single_obj_new_reward exp.num_iterations=10000 random_prior.use=False exp_name=allegro_teacher_new_reward
+# python raisimGymTorch/general/run.py mode=train task_name=QP_as_input_reward exp.log_name=QP_as_reference exp.num_iterations=10000 random_prior.use=False exp_name=allegro_teacher_new_reward

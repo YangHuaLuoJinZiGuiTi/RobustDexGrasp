@@ -543,7 +543,7 @@ def quantitative_eval(main_cfg: DictConfig):
             action_r = action_r.cpu().detach().numpy()
             # Initialize left hand actions as zeros (not used)
             action_l = np.zeros_like(action_r)
-
+            env.get_contact_info()
             # Control logic: grasp phase then lift phase
             if step < grasp_steps:
                 # During grasp phase, use actions from the policy network
@@ -568,6 +568,20 @@ def quantitative_eval(main_cfg: DictConfig):
             # obs_new_r, dis_info = env.observe_vision_obj_new()
             # obs_new_r, dis_info = env.observe_vision_new() if ob_dim_r == 153 else env.observe_vision_obj_new()
             obs_new_r, dis_info = env.observe_vision_new_sum(ob_dim_r)
+            
+            
+            ### FOR QP DEBUGGING ###
+            # forces_error, wrench_error_list = env.solver.qp_force_as_ref(env.get_contact_info(), env.get_object_info()) # (num_env, 13) , (num_env, 1)
+            # mask = np.where(wrench_error_list > 0, 1, 0)
+            # QP_error_normal_force_penalty_r = np.sum(np.abs(forces_error) * mask, axis=1)
+            # print("QP_error_normal_force_penalty_r", QP_error_normal_force_penalty_r)
+            # print("mask", mask)
+            # print("forces_error", forces_error)
+            # print("wrench_error_list", wrench_error_list)
+            # assert QP_error_normal_force_penalty_r.shape == (32, )
+            ########
+            
+            
             
             obs_time_list.append(time.time() - obs_start_time)
             

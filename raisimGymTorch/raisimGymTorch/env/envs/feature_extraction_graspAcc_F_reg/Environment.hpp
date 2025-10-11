@@ -1161,7 +1161,7 @@ namespace raisim {
             computeGraspCosts();
             raisim::Vec<6> Grasp_acc;
             Grasp_acc = grasp_acceleration_error_norm / obj_weight;
-
+            
             global_state_ << obj_pose_wrist.e(),
                              frame_y_in_obj,
                              joint_pos_in_obj,
@@ -1198,14 +1198,27 @@ namespace raisim {
             gs = global_state_.cast<float>();
         }
         
-        void computeGraspCosts() {
-            // we compute following things:
-            /// 1. (GF-mg) / m : means current object acc in table-free
-            /// 2. /max {cf}; cf: contact coefficient, measures the incipinet slip state.  cf=1- F_t/ (\mu * F_n)
 
-            grasp_acceleration_error_norm.setZero(6);
-            min_contact_coef = 0.0;
-            num_grasp_contacts_ = 0;
+        void get_contact_info(std::vector<Eigen::Vector3d>& points, 
+                                std::vector<Eigen::Vector3d>& normals, 
+                                std::vector<Eigen::Vector3d>& forces,
+                                std::vector<Eigen::Vector3d>& normal_forces,
+                            std::vector<int>& ids){
+            points = contact_points;
+            normals = contact_normals;
+            forces = contact_forces;
+            ids = contact_ids;
+            normal_forces = contact_normal_forces;
+        }
+
+        void Contact_Detection(){
+
+            contact_points.clear();
+            contact_normals.clear();
+            contact_forces.clear();
+            contact_ids.clear();
+            contact_normal_forces.clear();
+
             
             // Get grasp contacts
             auto& contacts = mano_r_->getContacts();
@@ -1251,11 +1264,6 @@ namespace raisim {
                 }
             }
             
-            // Storage for final contact information after aggregation
-            std::vector<Eigen::Vector3d> contact_points;
-            std::vector<Eigen::Vector3d> contact_normals;
-            std::vector<Eigen::Vector3d> contact_forces;
-            
             // Process aggregated contacts to compute weighted averages
             for (const auto& pair : aggregated_forces) {
                 int idx = pair.first;
@@ -1265,19 +1273,47 @@ namespace raisim {
                 Eigen::Vector3d avg_position = aggregated_positions[idx] / total_force_magnitude[idx];
                 Eigen::Vector3d avg_normal = aggregated_normals[idx] / total_force_magnitude[idx];
                 avg_normal.normalize(); // Ensure normal is unit vector
+                
+                // Compute normal force in world frame
+                const double normal_magnitude = -total_force.dot(avg_normal); 
+                const Eigen::Vector3d normal_force_3d = normal_magnitude * avg_normal;
+
                 contact_points.push_back(avg_position);
                 contact_normals.push_back(avg_normal);
                 contact_forces.push_back(-total_force); // Force direction from object2Hand => Hand2Object
+                contact_ids.push_back(idx);
+                contact_normal_forces.push_back(normal_force_3d);
             }
             
+            // FOR DEBUGGING the direction
+            // for (size_t i = 0; i < contact_normals.size(); ++i) {
+            //         std::cerr << "Contact " << i << ":\n"
+            //                 << "contact_id: " << contact_ids[i] << "\n"
+            //                 << "  Normal: " << contact_normals[i].transpose() << "\n"
+            //                 << "  Force:  " << contact_forces[i].transpose() << "\n\n";
+            //     }
+
+        }
+
+        void computeGraspCosts() {
+            // we compute following things:
+            /// 1. (GF-mg) / m : means current object acc in table-free
+            /// 2. /max {cf}; cf: contact coefficient, measures the incipinet slip state.  cf=1- F_t/ (\mu * F_n)
+
+            // Initialize
+            grasp_acceleration_error_norm.setZero(6);
+            min_contact_coef = 0.0;
+            num_grasp_contacts_ = 0;
+            Contact_Detection();
             num_grasp_contacts_ = contact_points.size();
 
+            // Compute
             if (num_grasp_contacts_ >= 1) { // Need at least 1 contact to compute force closure
                 // Compute force closure cost
-                grasp_acceleration_error_norm = computeGraspAcc(contact_points, contact_normals, contact_forces);
+                grasp_acceleration_error_norm = computeGraspAcc();
                 
                 // Compute friction cone cost
-                min_contact_coef = computeFrictionConeCost(contact_normals, contact_forces);
+                min_contact_coef = computeFrictionConeCost();
             }
             else {
                 grasp_acceleration_error_norm(2) = -obj_weight; // z方向的重力
@@ -1288,9 +1324,7 @@ namespace raisim {
         }
 
         // 计算力闭合成本
-        Eigen::VectorXd computeGraspAcc(const std::vector<Eigen::Vector3d>& contact_points,
-                                    const std::vector<Eigen::Vector3d>& contact_normals,
-                                    const std::vector<Eigen::Vector3d>& contact_forces) {
+        Eigen::VectorXd computeGraspAcc() {
             int n_contacts = contact_points.size();
             Eigen::VectorXd F_obj = Eigen::VectorXd::Zero(6);
             F_obj(2) = -obj_weight; // z方向的重力
@@ -1334,8 +1368,7 @@ namespace raisim {
             return diff ;  
         }
         
-        double computeFrictionConeCost(const std::vector<Eigen::Vector3d>& contact_normals,
-                                    const std::vector<Eigen::Vector3d>& contact_forces) {
+        double computeFrictionConeCost() {
             if (contact_normals.size() == 0) {
                 std::cerr << "No contact detected" << std::endl;
                 return 0.0;}
@@ -1369,6 +1402,8 @@ namespace raisim {
                 }
             return min;
         }
+
+        
 
         double getForceClosureCost() const { return grasp_acceleration_error_norm.norm(); }
         double getFrictionConeCost() const { return min_contact_coef; }
@@ -1463,6 +1498,13 @@ namespace raisim {
         double obj_mass =0.0;
         double mu_finger2obj = 0;
         raisim::Vec<3> obj_com;
+
+        // contact info
+        std::vector<Eigen::Vector3d> contact_points;  // in world frame
+        std::vector<Eigen::Vector3d> contact_normals; // obj2Hand
+        std::vector<Eigen::Vector3d> contact_forces; // hand2obj
+        std::vector<int> contact_ids; // current contact ids
+        std::vector<Eigen::Vector3d> contact_normal_forces; // normal force in world frame
 
 
         int num_contacts = 13;

@@ -43,7 +43,9 @@ def train(main_cfg: DictConfig):
     exp_name = main_cfg.exp_name
     # Check if GPU is available
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    device = torch.device('cuda:7')
+    
+    
+    device = torch.device('cuda:6')
 
     # Directory setup
     task_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"../env/envs/{main_cfg.task_name}") 
@@ -72,7 +74,7 @@ def train(main_cfg: DictConfig):
 
     # Set random seed if specified
     if main_cfg.exp.seed != 1:
-        cfg['seed'] = main_cfg.seed
+        cfg['seed'] = main_cfg['exp'].seed
 
     # ===== Object Loading Setup =====
     obj_path_list = []
@@ -232,6 +234,9 @@ def train(main_cfg: DictConfig):
     table_reward_r = np.zeros((num_envs, 1))
     arm_height_reward_r = np.zeros((num_envs, 1))
     arm_collision_reward_r = np.zeros((num_envs, 1))
+    ## Adaptive reward design
+    QP_error_normal_force_reward_r = np.zeros((num_envs, 1))
+    
 
 
     # Initialize state variables for robot and objects
@@ -563,6 +568,8 @@ def train(main_cfg: DictConfig):
             rewards_r_sum[i]['table_reward'] = 0
             rewards_r_sum[i]['arm_height_reward'] = 0
             rewards_r_sum[i]['arm_collision_reward'] = 0
+            if ob_dim_r == 193:
+                rewards_r_sum[i]['QP_error_normal_force_penalty'] = 0
 
             for k in rewards_r_sum[i].keys():
                 rewards_r_sum[i][k] = 0
@@ -628,7 +635,17 @@ def train(main_cfg: DictConfig):
             affordance_reward_r = - np.sum((dis_info[:, 1:17]) * finger_weights[:, 1:17], axis=1)
             table_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 70:87], a_min=0.002, a_max=0.02)) * finger_weights, axis=1)
             arm_height_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 89:93], a_min=0.002, a_max=0.02)), axis=1)
+            # raise ValueError(arm_height_reward_r.shape) # (num_env, )
+            if ob_dim_r == 193:
+                forces_error, wrench_error_list = env.solver.qp_force_as_ref(env.get_contact_info(), env.get_object_info()) # (num_env, 13) , (num_env, 1)
+                mask = np.where(wrench_error_list > 0, 1, 0)
+                QP_error_normal_force_penalty_r = np.exp(
+                    cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff'] * 
+                    np.sum(np.abs(forces_error), axis=1)
+                    ) * mask.reshape(-1)
+                assert QP_error_normal_force_penalty_r.shape == (32, )
 
+                
             one_check = global_state[:, 124:128]
             arm_collision_reward_r = np.sum(one_check, axis=1)
 
@@ -637,11 +654,15 @@ def train(main_cfg: DictConfig):
                 rewards_r[i]['table_reward'] = table_reward_r[i] * cfg['environment']['reward']['table_reward']['coeff']
                 rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
                 rewards_r[i]['arm_collision_reward'] = arm_collision_reward_r[i] * cfg['environment']['reward']['arm_collision_reward']['coeff']
-
+                if ob_dim_r == 193:
+                    rewards_r[i]['QP_error_normal_force_penalty'] = QP_error_normal_force_penalty_r[i] 
+                
                 rewards_r[i]['reward_sum'] = (
                             rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] +
                             rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'] + 
                             rewards_r[i]['arm_collision_reward'])
+                if ob_dim_r == 193:
+                    rewards_r[i]['reward_sum'] = rewards_r[i]['reward_sum'] + rewards_r[i]['QP_error_normal_force_penalty']
 
                 reward_r[i] = rewards_r[i]['reward_sum']
             reward_r.clip(min=reward_clip)
