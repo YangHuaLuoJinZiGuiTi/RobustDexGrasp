@@ -114,7 +114,7 @@ def train(main_cfg: DictConfig):
     obj_ori_list.append('small_block')
 
     # NOTE: Just For Validaton, training in single OBJ
-    obj_ori_list, repeat_per_obj = folder_names[:1],  32
+    obj_ori_list, repeat_per_obj = folder_names[:1],  12
     
     # Calculate total number of environments based on objects and repetitions
     num_envs = len(obj_ori_list) * repeat_per_obj
@@ -643,7 +643,7 @@ def train(main_cfg: DictConfig):
                     cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff'] * 
                     np.sum(np.abs(forces_error), axis=1)
                     ) * mask.reshape(-1)
-                assert QP_error_normal_force_penalty_r.shape == (32, )
+                assert QP_error_normal_force_penalty_r.shape == (repeat_per_obj, )
 
                 
             one_check = global_state[:, 124:128]
