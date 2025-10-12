@@ -80,23 +80,18 @@ environment:
     # Positive rewards for successful manipulation
     affordance_reward:
       coeff: 0.5                # Reward for joint distance to object points
-
     affordance_contact_reward:
       coeff: 1.5                # Reward for making contact with objects
-
-    # affordance_contact_reward:
-    #   coeff: 6.0                # Reward for making contact with objects
-
     # affordance_impulse_reward:
     #   coeff: 1.0                # Reward based on x-y direction impulse with objects
 
     # Reward for force adaptive stategy
     grasp_acceleration_error_norm:
-      coeff: -0.10
+      coeff: -0.30
     # contact_coeff:
     #   coeff: 0.1               # reward for contact coeficient
     affordance_force_penalty:
-      coeff: -0.05         # Penalty for affordance impulse
+      coeff: -0.10          # Penalty for affordance impulse
     
     # Negative rewards for table interaction 
     table_reward:
