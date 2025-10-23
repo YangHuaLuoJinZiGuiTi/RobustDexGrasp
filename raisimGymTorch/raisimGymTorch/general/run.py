@@ -13,7 +13,7 @@ def main(cfg: DictConfig) -> None:
     if cfg.task_name is None:
         cfg.task_name = task_name_default
         
-    cfg.task_path = f'/home/hang/raisim/RobustDexGrasp/raisimGymTorch/raisimGymTorch/env/envs/{cfg.task_name}/cfgs/cfg_reg.yaml'
+    cfg.task_path = f'/home/hang/raisim/SafeGrasp/raisimGymTorch/raisimGymTorch/env/envs/{cfg.task_name}/cfgs/cfg_reg.yaml'
     # cfg.weight = f'../{cfg.exp_name}_ckpt/full_12500_r.pt'
 
     print("===== Config =====")

@@ -34,7 +34,7 @@ environment:
   # Enable biased point cloud observation
   biased: False
   # Number of steps for grasp sequence
-  grasp_steps: 70
+  grasp_steps: 50
   # Use top-down grasping
   top: False
   # Use non-uniform sampling for object positions during training
@@ -80,18 +80,27 @@ environment:
     # Positive rewards for successful manipulation
     affordance_reward:
       coeff: 0.5                # Reward for joint distance to object points
+
     affordance_contact_reward:
       coeff: 1.5                # Reward for making contact with objects
-    # affordance_impulse_reward:
-    #   coeff: 1.0                # Reward based on x-y direction impulse with objects
+
+
+
+    affordance_impulse_reward:
+      coeff: 1.0                # Reward based on x-y direction impulse with objects
 
     # Reward for force adaptive stategy
     grasp_acceleration_error_norm:
-      coeff: -0.30
+      coeff: -0.10
     # contact_coeff:
     #   coeff: 0.1               # reward for contact coeficient
     affordance_force_penalty:
-      coeff: -0.10          # Penalty for affordance impulse
+      coeff: -0.05       # Penalty for affordance impulse
+
+    QP_error_normal_force_penalty:
+      coeff: 1         # Penalty for QP force error
+    # sliding_reward:
+    #   coeff: -0.1             # Penalty for sliding objects on the table
     
     # Negative rewards for table interaction 
     table_reward:
@@ -154,5 +163,8 @@ architecture:
   cost_net : [128, 128]
   # obs_dim: 153 # RD Grasp
   # obs_dim: 158 # RD Grasp + mass + friction + 3D pos
+  
   obs_dim: 155 # RD Grasp + mass + friction 
+  
   # obs_dim: 159 # RD Grasp + Grasp Acc
+  # obs_dim: 193 # RD Grasp + QP Force Error 

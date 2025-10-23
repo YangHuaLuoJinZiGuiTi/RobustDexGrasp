@@ -93,8 +93,51 @@ def plot_force_trajectories(force_data: np.ndarray,
         plt.show()
     plt.close()
 
+
+def QP_reward(Error, 
+            DeltaF,
+            k_error=100, 
+            k_delta=0.1, 
+            transition_scale=500,
+            threshold=1e-3):
+    """
+    Input:
+        Error: Wrench error of QP, (num_envs, 1)
+        DeltaF: (num_envs, 1) abs sum of current normal force and QP normal force
+        k_error: Coefficient of Error term
+        k_delta: Coefficient of DeltaF term
+        transition_scale: Scale of the sigmoid function for the transition weight
+        
+    Returns:
+        reward: (num_envs, 1) Reward for each environment
+    """
+    
+    assert np.all(DeltaF > 0), "DeltaF must be positive"
+    num_envs = len(Error)
+    weight = 1 / (1 + np.exp(-transition_scale * (Error - threshold)))
+    
+    reward_error = np.exp(-k_error * Error) - 1
+    reward_delta = np.exp(-k_delta * DeltaF) -1
+    reward = weight * reward_error + (1 - weight) * reward_delta
+    
+
+    
+    assert reward.shape == (num_envs, 1), f"Output shape {reward.shape} != (num_envs,1), weight {weight.shape}, reward_error {reward_error.shape}, reward_delta {reward_delta.shape}"
+    assert not np.any(np.isnan(reward)), "Output contains NaN values"
+    assert not np.any(np.isinf(reward)), "Output contains infinite values"
+    
+    return reward.reshape(-1)
+
+
+
+
 # 使用示例
 if __name__ == '__main__':
-    names = ['obj_a', 'obj_b', 'obj_c']
-    masses = [0.12, 1.5, 0.75]
-    plot_masses(names, masses, title='Object Masses', save_path='masses.png')
+    
+    # Test plot mass
+    # names = ['obj_a', 'obj_b', 'obj_c']
+    # masses = [0.12, 1.5, 0.75]
+    # plot_masses(names, masses, title='Object Masses', save_path='masses.png')
+    # return
+    pass
+

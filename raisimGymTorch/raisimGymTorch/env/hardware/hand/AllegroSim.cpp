@@ -59,6 +59,7 @@ public:
         }
     }
 
+    // void getDenseJacobian()
     void updateHandState(const Eigen::VectorXd &eef_pos) final override {
         wrist_pose_ = eef_pos;
         Eigen::VectorXd gc(platform_->getGeneralizedCoordinateDim()), gv(platform_->getDOF());

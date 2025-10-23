@@ -183,10 +183,14 @@ def test_solve():
 
 
 class QP_Solver:
-    def __init__(self, num_affordance_contact=13, solver_type="proxqp"):
+    def __init__(self, 
+                 num_affordance_contact=13, 
+                 solver_type="proxqp",
+                 hand_dim=16):
         self.solver_type = solver_type
         self.pre_retract_force = {}
         self.num_affordance_contact = num_affordance_contact
+        self.hand_dim = hand_dim
     def solve_qp(self, contact_info_list, object_info_list):
         """
         NOTE: Normal direction and contact wrenches direction: obj2hand
@@ -285,17 +289,20 @@ class QP_Solver:
         """
         target_force_list, wrench_error_list = self.solve_qp(contact_info_list, object_info_list)
         num_env = len(contact_info_list)
-        forces_error = np.zeros((num_env, self.num_affordance_contact, 3)) # (32, 13, 3)
+        forces_error = np.full((num_env, self.num_affordance_contact, 3), 0) # (32, 13, 3)
         for i in range(num_env):
             if contact_info_list[i]['num_contact'] < 1:
-                wrench_error_list[i] = 0
+                wrench_error_list[i] = 0.1
                 continue
-            if wrench_error_list[i] < 1e-3: # QP has solution
-                for j, id in enumerate(contact_info_list[i]['contact_ids']):
-                    forces_error[i, id] = np.array(contact_info_list[i]["normal_forces"])[j] - target_force_list[i][j]
-            else:
-                wrench_error_list[i] = 0
-        
+            # if wrench_error_list[i] < 1e-3: # QP has solution
+            for j, id in enumerate(contact_info_list[i]['contact_ids']):
+                # forces_error[i, id] = np.clip(np.array(contact_info_list[i]["normal_forces"])[j] - target_force_list[i][j],
+                #                               0, 10)
+                forces_error[i, id] = np.array(contact_info_list[i]["normal_forces"])[j] - target_force_list[i][j]
+                
+            # else:
+            #     wrench_error_list[i] = 0.1
+        # print(np.array(wrench_error_list).reshape(-1))
         # print("\nContact normal forces:\n", np.array(contact_info_list[0]['normal_forces']))
         # print("\nTarge normal_forces: \n", target_force_list[0])
         # print("\nContact ID:\n", contact_info_list[0]['contact_ids'])
@@ -308,8 +315,22 @@ class QP_Solver:
         
         return forces_error, wrench_error_list
                 
+    def solve_inverse_dynamics(self, jacobian_list, target_force_list):
+        """
+        Input:
+            jacobian_list: (n, 3, 22)
+            target_force_list: (n, 3)  point from object to hand
+        Output:
+            desired_tau: (16,)
+        """
+        desired_tau = np.zeros(self.hand_dim)
+        for target_f, jac in zip(target_force_list, jacobian_list):
+            desired_tau += np.dot(jac[:, -self.hand_dim:].T, np.array(target_f).reshape(3, 1)).reshape(-1)
+        return desired_tau
         
-    
+    def solve_qp_inverse_dynamics(self, contact_info_list, object_info_list):
+        target_force_list, wrench_error_list = self.solve_qp(contact_info_list, object_info_list)
+        return self.solve_inverse_dynamics(contact_info_list['jacobian_list'], target_force_list)
     
 if __name__ == "__main__":
     # test_solve() # test qp solver

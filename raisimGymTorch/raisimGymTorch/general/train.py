@@ -27,8 +27,9 @@ import torch
 
 from random import choices
 from raisimGymTorch.helper.inverseKinematicsUR5 import InverseKinematicsUR5, transformRobotParameter
+from raisimGymTorch.helper.utils import QP_reward
 
-QP_reward = False
+
 
 def train(main_cfg: DictConfig):
     # ===== Configuration Parameters =====
@@ -45,7 +46,7 @@ def train(main_cfg: DictConfig):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     
-    device = torch.device('cuda:6')
+    device = torch.device('cuda:7')
 
     # Directory setup
     task_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"../env/envs/{main_cfg.task_name}") 
@@ -53,6 +54,7 @@ def train(main_cfg: DictConfig):
 
     home_path = task_path + "/../../../../.."
 
+    use_QP_reward = main_cfg.use_QP_reward
     # Set experiment path based on arguments
     if main_cfg.exp.logdir is None:
         exp_path = home_path
@@ -81,8 +83,8 @@ def train(main_cfg: DictConfig):
     obj_list = []
 
     # Set dataset type for training
-    # cat_name = 'new_training_set'
-    cat_name = 'new_training_set_small_faces'
+    cat_name = 'new_training_set'
+    # cat_name = 'new_training_set_small_faces'
     # cat_name = 'new_training_set_origin'
 
     # Set number of repetitions per object
@@ -114,6 +116,8 @@ def train(main_cfg: DictConfig):
     obj_ori_list.append('small_block')
 
     # NOTE: Just For Validaton, training in single OBJ
+    # raise ValueError(folder_names)
+    folder_names = ['005_tomato_soup_can']
     obj_ori_list, repeat_per_obj = folder_names[:1],  32
     
     # Calculate total number of environments based on objects and repetitions
@@ -134,6 +138,7 @@ def train(main_cfg: DictConfig):
         # obj_list.append(obj_list[0])       # Duplicate it for multiple trials
         # obj_list.append(obj_list[0])
         cfg['environment']['visualize'] = True
+        
 
     # ===== Sampling Configuration =====
     # Check if non-uniform sampling flag exists in configuration, default to False if not
@@ -204,6 +209,7 @@ def train(main_cfg: DictConfig):
                     gamma=0.996,
                     lam=0.95,
                     num_mini_batches=4,
+                    entropy_coef=0.05,
                     device=device,
                     log_dir=saver.data_dir,
                     shuffle_batch=False
@@ -214,7 +220,8 @@ def train(main_cfg: DictConfig):
     if main_cfg.exp.load_trained_policy:
         # load_param(saver.data_dir.split('eval')[0] + weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir,
         #            cfg_grasp)
-        load_param(weight_path, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir,
+        
+        load_param(main_cfg.weight, env, actor_r, critic_r, ppo_r.optimizer, saver.data_dir,
                 cfg_grasp)
 
     # ===== Initialize Training Variables =====
@@ -569,7 +576,7 @@ def train(main_cfg: DictConfig):
             rewards_r_sum[i]['arm_height_reward'] = 0
             rewards_r_sum[i]['arm_collision_reward'] = 0
             # if ob_dim_r == 193:
-            if QP_reward:
+            if use_QP_reward:
                 rewards_r_sum[i]['QP_error_normal_force_penalty'] = 0
 
             for k in rewards_r_sum[i].keys():
@@ -638,19 +645,29 @@ def train(main_cfg: DictConfig):
             arm_height_reward_r = -np.sum(np.log(50*np.clip(obs_new_r[:, 89:93], a_min=0.002, a_max=0.02)), axis=1)
             # raise ValueError(arm_height_reward_r.shape) # (num_env, )
             # if ob_dim_r == 193:
-            if QP_reward:
-                forces_error, wrench_error_list = env.solver.qp_force_as_ref(env.get_contact_info(), env.get_object_info()) # (num_env, 13) , (num_env, 1)
-                mask = np.where(wrench_error_list > 0, 1, 0)
-                QP_error_normal_force_penalty_r = cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff'] * np.exp(
-                    -np.sum(np.square(forces_error), axis=1)
-                    ) * mask.reshape(-1)
- 
+            if use_QP_reward:
+                
+                forces_error, wrench_error_list = env.solver.qp_force_as_ref(env.get_contact_info(), env.get_object_info()) # (num_env, 13*3) , (num_env, 1)
+                # mask = np.where(wrench_error_list > 0, 1, 0)
+                # QP_error_normal_force_penalty_r = cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff'] * np.exp(
+                #     -np.sum(np.square(forces_error), axis=1)
+                #     ) * mask.reshape(-1) # 过于 离散，以及太陡峭，正数
+                # ============================================================================================================
                 # forces_error_sqruare_sum = np.sum(np.square(forces_error), axis=1)
                 # QP_error_normal_force_penalty_r = np.where(mask.reshape(-1) == 1, 
                 #                                            cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff'] / 
                 #                                            forces_error_sqruare_sum,
                 #                                            0) # 容易炸
                 # print(QP_error_normal_force_penalty_r)
+                # ============================================================================================================
+                
+                
+                delta_F = np.sum(np.abs(forces_error), axis=1)
+                # print("Env's delta_F \n",delta_F.reshape(-1))
+                delta_F = np.where(delta_F > 0, delta_F, 20).reshape(-1,1)
+                # print("Input Delta_F \n", delta_F.reshape(-1))
+                # print("wrench_error_list:\n", np.array(wrench_error_list).reshape(-1))
+                QP_error_normal_force_penalty_r = QP_reward(np.array(wrench_error_list).reshape(-1,1), delta_F, k_delta=0.05)
                 assert QP_error_normal_force_penalty_r.shape == (repeat_per_obj, )
 
                 
@@ -663,7 +680,7 @@ def train(main_cfg: DictConfig):
                 rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
                 rewards_r[i]['arm_collision_reward'] = arm_collision_reward_r[i] * cfg['environment']['reward']['arm_collision_reward']['coeff']
                 # if ob_dim_r == 193:
-                if QP_reward:
+                if use_QP_reward:
                     rewards_r[i]['QP_error_normal_force_penalty'] = QP_error_normal_force_penalty_r[i] 
                 
                 rewards_r[i]['reward_sum'] = (
@@ -671,7 +688,7 @@ def train(main_cfg: DictConfig):
                             rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'] + 
                             rewards_r[i]['arm_collision_reward'])
                 # if ob_dim_r == 193:
-                if QP_reward:
+                if use_QP_reward:
                     rewards_r[i]['reward_sum'] = rewards_r[i]['reward_sum'] + rewards_r[i]['QP_error_normal_force_penalty']
 
                 reward_r[i] = rewards_r[i]['reward_sum']

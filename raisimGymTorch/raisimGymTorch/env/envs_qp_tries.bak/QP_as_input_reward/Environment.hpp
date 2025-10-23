@@ -806,6 +806,8 @@ namespace raisim {
             rewards_r_.record("grasp_acceleration_error_norm", std::min(grasp_acceleration_error_norm.norm()/obj_weight, 2.0));
             rewards_r_.record("affordance_force_penalty", std::max(affordance_force_penalty, 0.0));
             // rewards_r_.record("contact_coeff", std::min(1.0, min_contact_coef));
+            // rewards_r_.record("sliding_reward", sliding_penalty);
+
             rewards_sum_[0] = rewards_r_.sum();
             rewards_sum_[1] = 0;
             return rewards_sum_;
@@ -1203,7 +1205,7 @@ namespace raisim {
                                 std::vector<Eigen::Vector3d>& normals, 
                                 std::vector<Eigen::Vector3d>& forces,
                                 std::vector<Eigen::Vector3d>& normal_forces,
-                            std::vector<int>& ids){
+                                std::vector<int>& ids){
             points = contact_points;
             normals = contact_normals;
             forces = contact_forces;
@@ -1219,7 +1221,7 @@ namespace raisim {
             contact_ids.clear();
             contact_normal_forces.clear();
 
-            
+
             // Get grasp contacts
             auto& contacts = mano_r_->getContacts();
             auto affordance_id = arctic->getBodyIdx("top");
@@ -1263,12 +1265,12 @@ namespace raisim {
                     total_force_magnitude[idx] += force_magnitude;
                 }
             }
-                        
+            
             // Process aggregated contacts to compute weighted averages
             for (const auto& pair : aggregated_forces) {
                 int idx = pair.first;
                 const Eigen::Vector3d& total_force = pair.second;
-                
+
                 // Compute weighted average position and normal
                 Eigen::Vector3d avg_position = aggregated_positions[idx] / total_force_magnitude[idx];
                 Eigen::Vector3d avg_normal = aggregated_normals[idx] / total_force_magnitude[idx];
@@ -1284,12 +1286,13 @@ namespace raisim {
                 contact_ids.push_back(idx);
                 contact_normal_forces.push_back(normal_force_3d);
             }
-            
+
             // FOR DEBUGGING the direction
             // for (size_t i = 0; i < contact_normals.size(); ++i) {
             //         std::cerr << "Contact " << i << ":\n"
             //                 << "contact_id: " << contact_ids[i] << "\n"
             //                 << "  Normal: " << contact_normals[i].transpose() << "\n"
+            //                 << " Normal force: " << contact_normal_forces[i].transpose() << "\n"
             //                 << "  Force:  " << contact_forces[i].transpose() << "\n\n";
             //     }
 
@@ -1306,7 +1309,7 @@ namespace raisim {
             num_grasp_contacts_ = 0;
             Contact_Detection();
             num_grasp_contacts_ = contact_points.size();
-
+            
             // Compute
             if (num_grasp_contacts_ >= 1) { // Need at least 1 contact to compute force closure
                 // Compute force closure cost
@@ -1318,9 +1321,7 @@ namespace raisim {
             else {
                 grasp_acceleration_error_norm(2) = -obj_weight; // z方向的重力
                 min_contact_coef = 0.0;
-
             }
-            // std::cerr<<"min_contact_coef" << min_contact_coef << std::endl;
         }
 
         // 计算力闭合成本

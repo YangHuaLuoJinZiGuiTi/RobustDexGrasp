@@ -41,6 +41,7 @@ class PPO:
 
         self.optimizer = optim.Adam([*self.actor.parameters(), *self.critic.parameters()], lr=learning_rate)
         self.device = device
+        
 
         # env parameters
         self.num_transitions_per_env = num_transitions_per_env

@@ -96,8 +96,8 @@ def quantitative_eval(main_cfg: DictConfig):
         
     # ===== Object Loading Setup =====
     # Set dataset for quantitative evaluation
-    # cat_name = 'new_training_set' 
-    cat_name = 'new_training_set_small_faces'
+    cat_name = 'new_training_set' 
+    # cat_name = 'new_training_set_small_faces'
     # cat_name = 'shapenet-30obj'
     
 
@@ -121,7 +121,7 @@ def quantitative_eval(main_cfg: DictConfig):
 
     # Filter out only the folders (directories) from the list of items
     folder_names = [item for item in items if os.path.isdir(os.path.join(directory_path, item))]
-
+    folder_names = ['005_tomato_soup_can']
     # Initialize lists for objects and paths
     obj_list = []
     obj_path_list = []
@@ -543,7 +543,15 @@ def quantitative_eval(main_cfg: DictConfig):
             action_r = action_r.cpu().detach().numpy()
             # Initialize left hand actions as zeros (not used)
             action_l = np.zeros_like(action_r)
-
+            forces_error, wrench_error_list = env.solver.qp_force_as_ref(env.get_contact_info(), env.get_object_info()) # (num_env, 13*3) , (num_env, 1)
+            delta_F = np.sum(np.abs(forces_error), axis=1)
+            # print("Env's delta_F \n",delta_F.reshape(-1))
+            delta_F = np.where(delta_F > 0, delta_F, 20).reshape(-1,1)
+            # print("Input Delta_F \n", delta_F.reshape(-1))
+            # print("wrench_error_list:\n", np.array(wrench_error_list).reshape(-1))
+            
+            
+            
             # Control logic: grasp phase then lift phase
             if step < grasp_steps:
                 # During grasp phase, use actions from the policy network
@@ -647,7 +655,7 @@ def quantitative_eval(main_cfg: DictConfig):
             non_zero_means = np.sum(max_force_array * mask, axis=0) / np.sum(mask, axis=0)
             f_max_mean = np.average(non_zero_means[success_indices])
             f_max = np.max(max_force_array, axis=0)
-            print(f"current F_max (NOTE: HAVE BUG)  (N) / G_obj (N) for success obj: {f_g} ; F_max_mean: {f_max_mean }N; F_max_mean: {f_max}N" )
+            print(f"current F_max (NOTE: HAVE BUG)  (N) / G_obj (N) for success obj: {f_g} ; F_max_mean: {f_max_mean }N; F_max: {f_max}N" )
             total_f_max_list.append(copy(f_max))
             total_f_max_mean_list.append(copy(f_max_mean))
             total_f_g_list.append(copy(f_g))

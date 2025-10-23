@@ -42,6 +42,8 @@ class RaisimGymVecEnvTest:
         self._reward_l = np.zeros(self.num_envs, dtype=np.float32)
         self._done = np.zeros(self.num_envs, dtype=np.bool)
         self.rewards = [[] for _ in range(self.num_envs)]
+        self.jacobians_list = []
+        self.dof = 22
 
         # contact info
         self.max_contacts = 13
@@ -52,6 +54,7 @@ class RaisimGymVecEnvTest:
         self.contact_ids = np.full((self.num_envs, self.max_contacts), -1, dtype=np.int32, order='F') 
         self.contact_counts = np.zeros(self.num_envs, dtype=np.int32, order='F')
         self.contact_info_list = [{} for _ in range(self.num_envs)]     # num_envs * contact_info directory
+
         
         # for QP computation
         self.solver = QP_Solver()
@@ -251,7 +254,16 @@ class RaisimGymVecEnvTest:
     
     
     def update_contact_info(self):
-        self.wrapper.get_contact_info(self.points, self.normals, self.forces, self.normal_forces, self.contact_ids, self.contact_counts)
+       
+        jacobian_size_per_contact = 3 * self.dof
+        total_jacobian_cols = self.max_contacts * jacobian_size_per_contact
+        self.jacobians_flat = np.asfortranarray(np.zeros((self.num_envs, total_jacobian_cols), dtype=np.float64))
+        
+    
+        self.wrapper.get_contact_info(
+            self.points, self.normals, self.forces, self.normal_forces,
+            self.contact_ids, self.jacobians_flat, self.contact_counts
+        )
         
         
     def get_object_info(self):
@@ -285,10 +297,15 @@ class RaisimGymVecEnvTest:
         
         self.update_contact_info()
         self.contact_info_list = []
+        jacobian_size_per_contact = 3 * self.dof
+    
         for env_index in range(self.num_envs):
             count = self.contact_counts[env_index]
             contact_info_dict = {}
             points, normals, forces, contact_ids, normal_forces = [], [], [], [], []
+            jacobians = []
+            
+
             for j in range(count):
                 point_idx = j * 3
                 point = self.points[env_index, point_idx:point_idx+3]
@@ -302,21 +319,49 @@ class RaisimGymVecEnvTest:
                 normal_forces.append(normal_force.copy().tolist())
                 contact_ids.append(contact_id)
                 
+                jac_start_idx = j * jacobian_size_per_contact
+                jac_flat = self.jacobians_flat[env_index, jac_start_idx:jac_start_idx + jacobian_size_per_contact]
+                jac_matrix = jac_flat.reshape(3, self.dof)
+                jacobians.append(jac_matrix)
+            
+                
             contact_info_dict = {
                 'env_index': env_index,
                 'points': points, # contact points in world frame
-                'normals': normals, # contact normals point from object to hand
-                'forces': forces, # contact forces from hand to object
+                'normals': np.array(normals), # contact normals point from object to hand
+                'forces': np.array(forces), # contact forces from hand to object
                 'normal_forces': normal_forces,
                 "contact_ids": contact_ids, # contact ids, relates to allegro's affordance id
                 "num_contact": count,
+                "env_jacobians": np.array(jacobians),
             }
+            # ==============================================================================================================
             # print("PYTHON:\n normal_forces:\n",np.array(contact_info_dict['normal_forces']))
             # print("forces:\n",np.array(contact_info_dict['forces']))
             # print("normals:\n",np.array(contact_info_dict['normals']))
             # print(repr(contact_info_dict))
             # print(repr(self.get_object_info()))
+            # print(f"Env id in {contact_info_dict['env_index']} Jacobians in Python {np.array(contact_info_dict['env_jacobians']).shape}:\n")
+            # print(f"Jacobians in Python {np.array(contact_info_dict['env_jacobians']).shape}:\n")
+            # print(np.array(contact_info_dict['forces']).shape)
+            
+            # ============================================================================================================
+            # NOTE: Check Jacobian via contact forces
+            # if contact_info_dict['num_contact'] > 0:
+            #     tau = np.zeros(22)
+            #     for j in range(contact_info_dict['num_contact']):
+            #         tau += np.dot(contact_info_dict['env_jacobians'][j].T, contact_info_dict['forces'][j])
+            #         # print("Caculate tau: J^T * F :\n", tau)
+                    # print("Jacobian:\n", contact_info_dict['env_jacobians'][j])
+                # print("Force:\n", contact_info_dict['forces'])
+                # print("contact_ids:\n", contact_info_dict['contact_ids'])
+                # print("[Computed] tau:\n", tau)
+                # print("--------")
+            # ============================================================================================================
+            
+            
             self.contact_info_list.append(contact_info_dict)
+            
         return self.contact_info_list
     
     
