@@ -1,5 +1,6 @@
 
 from omegaconf import DictConfig
+from omegaconf import OmegaConf
 import importlib
 
 # Default imports
@@ -196,10 +197,15 @@ def train(main_cfg: DictConfig):
 
     # ===== Setup Configuration Saver =====
     # Configure saver for model checkpoints and logging
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    general_train_path = current_dir + "/train.py"
+    main_cfg_path = task_path+'/cfgs/main_cfg.yaml'
+    OmegaConf.save(main_cfg, f= main_cfg_path)
     saver = ConfigurationSaver(log_dir=exp_path + "/raisimGymTorch/" + main_cfg.data.storedir + "/" + exp_name,
                             save_items=[task_path + "/cfgs/" + cfg_grasp, task_path + "/Environment.hpp",
-                                        task_path + "/train.py", task_path + "/../../RaisimGymVecEnvOther.py"], test_dir=test_dir)
-
+                                        task_path + "/train.py", task_path + "/../../RaisimGymVecEnvOther.py",
+                                        general_train_path, main_cfg_path], test_dir=test_dir)
+    
     # ===== Initialize PPO Algorithm =====
     ppo_r = PPO.PPO(actor=actor_r,
                     critic=critic_r,
@@ -646,29 +652,39 @@ def train(main_cfg: DictConfig):
             # raise ValueError(arm_height_reward_r.shape) # (num_env, )
             # if ob_dim_r == 193:
             if use_QP_reward:
-                
-                forces_error, wrench_error_list = env.solver.qp_force_as_ref(env.get_contact_info(), env.get_object_info()) # (num_env, 13*3) , (num_env, 1)
-                # mask = np.where(wrench_error_list > 0, 1, 0)
-                # QP_error_normal_force_penalty_r = cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff'] * np.exp(
-                #     -np.sum(np.square(forces_error), axis=1)
-                #     ) * mask.reshape(-1) # 过于 离散，以及太陡峭，正数
-                # ============================================================================================================
-                # forces_error_sqruare_sum = np.sum(np.square(forces_error), axis=1)
-                # QP_error_normal_force_penalty_r = np.where(mask.reshape(-1) == 1, 
-                #                                            cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff'] / 
-                #                                            forces_error_sqruare_sum,
-                #                                            0) # 容易炸
-                # print(QP_error_normal_force_penalty_r)
-                # ============================================================================================================
-                
-                
-                delta_F = np.sum(np.abs(forces_error), axis=1)
-                # print("Env's delta_F \n",delta_F.reshape(-1))
-                delta_F = np.where(delta_F > 0, delta_F, 20).reshape(-1,1)
-                # print("Input Delta_F \n", delta_F.reshape(-1))
-                # print("wrench_error_list:\n", np.array(wrench_error_list).reshape(-1))
-                QP_error_normal_force_penalty_r = QP_reward(np.array(wrench_error_list).reshape(-1,1), delta_F, k_delta=0.05)
-                assert QP_error_normal_force_penalty_r.shape == (repeat_per_obj, )
+                if ob_dim_r == 193:
+                    forces_error, wrench_error_list = env.solver.qp_force_as_ref(env.get_contact_info(), env.get_object_info()) # (num_env, 13*3) , (num_env, 1)
+                    # mask = np.where(wrench_error_list > 0, 1, 0)
+                    # QP_error_normal_force_penalty_r = cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff'] * np.exp(
+                    #     -np.sum(np.square(forces_error), axis=1)
+                    #     ) * mask.reshape(-1) # 过于 离散，以及太陡峭，正数
+                    # ============================================================================================================
+                    # forces_error_sqruare_sum = np.sum(np.square(forces_error), axis=1)
+                    # QP_error_normal_force_penalty_r = np.where(mask.reshape(-1) == 1, 
+                    #                                            cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff'] / 
+                    #                                            forces_error_sqruare_sum,
+                    #                                            0) # 容易炸
+                    # print(QP_error_normal_force_penalty_r)
+                    # ============================================================================================================
+                    delta_F = np.sum(np.abs(forces_error), axis=1)
+                    # print("Env's delta_F \n",delta_F.reshape(-1))
+                    delta_F = np.where(delta_F > 0, delta_F, 20).reshape(-1,1)
+                    # print("Input Delta_F \n", delta_F.reshape(-1))
+                    # print("wrench_error_list:\n", np.array(wrench_error_list).reshape(-1))
+                    QP_error_normal_force_penalty_r = QP_reward(np.array(wrench_error_list).reshape(-1,1), delta_F, k_delta=0.05)
+                    assert QP_error_normal_force_penalty_r.shape == (repeat_per_obj, )
+                    
+                elif ob_dim_r == 170 or ob_dim_r == 153:
+                    tau_error_list, wrench_error_list = env.solver.qp_ik_torque_as_ref(env.get_contact_info(), env.get_object_info())
+                    delta_tau = np.sum(np.abs(tau_error_list), axis=1).reshape(-1,1)
+                    delta_tau = np.where(delta_tau > 0, delta_tau, 5).reshape(-1,1)
+                    # print("Env's delta_tau \n",delta_tau.reshape(-1))
+                    # print("wrench_error_list:\n", np.array(wrench_error_list).reshape(-1))
+                    # print("tau_error_list:\n", np.array(tau_error_list).reshape(-1))
+                    QP_error_normal_force_penalty_r = QP_reward(np.array(wrench_error_list).reshape(-1,1), delta_tau, k_error=50, k_delta=0.9, transition_scale=50)
+                    assert QP_error_normal_force_penalty_r.shape == (repeat_per_obj, )
+                            
+                    
 
                 
             one_check = global_state[:, 124:128]
@@ -679,15 +695,13 @@ def train(main_cfg: DictConfig):
                 rewards_r[i]['table_reward'] = table_reward_r[i] * cfg['environment']['reward']['table_reward']['coeff']
                 rewards_r[i]['arm_height_reward'] = arm_height_reward_r[i] * cfg['environment']['reward']['arm_height_reward']['coeff']
                 rewards_r[i]['arm_collision_reward'] = arm_collision_reward_r[i] * cfg['environment']['reward']['arm_collision_reward']['coeff']
-                # if ob_dim_r == 193:
                 if use_QP_reward:
-                    rewards_r[i]['QP_error_normal_force_penalty'] = QP_error_normal_force_penalty_r[i] 
+                    rewards_r[i]['QP_error_normal_force_penalty'] = QP_error_normal_force_penalty_r[i]  * cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff']
                 
                 rewards_r[i]['reward_sum'] = (
                             rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] +
                             rewards_r[i]['table_reward'] + rewards_r[i]['arm_height_reward'] + 
                             rewards_r[i]['arm_collision_reward'])
-                # if ob_dim_r == 193:
                 if use_QP_reward:
                     rewards_r[i]['reward_sum'] = rewards_r[i]['reward_sum'] + rewards_r[i]['QP_error_normal_force_penalty']
 

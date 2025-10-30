@@ -65,7 +65,7 @@ environment:
   render: True
   visualize: False
   # Compute inverse Dynamics NOTE: Just For DEBUG
-  compute_inverse_dynamics: True
+  compute_inverse_dynamics: False
   # Dataset to load for training
   load_set: "new_training_set"
   # Standard deviation for finger action sampling
@@ -96,8 +96,12 @@ environment:
     #   coeff: -0.10          # Penalty for affordance impulse
     # affordance_force_max_penalty: 
     #   coeff: -0.10              # Penalty for affordance impulse max
-    sliding_penalty:
-      coeff: -3.0
+    # sliding_penalty:
+    #   coeff: -3.0
+    # QP_error_normal_force_penalty:
+    #   coeff: 2
+    
+
     
     
     # Negative rewards for table interaction 
@@ -163,3 +167,4 @@ architecture:
   # obs_dim: 158 # RD Grasp + ÷mass + friction + 3D pos
   # obs_dim: 155 # RD Grasp + mass + friction 
   # obs_dim: 159 # RD Grasp + Grasp Acc
+  # obs_dim: 170

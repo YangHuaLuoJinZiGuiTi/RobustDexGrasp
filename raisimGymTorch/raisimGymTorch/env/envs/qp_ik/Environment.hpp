@@ -798,7 +798,7 @@ namespace raisim {
             raisim::RotmatToEuler(wrist_mat_r_in_obj, wrist_euler_in_obj);
             rewards_r_.record("affordance_contact_reward", std::max(0.0, affordance_contact_reward_r));
             rewards_r_.record("push_reward", std::max(0.0, push_reward_r));
-            rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
+            // rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
             rewards_r_.record("table_contact_reward", std::max(0.0, table_contact_reward_r));
             rewards_r_.record("table_impulse_reward", std::max(0.0, table_impulse_reward_r));
             rewards_r_.record("obj_displacement_reward", std::max(0.0, obj_displacement_reward));
@@ -811,9 +811,9 @@ namespace raisim {
             rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
             // rewards_r_.record("grasp_acceleration_error_norm", std::max(0.0, std::min(grasp_acceleration_error_norm.norm(), 5.0)));
             // rewards_r_.record("grasp_acceleration_error_norm", std::min(grasp_acceleration_error_norm.norm()/obj_weight, 2.0));
-            // rewards_r_.record("affordance_force_max_penalty", std::max(affordance_force_penalty, 0.0));
+            rewards_r_.record("affordance_force_max_penalty", std::max(affordance_force_penalty, 0.0));
             // rewards_r_.record("contact_coeff", std::min(1.0, min_contact_coef));
-            rewards_r_.record("sliding_penalty", sliding_penalty);
+            // rewards_r_.record("sliding_penalty", sliding_penalty);
             // std::cerr << "sliding_penalty" << sliding_penalty << std::endl;
 //             for(int i = 0; i < num_contacts; i++) {
 //     std::cerr << "Body part " << i << " name: " << contact_bodies_r_[i] << std::endl;

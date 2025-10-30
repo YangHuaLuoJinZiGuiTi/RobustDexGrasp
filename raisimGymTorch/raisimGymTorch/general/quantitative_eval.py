@@ -126,7 +126,7 @@ def quantitative_eval(main_cfg: DictConfig):
     obj_list = []
     obj_path_list = []
     obj_ori_list = folder_names[:len(folder_names)]
-    obj_ori_list = folder_names[:1] # NOTE: for debug only
+    # obj_ori_list = folder_names[:1] # NOTE: for debug only
     
     
     # obj_ori_list = ['hammer', '037_scissors', 'off_water_body', '019_pitcher_base', '011_banana', 'mouse']
@@ -543,14 +543,22 @@ def quantitative_eval(main_cfg: DictConfig):
             action_r = action_r.cpu().detach().numpy()
             # Initialize left hand actions as zeros (not used)
             action_l = np.zeros_like(action_r)
-            forces_error, wrench_error_list = env.solver.qp_force_as_ref(env.get_contact_info(), env.get_object_info()) # (num_env, 13*3) , (num_env, 1)
-            delta_F = np.sum(np.abs(forces_error), axis=1)
+            
+            # =========== QP DEBUG =========
+            # forces_error, wrench_error_list = env.solver.qp_force_as_ref(env.get_contact_info(), env.get_object_info()) # (num_env, 13*3) , (num_env, 1)
+            # delta_F = np.sum(np.abs(forces_error), axis=1)
             # print("Env's delta_F \n",delta_F.reshape(-1))
-            delta_F = np.where(delta_F > 0, delta_F, 20).reshape(-1,1)
+            # delta_F = np.where(delta_F > 0, delta_F, 20).reshape(-1,1)
             # print("Input Delta_F \n", delta_F.reshape(-1))
             # print("wrench_error_list:\n", np.array(wrench_error_list).reshape(-1))
-            
-            
+    
+            tau_error_list, wrench_error_list = env.solver.qp_ik_torque_as_ref(env.get_contact_info(), env.get_object_info())
+            delta_tau = np.sum(np.abs(tau_error_list), axis=1).reshape(-1,1)
+            delta_tau = np.where(delta_tau > 0, delta_tau, 5).reshape(-1,1)
+            # print("Env's delta_tau \n",delta_tau.reshape(-1))
+            QP_error_normal_force_penalty_r = QP_reward(np.array(wrench_error_list).reshape(-1,1), delta_tau, k_error=0.1, k_delta=0.7, transition_scale=0.1)
+            # print("QP_error_normal_force_penalty_r: ", QP_error_normal_force_penalty_r)
+            # =========== QP DEBUG =========
             
             # Control logic: grasp phase then lift phase
             if step < grasp_steps:

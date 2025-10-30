@@ -314,7 +314,54 @@ class QP_Solver:
         
         
         return forces_error, wrench_error_list
-                
+    
+    def qp_ik_torque_as_ref(self, contact_info_list, object_info_list):     
+        """
+        NOTE: Normal direction and contact wrenches direction: obj2hand
+        Input:
+            contact_info_list: a list of dictionaries, each dictionary contains the following keys:
+                "contact_points": np.array [n, 3]
+                "normal": np.array [n, 3]
+                "normal_forces" : np.array [n, 3]
+                "forces": np.array [n, 3]
+                "env_id": int
+                "contact_ids": list of int
+                "num_contact": int
+                "env_jacobians" : np.array [n, 3, 22] (Ur5-allegro)
+        
+            object_info_list: a list of dictionaries, each dictionary contains the following keys:
+                "object_weight":  float  Netwon
+                "object_gravity_center": np.array [3,]  
+                "miu_coef": list [miu, 0.02]
+                "env_id": int
+        
+        output: Directly input of the actor policy network, the torque error computed from target normal forces and 
+        Contact normal forces , and QP's wrench error list.
+             forces_error: np.array [num_env, 16]  
+             wrench_error_list: np.array [num_env, 1]
+        """
+        target_force_list, wrench_error_list = self.solve_qp(contact_info_list, object_info_list)
+        num_env = len(contact_info_list)
+        forces_error = np.full((num_env, self.num_affordance_contact, 3), 0) # (32, 13, 3)
+        tau_error_list = np.full((num_env, 16), 0, dtype=np.float64)
+        # print(tau_error_list.shape)
+        for i in range(num_env):
+            if contact_info_list[i]['num_contact'] < 1 or wrench_error_list[i] > 1e-3:
+                wrench_error_list[i] = 0.1
+                continue
+            # if wrench_error_list[i] < 1e-3: # QP has solution
+            tau = np.zeros(22)
+            for j in range(contact_info_list[i]['num_contact']):
+                forces_error = np.array(contact_info_list[i]["normal_forces"])[j] - target_force_list[i][j]
+                # print(forces_error.shape, contact_info_list[i]['env_jacobians'][j].shape)
+                tau += np.dot(contact_info_list[i]['env_jacobians'][j].T, forces_error)
+            tau_error_list[i] = deepcopy(tau[-16:])
+            # print("Inner loop tau:\n", tau)
+            # print("Inner loop tau_error_list:\n", tau_error_list[i]) 
+        # print(tau_error_list.shape)
+        # print("Outer loop:\n", tau_error_list)
+        return tau_error_list, wrench_error_list
+    
     def solve_inverse_dynamics(self, jacobian_list, target_force_list):
         """
         Input:

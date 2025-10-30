@@ -20,7 +20,7 @@ data:
   storedir: data_all
 
 random_prior:
-  use: True
+  use: False
   mass_bound: [0.05, 0.5] # kg
   mu_bound: [0.4, 0.8] #  friction coefficient
 
