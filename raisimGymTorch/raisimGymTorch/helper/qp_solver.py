@@ -191,6 +191,10 @@ class QP_Solver:
         self.pre_retract_force = {}
         self.num_affordance_contact = num_affordance_contact
         self.hand_dim = hand_dim
+        self.solved_num = 0
+        
+    def reset(self):
+        self.solved_num = 0
     def solve_qp(self, contact_info_list, object_info_list):
         """
         NOTE: Normal direction and contact wrenches direction: obj2hand
@@ -216,6 +220,8 @@ class QP_Solver:
         num_env = len(contact_info_list)
         target_normal_force_list = []
         wrench_error_list = []
+        self.solved_num += 1
+
 
         for i in range(num_env):
             contact_info = contact_info_list[i]
@@ -226,7 +232,8 @@ class QP_Solver:
                 wrench_error_list.append(0)
                 continue
             
-            miu_coef = object_info["miu_coef"]  
+            miu_coef = object_info["miu_coef"] 
+            miu_coef[0] -= 0.2
             # f_scaling = 1.5  # NOTE: In real implementation, the leap hand max fingertip force is 1.5N  
             gravity = np.array([0,0.0,-0.1,0.0,0.0,0.0]).reshape(6) 
             gravity_center = object_info["object_gravity_center"]
@@ -247,10 +254,11 @@ class QP_Solver:
                 gravity,
                 gravity_center,
                 retract_force,
-                retract_weight=0.02
+                retract_weight=0.02 * (self.solved_num / 10 > 1)
                 )
             
-            target_force = contact_wrenches[:, :3] * object_info["object_weight"] * 10 * 3
+            target_force = contact_wrenches[:, :3] * object_info["object_weight"] * 10 
+
             target_normal_force = np.zeros_like(contact_wrenches[:, :3])
             for i in range(num_contact):
                 target_normal_force[i] = np.abs(np.dot(
@@ -262,7 +270,10 @@ class QP_Solver:
             wrench_error_list.append(np.max(np.abs(wrench_error[:3]))) # mearsuring quality of current grasp   NOTE: Only consider trans, without rot
             for i, contact_id in enumerate(contact_info['contact_ids']):
                 self.pre_retract_force[contact_id] = deepcopy(contact_wrenches[i, :3])
-                
+        # print("target_normal_force_list:\n", target_normal_force_list,"\b",np.array( contact_info_list[0]['normal_forces']))
+        # print(np.array(contact_info_list[0]['normal_forces']))
+        # print(np.array(target_normal_force_list), "-----\n")
+        
         return target_normal_force_list, wrench_error_list
 
     def qp_force_as_ref(self, contact_info_list, object_info_list):
@@ -341,9 +352,12 @@ class QP_Solver:
              wrench_error_list: np.array [num_env, 1]
         """
         target_force_list, wrench_error_list = self.solve_qp(contact_info_list, object_info_list)
+        # print("target_force_list:\n", target_force_list[0])
+        # print("contact_info_list:\n", np.array(contact_info_list[0]['normal_forces']),"\n")
         num_env = len(contact_info_list)
         forces_error = np.full((num_env, self.num_affordance_contact, 3), 0) # (32, 13, 3)
         tau_error_list = np.full((num_env, 16), 0, dtype=np.float64)
+
         # print(tau_error_list.shape)
         for i in range(num_env):
             if contact_info_list[i]['num_contact'] < 1 or wrench_error_list[i] > 1e-3:
@@ -360,6 +374,7 @@ class QP_Solver:
             # print("Inner loop tau_error_list:\n", tau_error_list[i]) 
         # print(tau_error_list.shape)
         # print("Outer loop:\n", tau_error_list)
+        
         return tau_error_list, wrench_error_list
     
     def solve_inverse_dynamics(self, jacobian_list, target_force_list):

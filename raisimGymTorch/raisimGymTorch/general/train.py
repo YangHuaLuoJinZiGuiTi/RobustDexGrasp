@@ -47,7 +47,7 @@ def train(main_cfg: DictConfig):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     
-    device = torch.device('cuda:7')
+    device = torch.device('cuda:6')
 
     # Directory setup
     task_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"../env/envs/{main_cfg.task_name}") 
@@ -103,7 +103,8 @@ def train(main_cfg: DictConfig):
     # Initialize object lists
     obj_path_list = []
     # obj_ori_list = folder_names[:int(len(folder_names)/2)]
-    obj_ori_list = folder_names[:1]
+    # obj_ori_list = folder_names[:1]
+    obj_ori_list = folder_names
 
     # Increase the number of repetitions for difficult objects to improve training
     obj_ori_list.append('037_scissors')
@@ -118,8 +119,10 @@ def train(main_cfg: DictConfig):
 
     # NOTE: Just For Validaton, training in single OBJ
     # raise ValueError(folder_names)
-    folder_names = ['005_tomato_soup_can']
-    obj_ori_list, repeat_per_obj = folder_names[:1],  32
+    if main_cfg.single_obj == True:
+        folder_names = ['005_tomato_soup_can']
+        obj_ori_list, repeat_per_obj = folder_names[:1],  32
+    
     
     # Calculate total number of environments based on objects and repetitions
     num_envs = len(obj_ori_list) * repeat_per_obj
@@ -215,7 +218,6 @@ def train(main_cfg: DictConfig):
                     gamma=0.996,
                     lam=0.95,
                     num_mini_batches=4,
-                    entropy_coef=0.05,
                     device=device,
                     log_dir=saver.data_dir,
                     shuffle_batch=False
@@ -610,6 +612,7 @@ def train(main_cfg: DictConfig):
         #     print(f">>> Obj setting mass { np.mean(env.get_obj_weight())} N .  mu {np.mean(env.get_obj_mu())}")
         # ===========
         print(f">>> Obj setting mass { np.mean(env.get_obj_weight())} N .  mu {np.mean(env.get_obj_mu())}")
+        env.solver.reset()
         # ===== Training Loop =====
         for step in range(current_steps):
             obs_r = obs_new_r
@@ -672,7 +675,7 @@ def train(main_cfg: DictConfig):
                     # print("Input Delta_F \n", delta_F.reshape(-1))
                     # print("wrench_error_list:\n", np.array(wrench_error_list).reshape(-1))
                     QP_error_normal_force_penalty_r = QP_reward(np.array(wrench_error_list).reshape(-1,1), delta_F, k_delta=0.05)
-                    assert QP_error_normal_force_penalty_r.shape == (repeat_per_obj, )
+                    assert QP_error_normal_force_penalty_r.shape == (num_envs, )
                     
                 elif ob_dim_r == 170 or ob_dim_r == 153:
                     tau_error_list, wrench_error_list = env.solver.qp_ik_torque_as_ref(env.get_contact_info(), env.get_object_info())
@@ -681,8 +684,8 @@ def train(main_cfg: DictConfig):
                     # print("Env's delta_tau \n",delta_tau.reshape(-1))
                     # print("wrench_error_list:\n", np.array(wrench_error_list).reshape(-1))
                     # print("tau_error_list:\n", np.array(tau_error_list).reshape(-1))
-                    QP_error_normal_force_penalty_r = QP_reward(np.array(wrench_error_list).reshape(-1,1), delta_tau, k_error=50, k_delta=0.9, transition_scale=50)
-                    assert QP_error_normal_force_penalty_r.shape == (repeat_per_obj, )
+                    QP_error_normal_force_penalty_r = QP_reward(np.array(wrench_error_list).reshape(-1,1), delta_tau, k_error=3000, k_delta=0.9, transition_scale=1500)
+                    assert QP_error_normal_force_penalty_r.shape == (num_envs, )
                             
                     
 
@@ -697,6 +700,7 @@ def train(main_cfg: DictConfig):
                 rewards_r[i]['arm_collision_reward'] = arm_collision_reward_r[i] * cfg['environment']['reward']['arm_collision_reward']['coeff']
                 if use_QP_reward:
                     rewards_r[i]['QP_error_normal_force_penalty'] = QP_error_normal_force_penalty_r[i]  * cfg['environment']['reward']['QP_error_normal_force_penalty']['coeff']
+
                 
                 rewards_r[i]['reward_sum'] = (
                             rewards_r[i]['reward_sum'] + rewards_r[i]['affordance_reward'] +
@@ -704,6 +708,7 @@ def train(main_cfg: DictConfig):
                             rewards_r[i]['arm_collision_reward'])
                 if use_QP_reward:
                     rewards_r[i]['reward_sum'] = rewards_r[i]['reward_sum'] + rewards_r[i]['QP_error_normal_force_penalty']
+                
 
                 reward_r[i] = rewards_r[i]['reward_sum']
             reward_r.clip(min=reward_clip)

@@ -798,7 +798,7 @@ namespace raisim {
             raisim::RotmatToEuler(wrist_mat_r_in_obj, wrist_euler_in_obj);
             rewards_r_.record("affordance_contact_reward", std::max(0.0, affordance_contact_reward_r));
             rewards_r_.record("push_reward", std::max(0.0, push_reward_r));
-            // rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
+            rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
             rewards_r_.record("table_contact_reward", std::max(0.0, table_contact_reward_r));
             rewards_r_.record("table_impulse_reward", std::max(0.0, table_impulse_reward_r));
             rewards_r_.record("obj_displacement_reward", std::max(0.0, obj_displacement_reward));

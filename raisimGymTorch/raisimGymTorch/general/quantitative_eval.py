@@ -62,7 +62,7 @@ def quantitative_eval(main_cfg: DictConfig):
     task_name = main_cfg.exp_name
 
     # Check if GPU is available
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:4' if torch.cuda.is_available() else 'cpu')
 
     # Directory setup
     # task_path = os.path.dirname(os.path.realpath(__file__))
@@ -77,6 +77,9 @@ def quantitative_eval(main_cfg: DictConfig):
     # Load configuration from YAML file
     cfg = YAML().load(open( main_cfg['task_path'],'r'))
 
+    if main_cfg.env_settings.mass is not None:
+        cfg['environment']['mass'] = main_cfg.env_settings.mass
+        
     # Update seed if provided in command line
     if main_cfg.exp.seed != 1:
         cfg['seed'] = main_cfg.exp.seed
@@ -254,7 +257,7 @@ def quantitative_eval(main_cfg: DictConfig):
     total_f_g_list = []
     total_f_max_list = []
     total_f_max_mean_list = []
-
+    total_f_max_mean_lift_list = []
     # For time debug 
     start_time = time.time()
     step_time_list, obs_time_list = [], []
@@ -529,7 +532,9 @@ def quantitative_eval(main_cfg: DictConfig):
         else:
             obj_pos_bias = np.zeros((num_envs, 3), dtype='float32')
 
+        env.solver.reset()
         # ===== Main Action Execution Loop =====
+        QP_error_normal_force_penalty_r_list = []
         for step in range(n_steps_r):
             # Time the start of each frame for performance measurement
             frame_start = time.time()
@@ -555,9 +560,12 @@ def quantitative_eval(main_cfg: DictConfig):
             tau_error_list, wrench_error_list = env.solver.qp_ik_torque_as_ref(env.get_contact_info(), env.get_object_info())
             delta_tau = np.sum(np.abs(tau_error_list), axis=1).reshape(-1,1)
             delta_tau = np.where(delta_tau > 0, delta_tau, 5).reshape(-1,1)
+            # print(">>> Input Delta_tau and wrench error: ", delta_tau.reshape(-1), np.array(wrench_error_list).reshape(-1))
+
             # print("Env's delta_tau \n",delta_tau.reshape(-1))
             QP_error_normal_force_penalty_r = QP_reward(np.array(wrench_error_list).reshape(-1,1), delta_tau, k_error=0.1, k_delta=0.7, transition_scale=0.1)
             # print("QP_error_normal_force_penalty_r: ", QP_error_normal_force_penalty_r)
+            QP_error_normal_force_penalty_r_list.append(QP_error_normal_force_penalty_r)
             # =========== QP DEBUG =========
             
             # Control logic: grasp phase then lift phase
@@ -590,6 +598,9 @@ def quantitative_eval(main_cfg: DictConfig):
             # print(env.get_obj_weight())
             # print(">>> len:", len(env.get_global_state()[0]))
             max_force = np.array(env.get_global_state()[:, 128]).reshape(-1)
+            # print("Delta Tau / Wrench Error / max force: ",delta_tau.reshape(-1), np.array(wrench_error_list).reshape(-1), max_force)
+            # print("\n>>> Max Force: ", max_force)
+            # print(">>> Hand Delta Actions:", action_r.reshape(-1)[-16:])
             max_force_list.append(max_force)
             # print(">>> max force recieve: ", max_force)
             
@@ -622,6 +633,10 @@ def quantitative_eval(main_cfg: DictConfig):
         # Update overall success rate using running average
         success_rate = (update * success_rate + np.sum(lifted) / num_envs) / (update + 1)
         print("average success rate", success_rate, file=sys.stdout)
+        # print("Avg QP error: ", np.mean(QP_error_normal_force_penalty_r_list))
+
+
+
 
         # Update statistics for each object
         for i in range(num_envs):
@@ -641,6 +656,8 @@ def quantitative_eval(main_cfg: DictConfig):
 
         # Max Force Static Analysis
         max_force_array = np.array(max_force_list)
+        max_force_in_lift = max_force_array[grasp_steps:]
+        
         ## 1. Force Trajectory for 35 Envs plot
         plot_force_trajectories(max_force_array,
                                 obj_name=obj_list,
@@ -663,10 +680,14 @@ def quantitative_eval(main_cfg: DictConfig):
             non_zero_means = np.sum(max_force_array * mask, axis=0) / np.sum(mask, axis=0)
             f_max_mean = np.average(non_zero_means[success_indices])
             f_max = np.max(max_force_array, axis=0)
-            print(f"current F_max (NOTE: HAVE BUG)  (N) / G_obj (N) for success obj: {f_g} ; F_max_mean: {f_max_mean }N; F_max: {f_max}N" )
+            f_max_in_lift =np.mean(max_force_in_lift)
+            
+            print(f"current F_max (NOTE: HAVE BUG)  (N) / G_obj (N) for success obj: {f_g} ; F_max_mean: {f_max_mean }N; F_max: {f_max}N; F_max_mean in lift: {f_max_in_lift} N" )
             total_f_max_list.append(copy(f_max))
             total_f_max_mean_list.append(copy(f_max_mean))
             total_f_g_list.append(copy(f_g))
+            total_f_max_mean_lift_list.append(copy(f_max_in_lift))
+            
                 
         # print(env.get_reward_info_r())
         
@@ -699,10 +720,17 @@ def quantitative_eval(main_cfg: DictConfig):
     print("\nTotal F_max / G_obj for success obj: {:.2f}".format(np.average(total_f_g_list)), file=sys.stdout)
     print("\nTotal F_max: {:.2f}N".format(np.average(total_f_max_list)), file=sys.stdout)
     print("\nTotal F_max_mean: {:.2f}N".format(np.average(total_f_max_mean_list)), file=sys.stdout)
+    print("\nTotal F_max_mean in lift: {:.2f}N".format(np.average(total_f_max_mean_lift_list)), file=sys.stdout)
     print("total_cost_time: ", time.time()-start_time)
     print(f"step time : {np.sum(step_time_list)}.     obs time: {np.sum(obs_time_list)}.")
 
-
+    return {
+        "obj_mass": np.average(mass_list),
+        "F_max": np.average(total_f_max_list),
+        "F_max_mean": np.average(total_f_max_mean_list),
+        "F_max_mean_lift": np.average(total_f_max_mean_lift_list),
+        "total_succ_rate": total_success_rate,
+    } 
     # ===== End of Quantitative Evaluation =====
     # This script performs quantitative evaluation of robotic grasping using a pre-trained policy.
     # It tests the policy on multiple objects and reports success rates and failure statistics,

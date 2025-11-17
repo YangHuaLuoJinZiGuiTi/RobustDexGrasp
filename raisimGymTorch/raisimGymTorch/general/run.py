@@ -22,9 +22,27 @@ def main(cfg: DictConfig) -> None:
     if cfg.mode == "train":
         train(cfg)
     elif cfg.mode == "eval":
-        quantitative_eval(cfg)
- 
-    
+        __ = quantitative_eval(cfg)
+    elif cfg.mode == "batched_eval":
+        mass_list = [0.1, 0.25, 0.5, 0.8]
+        result_list = []
+        for mass in mass_list:
+            cfg.env_settings.mass = mass
+            result = quantitative_eval(cfg)
+            result_list.append(result)
+        print("Batched Evaluation Results:")
+        import sys
+        import numpy as np
+        for result in result_list:
+            obj_mass, total_succ_rate, F_max, F_max_mean, F_max_mean_lift = result["obj_mass"], result["total_succ_rate"], result["F_max"], result["F_max_mean"], result["F_max_mean_lift"]
+            print("\n============================")
+            print("\nEval Name: ", cfg.eval_name)
+            print("\nObj Average Gravity: {:.2f}N".format(obj_mass))
+            print("\nTotal success rate: {:.2f}%".format(total_succ_rate), file=sys.stdout)
+            print("\nTotal F_max: {:.2f}N".format(F_max), file=sys.stdout)
+            print("\nTotal F_max_mean: {:.2f}N".format(F_max_mean), file=sys.stdout)
+            print("\nTotal F_max_mean in lift: {:.2f}N".format(F_max_mean_lift), file=sys.stdout)
+            
 
 if __name__ == "__main__":
     main()

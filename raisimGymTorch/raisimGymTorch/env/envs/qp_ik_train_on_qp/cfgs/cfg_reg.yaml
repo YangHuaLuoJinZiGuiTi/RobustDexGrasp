@@ -54,7 +54,8 @@ environment:
   # Policy update frequency (every n iterations)
   update_every_n: 20
   # Number of parallel simulation threads
-  num_threads: 32
+  num_threads: 132
+  # num_threads: 32
   # Simulation time step [s]
   simulation_dt: 0.01
   # Control time step [s] (policy decision frequency)
@@ -160,11 +161,20 @@ environment:
 ## Still Can be polished
 
 architecture:
-  policy_net: [128, 128]
-  value_net: [128, 128]
-  cost_net : [128, 128]
-  obs_dim: 153 # RD Grasp
+  # policy_net: [128, 128]
+  # value_net: [128, 128]
+  # cost_net : [128, 128]
+  
+  policy_net: [512, 256, 256]
+  value_net: [512, 256, 256]
+  cost_net : [512, 256, 256]
+
+  # policy_net: [256, 256, 128]
+  # value_net: [256, 256, 128]
+  # cost_net : [256, 256, 128]
+
+  # obs_dim: 153 # RD Grasp
   # obs_dim: 158 # RD Grasp + ÷mass + friction + 3D pos
   # obs_dim: 155 # RD Grasp + mass + friction 
   # obs_dim: 159 # RD Grasp + Grasp Acc
-  # obs_dim: 170
+  obs_dim: 170

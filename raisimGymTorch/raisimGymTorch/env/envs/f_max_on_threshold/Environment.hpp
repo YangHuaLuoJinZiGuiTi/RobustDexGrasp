@@ -733,7 +733,16 @@ namespace raisim {
             impulses_r_non_af_clipped = impulses_r_non_af.cwiseMax(impulse_low).cwiseMin(impulse_high);
             impulses_r_table_clipped = impulses_r_table.cwiseMax(impulse_low).cwiseMin(impulse_high);
 
-            affordance_force_penalty = impulses_r_af_clipped.maxCoeff();
+            // affordance_force_penalty = impulses_r_af_clipped.maxCoeff();
+            double sum = 0.0;
+            int count = 0;
+            for (int i = 0; i < impulses_r_af_clipped.size(); ++i) {
+                if (impulses_r_af_clipped(i) > 1.6 * obj_weight / mu_finger2obj  * simulation_dt_ /2) {  // consider impulses above 1.6 * mg / mu / 2  * simulation_dt
+                    sum += impulses_r_af_clipped(i);
+                    count++;
+                }
+            }
+            affordance_force_penalty = (count > 0) ? (sum / count) : 0.0;
 
             affordance_impulse_reward_r = impulses_r_af_clipped.cwiseProduct(finger_weights_contact).sum();
             if (has_non_aff){

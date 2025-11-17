@@ -83,7 +83,7 @@ environment:
     affordance_reward:
       coeff: 0.5                # Reward for joint distance to object points
     affordance_contact_reward:
-      coeff: 1.5                # Reward for making contact with objects
+      coeff: 1.5               # Reward for making contact with objects
     # affordance_impulse_reward:
     #   coeff: 1.0                # Reward based on x-y direction impulse with objects
 
@@ -95,11 +95,11 @@ environment:
     # affordance_force_penalty:
     #   coeff: -0.10          # Penalty for affordance impulse
     affordance_force_max_penalty: 
-      coeff: -0.1            # Penalty for affordance impulse max
+      coeff: -3.0       # Penalty for affordance impulse max
     # sliding_penalty:
     #   coeff: -3.0
     QP_error_normal_force_penalty:
-      coeff: 10
+      coeff: 1
     
 
     
