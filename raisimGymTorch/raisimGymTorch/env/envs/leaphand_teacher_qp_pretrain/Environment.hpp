@@ -1,0 +1,1692 @@
+//----------------------------//
+// This file is part of RaiSim//
+// Copyright 2020, RaiSim Tech//
+//----------------------------//
+
+#pragma once
+
+// project based head file
+#include "../../hardware/hardware.hpp"
+
+#include <stdlib.h>
+#include <set>
+#include "../../RaisimGymEnv.hpp"
+#include "raisim/World.hpp"
+#include <vector>
+#include "raisim/math.hpp"
+#include <math.h>
+//#include "../../UR5_IK/include/Kinematics.hpp"
+
+namespace raisim {
+    class ENVIRONMENT : public RaisimGymEnv {
+
+    public:
+
+        explicit ENVIRONMENT(const std::string& resourceDir, const Yaml::Node& cfg, bool visualizable) :
+                RaisimGymEnv(resourceDir, cfg), visualizable_(visualizable) {
+
+            visualizable_ = cfg["visualize"].As<bool>();
+            compute_inverse_dynamics_ = cfg["compute_inverse_dynamics"].As<bool>();
+            load_set = cfg["load_set"].As<std::string>();
+            if (visualizable_) {
+                std::cout<<"visualizable_: "<<visualizable_<<std::endl;
+            }
+            lift = false;
+            lift_num = 0;
+
+
+
+            /// intialize Sliding parameters
+            SLIDING_DISTANCE_THRESHOLD = cfg["sliding_distance_threshold"].As<double>(0.001);
+
+            /// Create physics world
+            world_ = std::make_unique<raisim::World>();
+            world_->addGround();
+            world_->setERP(0.0);
+
+            /// Set material properties
+            mu_finger2obj  = cfg["friction"].As<double>();
+            world_->setMaterialPairProp("object", "object", 0.8, 0.0, 0.0, 0.8, 0.1);
+            world_->setMaterialPairProp("object", "finger", mu_finger2obj, 0.0, 0.0, 0.8, 0.1);
+            world_->setMaterialPairProp("finger", "finger", 0.8, 0.0, 0.0, 0.8, 0.1);
+            world_->setDefaultMaterial(0.8, 0, 0, 0.8, 0.1);
+            obj_mass = cfg["mass"].As<double>();
+            obj_weight = obj_mass * 9.81;
+
+            /// add mano
+            std::string hand_model_r =  cfg["hardware"]["sim_model"].As<std::string>();
+            if(visualizable_){
+                std::cout<<"hand_model_r: "<<hand_model_r<<std::endl;
+            }
+            resourceDir_ = resourceDir;
+            mano_r_ = std::make_unique<Hardware>(resourceDir, cfg["hardware"], world_);
+            mano_r_->setName("LeapHand");
+//            hand_mass = mano_r_->getTotalMass();
+
+            num_contacts = mano_r_->getBodies(contact_bodies_r_, false, true);
+            num_bodyparts = mano_r_->getBodies(body_parts_r_, false, false);
+            mano_r_->getBodies(contact_arm_bodies, true, true);
+            mano_r_->getBodies(arm_parts, true, false);
+
+            /// add table
+            box = static_cast<raisim::Box*>(world_->addBox(2, 1, 0.771, 100, "table", raisim::COLLISION(1)));
+            box->setPosition(0.2, -0.75152, 0.3855);
+            box->setAppearance("0.0 0.0 0.0 0.0");
+
+            /// set PD control mode
+            mano_r_->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
+
+
+            raisim::Vec<4> quat_base;
+            raisim::Vec<3> euler_base;
+            euler_base[0] = 0;
+            euler_base[1] = 0;
+            euler_base[2] = 0;
+            // euler_ur5base[2] = 1.57;
+            raisim::eulerToQuat(euler_base,quat_base);
+            raisim::quatToRotMat(quat_base,base_mat);
+
+//            base_pos[0] = 0.55;
+//            base_pos[1] = 0.75152;
+            base_pos[0] = 0.0;
+            base_pos[1] = 0.0;
+            base_pos[2] = -0.;
+            mano_r_->setBasePos(base_pos);
+
+            hand_center.setZero();
+            hand_center[0] = 0.0;
+            hand_center[1] = -0.05;
+            hand_center[2] = 0.11;
+
+
+            /// get actuation dimensions
+            gcDim_ = mano_r_->getGeneralizedCoordinateDim();
+            gvDim_ = mano_r_->getDOF();
+
+            gc_r_.setZero(gcDim_);
+            gv_r_.setZero(gvDim_);
+            gc_set_r_.setZero(gcDim_); gv_set_r_.setZero(gvDim_);
+
+            /// initialize all variables
+            pTarget_r_.setZero(gcDim_); vTarget_r_.setZero(gvDim_);
+            actionDim_ = gcDim_;
+            actionMean_r_.setZero(actionDim_);
+            actionStd_r_.setOnes(actionDim_);
+            joint_limit_high.setZero(actionDim_); joint_limit_low.setZero(actionDim_);
+            arm_gc_lift.setZero(6);
+
+            right_hand_torque.setZero(gcDim_);
+
+            init_or_r_.setZero();  init_rot_r_.setZero(); init_root_r_.setZero();
+            init_obj_rot_.setZero(); init_obj_or_.setZero(); init_obj_.setZero();
+            wrist_mat_r_in_obj_init.setZero();
+            wrist_euler_in_obj_init.setZero();
+            wrist_euler_init.setZero();
+            wrist_mat_r_init.setZero();
+            wrist_euler_previous.setZero();
+            wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
+            afford_center.setZero();
+            obj_base_pos.setZero();
+//            wrist_target_o.setZero();
+            init_center.setZero();
+            frame_y_in_obj.setZero(num_bodyparts*3);
+            joint_pos_in_obj.setZero(num_bodyparts*3);
+            joint_pos_in_world.setZero(num_bodyparts*3);
+            arm_joint_pos_in_world.setZero(6*3);
+
+            joint_height_w.setZero(num_bodyparts);
+            arm_height_w.setZero(6);
+
+            init_arcticCoord.setZero(8);
+
+            contact_body_idx_r_.setZero(num_contacts);
+            contact_arm_idx.setZero(6);
+
+            obj_pos_init_.setZero(8);
+            Position.setZero();
+            Obj_Position.setZero(); Obj_Position_init.setZero(); Obj_orientation.setZero(); Obj_orientation_temp.setZero(); Obj_orientation_init.setZero();
+            obj_quat.setZero();
+            Obj_qvel.setZero(); Obj_linvel.setZero();
+            obj_vel_in_wrist.setZero(); obj_qvel_in_wrist.setZero();
+            target_center_dif.setZero();
+
+            contacts_r_af.setZero(num_contacts); contacts_r_non_af.setZero(num_contacts);
+            impulses_r_af.setZero(num_contacts); impulses_r_non_af.setZero(num_contacts);
+            impulses_r_af_vector.setZero(num_contacts*3); impulses_r_non_af_vector.setZero(num_contacts*3);
+            impulses_r_table_vector.setZero(num_contacts*3); impulses_arm_table_vector.setZero(6*3);
+            impulses_r_af_xy.setZero(num_contacts*2); impulses_r_af_z.setZero(num_contacts);
+            impulse_high.setZero(num_contacts); impulse_low.setZero(num_contacts);
+
+
+            contacts_r_table.setZero(num_contacts); impulses_r_table.setZero(num_contacts);
+            contacts_arm_table.setZero(6); impulses_arm_table.setZero(6);
+            contacts_arm_all.setZero(6);
+
+            /// Initialize Sliding params
+            prevLocalContactPositions_.setZero(num_contacts*3);
+            currentLocalContactPositions_.setZero(num_contacts*3);
+            num_contact_in_one_body.setZero(num_contacts);
+            
+            /// Initialize target position variables
+            pTarget_clipped_r.setZero(gcDim_);
+            pTarget_prev_r.setZero(gcDim_);
+
+            /// initialize 3D positions weights for fingertips higher than for other fingerparts
+            finger_weights_contact.setOnes(num_contacts);
+            for(int i=1; i < 5; i++){
+                finger_weights_contact(3*i) *= 4;
+            }
+            finger_weights_contact(0) = 0;
+            finger_weights_contact(10) = 0;
+            finger_weights_contact.segment(10,3) *= 2;
+            finger_weights_contact(num_contacts-1) *= 2.5;
+            finger_weights_contact /= finger_weights_contact.sum();
+            finger_weights_contact *= num_contacts;
+
+            for(int i=0; i< (num_contacts - 3); i++){
+                impulse_high[i] = 0.1;
+                impulse_low[i] = -0.0;
+            }
+            for(int i=(num_contacts - 3); i< num_contacts; i++){
+                impulse_high[i] = 0.2;
+                impulse_low[i] = -0.0;
+            }
+
+
+            /// set PD gains
+            mano_r_->setPdGains(0);
+            mano_r_->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_));
+            mano_r_->setGeneralizedCoordinate(Eigen::VectorXd::Zero(gcDim_));
+
+            /// MUST BE DONE FOR ALL ENVIRONMENTS
+            obDim_r_ = 102;
+            obDim_l_ = 1;
+            gsDim_ = 128 + 1  + 3 + 6; // add one dimension for max contact force + obj_com
+            obDouble_r_.setZero(obDim_r_);
+            obDouble_l_.setZero(obDim_l_);
+            global_state_.setZero(gsDim_);
+
+            float finger_action_std = cfg["finger_action_std"].As<float>();
+            float rot_action_std = cfg["rot_action_std"].As<float>();
+
+            /// retrieve joint limits from model
+            joint_limits_ = mano_r_->getJointLimits();
+
+            for(int i=0; i < int(gcDim_); i++){
+                actionMean_r_[i] = (joint_limits_[i][1]+joint_limits_[i][0])/2.0;
+                joint_limit_low[i] = joint_limits_[i][0];
+                joint_limit_high[i] = joint_limits_[i][1];
+            }
+
+            /// set actuation parameters
+            actionStd_r_.setConstant(finger_action_std);
+            actionStd_r_.head(6).setConstant(rot_action_std);
+//            actionStd_r_.segment(3,3).setConstant(0.005);
+
+            /// Initialize reward
+            rewards_r_.initializeFromConfigurationFile(cfg["reward"]);
+            grasp_acceleration_error_norm.setZero(6);
+            min_contact_coef = 0.0;
+            num_grasp_contacts_ = 0;
+                        for(int i = 0; i < num_contacts ;i++){
+                contact_body_idx_r_[i] =  mano_r_->getBodyIdx(contact_bodies_r_[i]);
+                contactMapping_r_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_bodies_r_[i])),i));
+            }
+
+            for(int i = 0; i < 6 ;i++){
+                contact_arm_idx[i] =  mano_r_->getBodyIdx(contact_arm_bodies[i]);
+                contactMapping_arm_.insert(std::pair<int,int>(int(mano_r_->getBodyIdx(contact_arm_bodies[i])),i));
+            }
+
+            /// start visualization server
+            if (visualizable_) {
+                if(server_) server_->lockVisualizationServerMutex();
+                server_ = std::make_unique<raisim::RaisimServer>(world_.get());
+                server_->launchServer();
+
+                /// Create table
+                table_top = server_->addVisualBox("tabletop", 2.0, 1.0, 0.05, 0.44921875, 0.30859375, 0.1953125, 1, "");
+                table_top->setPosition(0.2, -0.75152, 0.746);
+                leg1 = server_->addVisualCylinder("leg1", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
+                leg2 = server_->addVisualCylinder("leg2", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
+                leg3 = server_->addVisualCylinder("leg3", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
+                leg4 = server_->addVisualCylinder("leg4", 0.025, 0.746, 0.0, 0.0, 0.0, 1, "");
+                leg1->setPosition(-0.7875,-0.28402,0.373);
+                leg2->setPosition(1.1775,-0.26402,0.373);
+                leg3->setPosition(-0.7875,-1.21902,0.373);
+                leg4->setPosition(1.1775,-1.23902,0.373);
+
+                /// initialize Cylinders for sensor
+                for(int i = 0; i < num_bodyparts; i++){
+                    Cylinder[i] = server_->addVisualCylinder(body_parts_r_[i]+"_cylinder", 0.005, 0.1, 1, 0, 1);
+                }
+                wrist_target[0] = server_->addVisualSphere("target", 0.01, 0, 1, 1, 1);
+                wrist_target[1] = server_->addVisualSphere("hand_center", 0.01, 1, 0, 1, 1);
+
+                if(server_) server_->unlockVisualizationServerMutex();
+            }
+        }
+
+        void init() final { }
+
+
+        void init_obj_weight(){
+            // ---- Dynamically set object mass properties ----
+            std::vector<std::string> body_names;
+            body_names = arctic->getBodyNames();  
+            double current_total = 0.0;
+            std::vector<double> original_masses;
+
+            for (auto& name : body_names) {
+                auto idx = arctic->getBodyIdx(name);
+                original_masses.push_back(arctic->getMass(idx));
+                current_total += original_masses.back();
+            }
+
+            for (size_t i = 0; i < body_names.size(); i++) {
+                auto idx = arctic->getBodyIdx(body_names[i]);
+                arctic->setMass(idx, original_masses[i] * (obj_mass / current_total));
+            }
+            arctic->updateMassInfo();
+        }
+
+        void set_random_obj_prior_info(double random_mass,
+                                      double random_mu){
+            
+            // static std::random_device rd;
+            // static std::mt19937 gen(rd());
+            // std::uniform_real_distribution<double> mass_dist(mass_lower_limit, mass_upper_limit);
+            // std::uniform_real_distribution<double> mu_dist(mu_lower_limit, mu_upper_limit);
+            
+            // Set the new random mass and update weight
+            obj_mass = random_mass;
+            obj_weight = obj_mass * 9.81; // Update weight based on new mass
+            
+            // Set the new random friction coefficient
+            mu_finger2obj = random_mu;
+            if (world_) {
+                world_->setMaterialPairProp("object", "finger", mu_finger2obj, 0.0, 0.0, 0.8, 0.1);
+            }
+            // std::cerr << "Updated object properties - mass: " << obj_mass 
+            //   << " kg, mu: " << mu_finger2obj << std::endl;
+            // Reinitialize object mass properties with new mass
+            if (arctic) {
+                init_obj_weight();
+        }
+
+        }
+
+        
+        void load_object(const Eigen::Ref<EigenVecInt>& obj_idx, const Eigen::Ref<EigenVec>& obj_weight, const Eigen::Ref<EigenVec>& obj_dim, const Eigen::Ref<EigenVecInt>& obj_type) final {}
+        /// This function loads the object into the environment
+        void load_articulated(const std::string& obj_model){
+            obj_name = obj_model;
+            // std::cerr << "Loading object: " << std::endl;
+            // std::cerr << "Loading object: " << resourceDir_+"/"+load_set+"/"+obj_model << std::endl;
+            arctic = static_cast<raisim::ArticulatedSystem*>(world_->addArticulatedSystem(resourceDir_+"/"+load_set+"/"+obj_model, "", {}, raisim::COLLISION(2), raisim::COLLISION(0)|raisim::COLLISION(1)|raisim::COLLISION(2)|raisim::COLLISION(63)));
+            arctic->setName("object");
+    
+            init_obj_weight();
+            if(visualizable_){
+                std::cout<<"obj name: "<<obj_model<<std::endl;
+            }
+            gcDim_obj = arctic->getGeneralizedCoordinateDim();
+            gvDim_obj = arctic->getDOF();
+
+            Eigen::VectorXd gen_coord = Eigen::VectorXd::Zero(gcDim_obj);
+//            gen_coord[4] = 1;
+            arctic->setGeneralizedCoordinate(gen_coord);
+            arctic->setGeneralizedVelocity(Eigen::VectorXd::Zero(gvDim_obj));
+            obj_weight = arctic->getTotalMass();
+
+            Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
+            objPgain.setZero();
+            objDgain.setZero();
+            arctic->setControlMode(raisim::ControlMode::PD_PLUS_FEEDFORWARD_TORQUE);
+            arctic->setPdGains(objPgain, objDgain);
+            arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
+
+            auto non_affordance_id = arctic->getBodyIdx("bottom");
+            double non_aff_mass = arctic->getMass(non_affordance_id);
+            has_non_aff = (non_aff_mass > 0.001);
+        }
+
+        void set_joint_sensor_visual(const Eigen::Ref<EigenVec>& joint_sensor_visual) final {
+
+            raisim::Vec<3> joint_pos_w, mesh_pos_o, mesh_pos_w, vis_cylinder_pos_w;
+
+            for(int i = 0; i < num_bodyparts; i++) {
+
+                mano_r_->getFramePosition(body_parts_r_[i], joint_pos_w);
+
+                // get the point position in wrold frame
+                mesh_pos_o = joint_sensor_visual.segment(i*3,3).cast<double>();
+                raisim::matvecmul(Obj_orientation_temp, mesh_pos_o, mesh_pos_w);
+                vecadd(Obj_Position, mesh_pos_w);
+
+                // Given the starting and ending 3D points,
+                // find the center point, rotation, and length of the visualized cylinder.
+                vis_cylinder_pos_w = (joint_pos_w + mesh_pos_w) / 2.0;
+                double dx = joint_pos_w[0] - mesh_pos_w[0];
+                double dy = joint_pos_w[1] - mesh_pos_w[1];
+                double dz = joint_pos_w[2] - mesh_pos_w[2];
+                double dis = sqrt(dx*dx+dy*dy+dz*dz);
+
+                Eigen::Vector3d A(dx,dy,dz);
+                A.normalize();
+                Eigen::Vector3d Z(0, 0, 1);
+
+                // Calculate the axis of rotation
+                Eigen::Vector3d axis = Z.cross(A);
+                // Parallel ones require special treatment
+                if (axis.norm() < 1e-6) {
+                    std::cout << "In parallel" << std::endl;
+                    // directions are the same, no rotation is needed
+                    if (A.dot(Z) > 0) {
+                        std::cout << "No rotation needed." << std::endl;
+                    } else {
+                        // A and Z are in opposite directions and rotated 180 degrees around the x-axis
+                        axis = Eigen::Vector3d(1, 0, 0);
+                    }
+                }
+
+                double angle = acos(Z.dot(A));
+                Eigen::Quaterniond q = Eigen::Quaterniond::FromTwoVectors(Z, A);
+
+                Cylinder[i]->setPosition(vis_cylinder_pos_w.e());
+                Cylinder[i]->setOrientation(q.w(), q.x(), q.y(), q.z());
+                Cylinder[i]->setCylinderSize(0.001, dis);
+            }
+
+        }
+
+        /// Resets the object and hand to its initial pose
+        void reset() final {
+            if (first_reset_)
+            {
+                first_reset_=false;
+            }
+            else{
+                lift = false;
+                lift_num = 0;
+//                std::cout<<"reset!!!!!!!!!!!!!!!!!!!!"<<std::endl;
+                /// all settings to initial state configuration
+                actionMean_r_.setZero();
+                mano_r_->setBasePos(base_pos);
+                mano_r_->setBaseOrientation(base_mat);
+                mano_r_->setState(gc_set_r_, gv_set_r_);
+
+                gvDim_obj = arctic->getDOF();
+                arctic->setBasePos(init_obj_);
+                arctic->setBaseOrientation(init_obj_rot_);
+                arctic->setState(init_arcticCoord, Eigen::VectorXd::Zero(gvDim_obj));
+                //obj_pos_init: reset pose of object
+
+                box->clearExternalForcesAndTorques();
+                box->setPosition(0.2, -0.75152, 0.3855);
+                box->setOrientation(1,0,0,0);
+                box->setVelocity(0,0,0,0,0,0);
+
+                auto affordance_id = arctic->getBodyIdx("top");
+                arctic->getAngularVelocity(affordance_id, Obj_qvel);
+                Eigen::VectorXd gen_force;
+                gen_force.setZero(gcDim_);
+                mano_r_->setGeneralizedForce(gen_force);
+
+                gen_force.setZero(gcDim_obj);
+                arctic->setGeneralizedForce(gen_force);
+
+                gc_r_=gc_set_r_;
+                right_hand_torque.setZero(gcDim_);
+                gv_r_.setZero(gvDim_);
+                gv_set_r_.setZero(gvDim_);
+                pTarget_r_ = gc_set_r_;
+                pTarget_clipped_r = gc_set_r_;
+                pTarget_prev_r = gc_set_r_;
+                vTarget_r_.setZero(gvDim_);
+                actionMean_r_.setZero();
+//                actionMean_r_.tail(gcDim_-6) = gc_set_r_.tail(gcDim_-6);
+                actionMean_r_ = gc_set_r_;
+                wrist_vel.setZero(); wrist_qvel.setZero(); wrist_vel_in_wrist.setZero(); wrist_qvel_in_wrist.setZero();
+                Obj_Position.setZero();Obj_orientation_temp.setZero();
+                obj_quat.setZero();
+                Obj_qvel.setZero(); Obj_linvel.setZero();
+                wrist_mat_r_init.setZero();
+                wrist_euler_previous.setZero();
+                updateObservation();
+            }
+        }
+
+        bool check_collision(const Eigen::Ref<EigenVec>& joint_state) final {
+            Eigen::VectorXd sc, sv;
+            sc = joint_state.cast<double>();
+            sv.setZero(gvDim_);
+            mano_r_->setState(sc, sv, true);
+
+            for (int i = 0; i < 1; i++) {
+                if(server_) server_->lockVisualizationServerMutex();
+                world_->integrate();
+                if(server_) server_->unlockVisualizationServerMutex();
+            }
+
+            contacts_arm_all.setZero(6);
+
+            for(auto& contact_arm: mano_r_->getContacts()) {
+                contacts_arm_all[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
+            }
+
+            if (contacts_arm_all[0] > 0 || contacts_arm_all[1] > 0 || contacts_arm_all[2] > 0 || contacts_arm_all[3] > 0) {
+                //std::cout << "the joint config have a self-collision" << contacts_arm_all.transpose() << std::endl;
+                return false;
+            } else {
+                return true;
+            }
+        }
+
+        /// Resets the state to a user defined input
+        // obj_pose: 8 DOF [trans(3), ori(4, quat), joint angle(1)]
+        // init_state_l in right-hand coord
+        void reset_state(const Eigen::Ref<EigenVec>& init_state_r,
+                         const Eigen::Ref<EigenVec>& init_state_l,
+                         const Eigen::Ref<EigenVec>& init_vel_r,
+                         const Eigen::Ref<EigenVec>& init_vel_l,
+                         const Eigen::Ref<EigenVec>& obj_pose) final {
+            lift = false;
+            lift_num = 0;
+            /// reset gains (only required in case for inference)
+            mano_r_->setPdGains(0);
+
+            // reset state
+            pTarget_clipped_r.setZero(gcDim_); pTarget_prev_r.setZero(gcDim_);
+
+            Eigen::VectorXd gen_force;
+            gen_force.setZero(gcDim_);
+            mano_r_->setGeneralizedForce(gen_force);
+
+            /// reset table position (only required in case for inference)
+            box->setPosition(0.2, -0.75152, 0.3855);
+            box->setOrientation(1,0,0,0);
+            box->setVelocity(0,0,0,0,0,0);
+
+            Eigen::VectorXd objPgain(gvDim_obj), objDgain(gvDim_obj);
+            objPgain.setZero();
+            objDgain.setZero();
+            arctic->setPdGains(objPgain, objDgain);
+
+            mano_r_->setGeneralizedForce(Eigen::VectorXd::Zero(gcDim_));
+            arctic->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_obj));
+
+            gc_set_r_ = init_state_r.cast<double>(); //.cast<double>();
+            gv_set_r_ = init_vel_r.cast<double>(); //.cast<double>();
+            mano_r_->setState(gc_set_r_, gv_set_r_);
+
+            pTarget_clipped_r = gc_set_r_;
+            pTarget_prev_r = gc_set_r_;
+
+            /// set initial root position in global frame as origin in new coordinate frame
+//            init_root_r_  = init_state_r.head(3);
+            init_obj_ = obj_pose.head(3).cast<double>();
+
+            /// set initial root orientation in global frame as origin in new coordinate frame
+            raisim::Vec<4> quat;
+            raisim::eulerToQuat(init_state_r.segment(3,3),quat); // initial base ori, in quat
+            raisim::quatToRotMat(quat, init_rot_r_); // ..., in matrix
+            raisim::transpose(init_rot_r_, init_or_r_); // ..., inverse
+
+            int arcticCoordDim = arctic->getGeneralizedCoordinateDim();
+            int arcticVelDim = arctic->getDOF();
+            Eigen::VectorXd arcticCoord, arcticVel;
+            arcticCoord.setZero(arcticCoordDim);
+            arcticVel.setZero(arcticVelDim);
+            arcticCoord = obj_pose.cast<double>().tail(arcticCoordDim);
+
+            init_arcticCoord = arcticCoord;
+
+            raisim::quatToRotMat(obj_pose.segment(3,4), init_obj_rot_);
+            raisim::transpose(init_obj_rot_, init_obj_or_);
+            arctic->setBasePos(init_obj_);
+            arctic->setBaseOrientation(init_obj_rot_);
+            arctic->setState(arcticCoord, arcticVel);
+            mano_r_->setBasePos(base_pos);
+            mano_r_->setBaseOrientation(base_mat);
+            mano_r_->setState(gc_set_r_, gv_set_r_, false, false, false);
+
+            /// set initial object state
+
+            obj_pos_init_  = obj_pose.cast<double>(); // 8 dof
+
+            /// Set action mean to initial pose (first 6DoF since start at 0)
+//            actionMean_r_.setZero();
+//            actionMean_r_.tail(gcDim_-6) = gc_set_r_.tail(gcDim_-6);
+            actionMean_r_ = gc_set_r_;
+
+            gen_force.setZero(gcDim_);
+            mano_r_->setGeneralizedForce(gen_force);
+
+            obj_weight = arctic->getTotalMass();
+            mano_r_->setMaterialFriction(world_, arctic);
+
+            mano_r_->updateObservation();
+
+           auto affordance_id = arctic->getBodyIdx("top");
+           arctic->getOrientation(affordance_id, Obj_orientation_init);
+           raisim::Mat<3,3> wrist_mat_r;
+           mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
+           raisim::Mat<3,3> Obj_orientation_init_trans;
+           raisim::transpose(Obj_orientation_init, Obj_orientation_init_trans);
+           raisim::matmul(Obj_orientation_init_trans, wrist_mat_r, wrist_mat_r_in_obj_init);
+           raisim::RotmatToEuler(wrist_mat_r_in_obj_init, wrist_euler_in_obj_init);
+           raisim::RotmatToEuler(wrist_mat_r, wrist_euler_init);
+           wrist_mat_r_init = wrist_mat_r;
+           wrist_euler_previous.setZero();
+            updateObservation();
+        }
+
+        void update_target(const Eigen::Ref<EigenVec>& target_center) final {
+            afford_center = target_center.cast<double>();
+        }
+
+        void set_goals(const Eigen::Ref<EigenVec>& obj_angle,
+                       const Eigen::Ref<EigenVec>& obj_pos,
+                       const Eigen::Ref<EigenVec>& ee_goal_pos_r,
+                       const Eigen::Ref<EigenVec>& ee_goal_pos_l,
+                       const Eigen::Ref<EigenVec>& goal_pose_r,
+                       const Eigen::Ref<EigenVec>& goal_pose_l,
+                       const Eigen::Ref<EigenVec>& goal_qpos_r,
+                       const Eigen::Ref<EigenVec>& goal_qpos_l,
+                       const Eigen::Ref<EigenVec>& goal_contacts_r,
+                       const Eigen::Ref<EigenVec>& goal_contacts_l) final {}
+
+        /// This function takes an environment step given an action (26DoF) input
+        // action_l in left-hand coord
+        float* step(const Eigen::Ref<EigenVec>& action_r, const Eigen::Ref<EigenVec>& action_l) final {
+
+            auto affordance_id = arctic->getBodyIdx("top");
+//            raisim::Vec<3> obj_pos_w, target_center, afford_center_w, obj_center_w;
+            raisim::Vec<3> obj_pos_w, target_center, afford_center_w;
+            raisim::Mat<3,3> obj_rot_w;
+//            Eigen::Vector3d target_center;
+            arctic->getPosition(affordance_id, obj_pos_w);
+            arctic->getOrientation(affordance_id, obj_rot_w);
+            raisim::matvecmul(obj_rot_w, afford_center, afford_center_w);
+
+            raisim::Vec<3> wrist_pos_w;
+            raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
+            mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
+            mano_r_->getFramePosition(body_parts_r_[0], wrist_pos_w);
+
+            target_center[0] = afford_center_w[0] + obj_pos_w[0];
+            target_center[1] = afford_center_w[1] + obj_pos_w[1];
+            target_center[2] = afford_center_w[2] + obj_pos_w[2];
+
+            Eigen::Vector3d hand_center_w;
+            hand_center_w = wrist_mat_r.e() * hand_center;
+            hand_center_w[0] += wrist_pos_w[0];
+            hand_center_w[1] += wrist_pos_w[1];
+            hand_center_w[2] += wrist_pos_w[2];
+
+            if (visualizable_){
+                wrist_target[0]->setPosition(hand_center_w);
+                wrist_target[1]->setPosition(target_center.e());
+            }
+
+            /// Compute position target for actuators
+            pTarget_r_ = action_r.cast<double>();
+            pTarget_r_ = pTarget_r_.cwiseProduct(actionStd_r_); //residual action * scaling
+            pTarget_r_ += actionMean_r_; //add wrist bias (first 3DOF) and last pose (23DoF)
+            if (lift){
+                lift_num += 1;
+                if(lift_num > 80) lift_num = 80;
+                pTarget_r_.head(6) = arm_gc_lift + (action_r.cast<double>().head(6) - arm_gc_lift) * lift_num / 80;
+            }
+
+            /// Clip targets to limits
+
+            pTarget_clipped_r = pTarget_r_.cwiseMax(joint_limit_low).cwiseMin(joint_limit_high);
+
+//            /// Set PD targets (velocity zero)
+//            mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
+
+            // randomly sample delay_flag with C++:
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<> dis(0, 1);
+            bool delay_flag = dis(gen);
+
+            /// Apply N control steps
+            for (int i = 0; i < int(control_dt_ / simulation_dt_ + 1e-10); i++){
+                if((delay_flag == 0)&&(i == 0)){
+                    mano_r_->setPdTarget(pTarget_prev_r, vTarget_r_);
+                }
+                else{
+                    mano_r_->setPdTarget(pTarget_clipped_r, vTarget_r_);
+                }
+
+                if(server_) server_->lockVisualizationServerMutex();
+                mano_r_->setComputeInverseDynamics(compute_inverse_dynamics_);
+                world_->integrate();
+                if(server_) server_->unlockVisualizationServerMutex();
+            }
+            auto tau_list = mano_r_->computeJointTorques();
+            pTarget_prev_r = pTarget_clipped_r;
+
+            /// update observation and set new mean to the latest pose
+            updateObservation();
+            actionMean_r_ = gc_r_;
+
+            affordance_contact_reward_r = contacts_r_af.cwiseProduct(finger_weights_contact).sum() / num_contacts;
+            if (has_non_aff){
+                not_affordance_contact_reward_r = contacts_r_non_af.cwiseProduct(finger_weights_contact).sum() / num_contacts;
+            }
+            else{
+                not_affordance_contact_reward_r = 0;
+            }
+            table_contact_reward_r = contacts_r_table.cwiseProduct(finger_weights_contact).sum() / num_contacts;
+
+            Eigen::VectorXd impulses_r_af_clipped, impulses_r_non_af_clipped, impulses_r_table_clipped;
+            impulses_r_af_clipped.setZero(num_contacts);
+            impulses_r_non_af_clipped.setZero(num_contacts);
+            impulses_r_table_clipped.setZero(num_contacts);
+            // impulses_r_af_clipped = impulses_r_af.cwiseMax(impulse_low).cwiseMin(impulse_high);
+            impulses_r_af_clipped = impulses_r_af_xy.cwiseMax(impulse_low).cwiseMin(impulse_high);
+            impulses_r_non_af_clipped = impulses_r_non_af.cwiseMax(impulse_low).cwiseMin(impulse_high);
+            impulses_r_table_clipped = impulses_r_table.cwiseMax(impulse_low).cwiseMin(impulse_high);
+
+            // affordance_force_penalty = impulses_r_af_clipped.maxCoeff();
+            double sum = 0.0;
+            int count = 0;
+            for (int i = 0; i < impulses_r_af_clipped.size(); ++i) {
+                if (impulses_r_af_clipped(i) > 1.6 * obj_weight / mu_finger2obj  * simulation_dt_ /2) {  // consider impulses above 1.6 * mg / mu / 2  * simulation_dt
+                    sum += impulses_r_af_clipped(i);
+                    count++;
+                }
+            }
+            affordance_force_penalty = (count > 0) ? (sum / count) : 0.0;
+
+            affordance_impulse_reward_r = impulses_r_af_clipped.cwiseProduct(finger_weights_contact).sum();
+            if (has_non_aff){
+                not_affordance_impulse_reward_r = impulses_r_non_af_clipped.cwiseProduct(finger_weights_contact).sum();
+            }
+            else{
+                not_affordance_impulse_reward_r = 0;
+            }
+            // Calculate push reward based on sum of impulses_r_af_z
+            push_reward_r = 0;
+            if (impulses_r_af_z[0] > 1.0){
+                push_reward_r += (impulses_r_af_z[0] - 1.0);
+            }
+            for (int i = 1; i < num_contacts; i++){
+                if (impulses_r_af_z[i] > 2.0){
+                    push_reward_r += (impulses_r_af_z[i] - 2.0);
+                }
+            }
+            if (push_reward_r > 10.0){
+                push_reward_r = 10.0;
+            }
+            
+            table_impulse_reward_r = impulses_r_table_clipped.cwiseProduct(finger_weights_contact).sum();
+
+            arm_table_contact_reward = contacts_arm_table.norm();
+            arm_table_impulse_reward = impulses_arm_table.norm();
+
+            obj_displacement_reward = (Obj_Position.e() - obj_pos_init_.head(3)).norm();
+
+            wrist_vel_reward_r = wrist_vel_in_wrist.squaredNorm();
+            wrist_qvel_reward_r = wrist_qvel_in_wrist.squaredNorm();
+//            obj_vel_reward_r = obj_vel_in_wrist.squaredNorm();
+//            obj_qvel_reward_r = obj_qvel_in_wrist.squaredNorm();
+            obj_vel_reward_r = Obj_linvel.e().squaredNorm();
+            obj_qvel_reward_r = Obj_qvel.e().squaredNorm();
+
+
+
+//            arm_joint_vel_reward = (gv_r_.head(6)).squaredNorm();
+
+            if(wrist_vel_in_wrist.norm() > 0.25){
+                wrist_vel_reward_r *= 10;
+            }
+
+            Eigen::VectorXd arm_joint_vel = gv_r_.head(6);
+            for(int i = 0; i < 6; i++){
+                if(arm_joint_vel[i] > 0.5){
+                    arm_joint_vel[i] *= 4;
+                }
+                if(arm_joint_vel[i] < -0.5){
+                    arm_joint_vel[i] *= 4;
+                }
+            }
+            arm_joint_vel_reward = arm_joint_vel.squaredNorm();
+
+            computeGraspCosts();
+
+           raisim::Mat<3,3> obj_rot_w_trans, wrist_mat_r_in_obj;
+           raisim::Vec<3> wrist_euler_in_obj;
+           mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
+           arctic->getOrientation(affordance_id, obj_rot_w);
+           raisim::transpose(obj_rot_w, obj_rot_w_trans);
+           raisim::matmul(obj_rot_w_trans, wrist_mat_r, wrist_mat_r_in_obj);
+           raisim::RotmatToEuler(wrist_mat_r_in_obj, wrist_euler_in_obj);
+
+            rewards_r_.record("affordance_contact_reward", std::max(0.0, affordance_contact_reward_r));
+            rewards_r_.record("push_reward", std::max(0.0, push_reward_r));
+            rewards_r_.record("affordance_impulse_reward", std::max(0.0, affordance_impulse_reward_r));
+            rewards_r_.record("table_contact_reward", std::max(0.0, table_contact_reward_r));
+            rewards_r_.record("table_impulse_reward", std::max(0.0, table_impulse_reward_r));
+            rewards_r_.record("obj_displacement_reward", std::max(0.0, obj_displacement_reward));
+            rewards_r_.record("arm_contact_reward", std::max(0.0, arm_table_contact_reward));
+            rewards_r_.record("arm_impulse_reward", std::max(0.0, arm_table_impulse_reward));
+            rewards_r_.record("wrist_vel_reward_", std::max(0.0, wrist_vel_reward_r));
+            rewards_r_.record("wrist_qvel_reward_", std::max(0.0, wrist_qvel_reward_r));
+            rewards_r_.record("obj_vel_reward_", std::max(0.0, obj_vel_reward_r));
+            rewards_r_.record("arm_joint_vel_reward_", std::max(0.0, arm_joint_vel_reward));
+            rewards_r_.record("obj_qvel_reward_", std::max(0.0, obj_qvel_reward_r));
+            // rewards_r_.record("grasp_acceleration_error_norm", std::max(0.0, std::min(grasp_acceleration_error_norm.norm(), 5.0)));
+            // rewards_r_.record("grasp_acceleration_error_norm", std::min(grasp_acceleration_error_norm.norm()/obj_weight, 2.0));
+            // rewards_r_.record("affordance_force_max_penalty", std::max(affordance_force_penalty, 0.0));
+            // rewards_r_.record("contact_coeff", std::min(1.0, min_contact_coef));
+            // rewards_r_.record("sliding_penalty", sliding_penalty);
+            // std::cerr << "sliding_penalty" << sliding_penalty << std::endl;
+//             for(int i = 0; i < num_contacts; i++) {
+//     std::cerr << "Body part " << i << " name: " << contact_bodies_r_[i] << std::endl;
+// }
+            rewards_sum_[0] = rewards_r_.sum();
+            rewards_sum_[1] = 0;
+
+            return rewards_sum_;
+
+//            mano_r_->setState(action_r.cast<double>(), gv_set_r_);
+        }
+
+        /// This function computes and updates the observation/state space
+        void updateObservation(bool start = false) {
+            mano_r_->updateObservation(start);
+            // update observation
+            impulses_r_af.setZero();
+            contacts_r_af.setZero();
+            impulses_r_table.setZero();
+            contacts_r_table.setZero();
+            impulses_r_non_af.setZero();
+            contacts_r_non_af.setZero();
+            contacts_arm_table.setZero();
+            impulses_arm_table.setZero();
+            contacts_arm_all.setZero();
+            impulses_r_af_vector.setZero();
+            impulses_r_non_af_vector.setZero();
+            impulses_r_table_vector.setZero();
+            impulses_arm_table_vector.setZero();
+            impulses_r_af_xy.setZero();
+            impulses_r_af_z.setZero();
+
+            // For Sliding penalty reward
+            currentLocalContactPositions_.setZero();
+            num_contact_in_one_body.setZero();
+
+            raisim::Mat<3,3> wrist_mat_r, wrist_mat_r_trans;
+            mano_r_->getFrameOrientation(body_parts_r_[0], wrist_mat_r);
+            raisim::transpose(wrist_mat_r, wrist_mat_r_trans);
+            mano_r_->getFrameVelocity(body_parts_r_[0], wrist_vel);
+            mano_r_->getFrameAngularVelocity(body_parts_r_[0], wrist_qvel);
+
+            wrist_vel_in_wrist = wrist_mat_r.e().transpose() * wrist_vel.e();
+            wrist_qvel_in_wrist = wrist_mat_r.e().transpose() * wrist_qvel.e();
+
+            mano_r_->getState(gc_r_, gv_r_);
+
+            /// Get updated object pose
+            auto affordance_id = arctic->getBodyIdx("top");
+            auto non_affordance_id = arctic->getBodyIdx("bottom");
+            arctic->getPosition(affordance_id, Obj_Position);
+            arctic->getOrientation(affordance_id, Obj_orientation_temp);
+            raisim::rotMatToQuat(Obj_orientation_temp, obj_quat);
+            arctic->getAngularVelocity(affordance_id, Obj_qvel);
+            arctic->getVelocity(affordance_id, Obj_linvel);
+
+
+            obj_vel_in_wrist = wrist_mat_r.e().transpose() * Obj_linvel.e() - wrist_vel_in_wrist; // object velocity in wrist frame
+            obj_qvel_in_wrist = wrist_mat_r.e().transpose() * Obj_qvel.e() - wrist_qvel_in_wrist; // object angular velocity in wrist frame
+//            obj_vel_in_wrist = wrist_mat_r.e().transpose() * Obj_linvel.e(); // object velocity in wrist frame
+//            obj_qvel_in_wrist = wrist_mat_r.e().transpose() * Obj_qvel.e(); // object angular velocity in wrist frame
+
+
+            /// compute current contacts of hand parts and the contact force
+            auto& contact_list_obj = arctic->getContacts();
+
+            for(auto& contact_af: mano_r_->getContacts()) {
+                if (contact_af.skip() || contact_af.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
+                if (contact_af.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
+                if (contact_list_obj[contact_af.getPairContactIndexInPairObject()].getlocalBodyIndex() != affordance_id) continue;
+                if (contact_af.getImpulse().e().norm() < 0.001) continue;
+                // contacts_r_af[contactMapping_r_[contact_af.getlocalBodyIndex()]] = 1;
+                // impulses_r_af[contactMapping_r_[contact_af.getlocalBodyIndex()]] = contact_af.getImpulse().norm();
+                int idx = contactMapping_r_[contact_af.getlocalBodyIndex()];
+                // contacts_r_af[idx] = 1;
+                Eigen::Vector3d impulse = contact_af.getContactFrame().e().transpose() * contact_af.getImpulse().e();
+                if (!contact_af.isObjectA()) impulse = -impulse;
+                // raisim::matTransposevecmul(contact_af.getContactFrame(), contact_af.getImpulse(), impulse);
+                impulses_r_af_vector[idx*3] += impulse[0];
+                impulses_r_af_vector[idx*3+1] += impulse[1];
+                impulses_r_af_vector[idx*3+2] += impulse[2];
+            }
+
+            for(int i = 0; i < num_contacts; i++){
+                impulses_r_af[i] = impulses_r_af_vector.segment<3>(i*3).norm();
+                impulses_r_af_xy[i] = impulses_r_af_vector.segment<2>(i*3).norm();
+                impulses_r_af_z[i] = impulses_r_af_vector[i*3+2];
+                if(impulses_r_af[i] > 0.01){
+                    contacts_r_af[i] = 1;
+                }
+                else{
+                    contacts_r_af[i] = 0;
+                }
+            }
+
+
+
+
+        // For Sliding
+        double contact_num = 0;
+        for(auto& contact_af: mano_r_->getContacts()) {
+            if (contact_af.skip() || contact_af.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
+            if (contact_af.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
+            if (contact_list_obj[contact_af.getPairContactIndexInPairObject()].getlocalBodyIndex() != affordance_id) continue;
+            if (contact_af.getImpulse().e().norm() < 0.001) continue;
+            
+
+            contact_num += 1;
+            // Find if this contact body is in our mapping
+            int idx = contactMapping_r_[contact_af.getlocalBodyIndex()];
+            num_contact_in_one_body[idx] += 1;
+
+            // Get contact position in world frame
+            raisim::Vec<3> contact_pos_world = contact_af.getPosition();
+            
+            // Transform contact position to object frame
+            // Object position and orientation in world frame
+            raisim::Vec<3> obj_pos_world = Obj_Position;  // Already computed in updateObservation()
+            raisim::Mat<3,3> obj_rot_world = Obj_orientation_temp;  // Already computed in updateObservation()
+            
+            // Transform contact position from world to object frame
+            // p_object = R_obj^T * (p_world - p_obj)
+            raisim::Vec<3> contact_pos_obj;
+            raisim::Vec<3> diff = contact_pos_world - obj_pos_world;
+            raisim::matvecmul(obj_rot_world.transpose(), diff, contact_pos_obj);
+            
+            currentLocalContactPositions_[idx*3] += contact_pos_obj[0];
+            currentLocalContactPositions_[idx*3+1] += contact_pos_obj[1];
+            currentLocalContactPositions_[idx*3+2] += contact_pos_obj[2];
+        }
+                
+        // Calculate sliding penalty
+        sliding_penalty = 0;
+        // for (int i = 0 ; i < num_contacts; i++){
+        //     if (num_contact_in_one_body[i] == 0) continue;
+        //     currentLocalContactPositions_[i*3] /= num_contact_in_one_body[i];
+        //     currentLocalContactPositions_[i*3+1] /= num_contact_in_one_body[i];
+        //     currentLocalContactPositions_[i*3+2] /= num_contact_in_one_body[i];
+        //     if (prevLocalContactPositions_[i*3] != 0 || prevLocalContactPositions_[i*3+1] != 0 || prevLocalContactPositions_[i*3+2] != 0){
+        //         double dx = currentLocalContactPositions_[i*3] - prevLocalContactPositions_[i*3];
+        //         double dy = currentLocalContactPositions_[i*3+1] - prevLocalContactPositions_[i*3+1];
+        //         double dz = currentLocalContactPositions_[i*3+2] - prevLocalContactPositions_[i*3+2];
+        //         double sliding_distance = sqrt(dx*dx + dy*dy + dz*dz);
+
+        //         // if (sliding_distance > SLIDING_DISTANCE_THRESHOLD){
+        //         // double contact_force = impulses_r_af[i] / simulation_dt_; 
+        //         // double penalty = sliding_distance * contact_force;
+        //         sliding_penalty += sliding_distance;
+        //         // }
+            //     }
+            // }
+        if (contact_num > 2){
+            raisim::Vec<3> wrist_pos_w;
+            mano_r_->getFramePosition(body_parts_r_[0], wrist_pos_w);
+            // Obj_Position - wrist_pos_w
+
+            // Position of hand center relative to object in object frame
+            raisim::Vec<3> relateive_position;
+            relateive_position[0] = wrist_pos_w[0] - Obj_Position[0];
+            relateive_position[1] = wrist_pos_w[1] - Obj_Position[1];
+            relateive_position[2] = wrist_pos_w[2] - Obj_Position[2];
+            // raisim::matvecmul(Obj_orientation, wrist_pos_obj_temp, wrist_pos_obj);
+            sliding_penalty = relateive_position.norm();
+        }
+
+
+
+        // std::cerr << "prevLocalContactPositions_" << prevLocalContactPositions_.transpose() << std::endl;
+        prevLocalContactPositions_ = currentLocalContactPositions_; // update history data
+            
+            // get max contact force
+            max_contact_force_ = impulses_r_af.maxCoeff()/simulation_dt_;
+            if(max_contact_force_ < 0.01/simulation_dt_){
+                max_contact_force_ = 0.0;
+            }
+
+            for(auto& contact_non_af: mano_r_->getContacts()) {
+                if (contact_non_af.skip() || contact_non_af.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
+                if (contact_non_af.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
+                if (contact_list_obj[contact_non_af.getPairContactIndexInPairObject()].getlocalBodyIndex() != non_affordance_id) continue;
+                if (contact_non_af.getImpulse().e().norm() < 0.001) continue;
+                // contacts_r_non_af[contactMapping_r_[contact_non_af.getlocalBodyIndex()]] = 1;
+                // impulses_r_non_af[contactMapping_r_[contact_non_af.getlocalBodyIndex()]] = contact_non_af.getImpulse().norm();
+                int idx = contactMapping_r_[contact_non_af.getlocalBodyIndex()];
+                // contacts_r_non_af[idx] = 1;
+                Eigen::Vector3d impulse = contact_non_af.getContactFrame().e().transpose() * contact_non_af.getImpulse().e();
+                if (!contact_non_af.isObjectA()) impulse = -impulse;
+                // raisim::matTransposevecmul(contact_non_af.getContactFrame(), contact_non_af.getImpulse(), impulse);
+                impulses_r_non_af_vector[idx*3] += impulse[0];
+                impulses_r_non_af_vector[idx*3+1] += impulse[1];
+                impulses_r_non_af_vector[idx*3+2] += impulse[2];
+            }
+
+            for(int i = 0; i < num_contacts; i++){
+                impulses_r_non_af[i] = impulses_r_non_af_vector.segment<3>(i*3).norm();
+                if(impulses_r_non_af[i] > 0.01){
+                    contacts_r_non_af[i] = 1;
+                }
+                else{
+                    contacts_r_non_af[i] = 0;
+                }
+            }
+
+            for(auto& contact_table: mano_r_->getContacts()) {
+                if (contact_table.skip() || contact_table.getPairObjectIndex() != box->getIndexInWorld()) continue;
+//                 contacts_r_table[contactMapping_r_[contact_table.getlocalBodyIndex()]] = 1;
+// //                std::cout << "contact idx: " << contact_table.getlocalBodyIndex() << std::endl;
+// //                std::cout << "contact body: " << contactMapping_r_[contact_table.getlocalBodyIndex()] << std::endl;
+// //                std::cout << "contact name: " << contact_bodies_r_[contactMapping_r_[contact_table.getlocalBodyIndex()]] << std::endl;
+//                 impulses_r_table[contactMapping_r_[contact_table.getlocalBodyIndex()]] = contact_table.getImpulse().norm();
+                if (contact_table.getImpulse().e().norm() < 0.001) continue;
+                    int idx = contactMapping_r_[contact_table.getlocalBodyIndex()];
+                    // contacts_r_table[idx] = 1;
+                    Eigen::Vector3d impulse = contact_table.getContactFrame().e().transpose() * contact_table.getImpulse().e();
+                    if (!contact_table.isObjectA()) impulse = -impulse;
+                    // raisim::matTransposevecmul(contact_table.getContactFrame(), contact_table.getImpulse(), impulse);
+                    impulses_r_table_vector[idx*3] += impulse[0];
+                    impulses_r_table_vector[idx*3+1] += impulse[1];
+                    impulses_r_table_vector[idx*3+2] += impulse[2];
+            }
+
+            for(int i = 0; i < num_contacts; i++){
+                impulses_r_table[i] = impulses_r_table_vector.segment<3>(i*3).norm();
+                if(impulses_r_table[i] > 0.01){
+                    contacts_r_table[i] = 1;
+                }
+                else{
+                    contacts_r_table[i] = 0;
+                }
+            }   
+            
+            for(auto& contact_arm: mano_r_->getContacts()) {
+                if ((contact_arm.skip() || contact_arm.getPairObjectIndex() != arctic->getIndexInWorld()) && (contact_arm.skip() || contact_arm.getPairObjectIndex() != box->getIndexInWorld())) continue;
+                // contacts_arm_table[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
+                // impulses_arm_table[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = contact_arm.getImpulse().norm();
+                if (contact_arm.getImpulse().e().norm() < 0.001) continue;
+                int idx = contactMapping_arm_[contact_arm.getlocalBodyIndex()];
+                // contacts_arm_table[idx] = 1;
+                Eigen::Vector3d impulse = contact_arm.getContactFrame().e().transpose() * contact_arm.getImpulse().e();
+                if (!contact_arm.isObjectA()) impulse = -impulse;
+                // raisim::matTransposevecmul(contact_arm.getContactFrame(), contact_arm.getImpulse(), impulse);
+                impulses_arm_table_vector[idx*3] += impulse[0];
+                impulses_arm_table_vector[idx*3+1] += impulse[1];
+                impulses_arm_table_vector[idx*3+2] += impulse[2];
+            }
+
+            for(int i = 0; i < 6; i++){
+                impulses_arm_table[i] = impulses_arm_table_vector.segment<3>(i*3).norm();
+                if(impulses_arm_table[i] > 0.01){
+                    contacts_arm_table[i] = 1;
+                }
+                else{
+                    contacts_arm_table[i] = 0;
+                }
+            }   
+            
+            for(auto& contact_arm: mano_r_->getContacts()) {
+//                if (contact_arm.skip()) continue;
+                contacts_arm_all[contactMapping_arm_[contact_arm.getlocalBodyIndex()]] = 1;
+            }
+//
+//            std::cout << "contacts_arm_all: " << contacts_arm_all.transpose() << std::endl;
+////            std::cout << "impulses_r_table: " << impulses_r_table.transpose() << std::endl;
+
+            for(int i=0; i<num_contacts; i++){
+                if (contacts_r_non_af[i] == 1){
+                    contacts_r_non_af[i] = contacts_r_non_af[i] - contacts_r_af[i];
+                    impulses_r_non_af[i] = impulses_r_non_af[i] - impulses_r_af[i];
+                }
+            }
+
+            if (has_non_aff){
+            }
+            else{
+                contacts_r_non_af.setZero();
+                impulses_r_non_af.setZero();
+            }
+
+            right_hand_torque = (pTarget_clipped_r - gc_r_);
+
+            raisim::Vec<3> obj_pos_w, afford_center_w, wrist_pos_w;
+            raisim::Mat<3,3> obj_rot_w;
+            Eigen::Vector3d target_center, target_center_wrist, target_center_dif_world;
+            arctic->getPosition(affordance_id, obj_pos_w);
+            arctic->getOrientation(affordance_id, obj_rot_w);
+            raisim::matvecmul(obj_rot_w, afford_center, afford_center_w);
+            mano_r_->getFramePosition(body_parts_r_[0], wrist_pos_w);
+            target_center[0] = afford_center_w[0] + obj_pos_w[0];
+            target_center[1] = afford_center_w[1] + obj_pos_w[1];
+            target_center[2] = afford_center_w[2] + obj_pos_w[2];
+
+            Eigen::Vector3d hand_center_w, hand_center_robot;
+            hand_center_w = wrist_mat_r.e() * hand_center;
+            hand_center_w[0] += wrist_pos_w[0];
+            hand_center_w[1] += wrist_pos_w[1];
+            hand_center_w[2] += wrist_pos_w[2];
+
+//            hand_center_robot[0] = hand_center_w[0] - base_pos[0];
+//            hand_center_robot[1] = hand_center_w[1] - base_pos[1];
+//            hand_center_robot[2] = hand_center_w[2] - base_pos[2];
+
+            target_center_dif_world = target_center - hand_center_w;
+            target_center_dif = wrist_mat_r.e().transpose() * target_center_dif_world;
+
+
+            raisim::transpose(Obj_orientation_temp, Obj_orientation);
+
+            raisim::Mat<3,3> obj_pose_wrist_mat;
+            raisim::Vec<3> obj_pose_wrist;
+            raisim::matmul(wrist_mat_r_trans, Obj_orientation_temp, obj_pose_wrist_mat);
+            raisim::RotmatToEuler(obj_pose_wrist_mat, obj_pose_wrist);
+
+            raisim::Mat<3,3> frame_mat;
+            raisim::Vec<3> joint_pos_w, joint_pos_o;
+            raisim::Vec<3> frame_y_frame, frame_y_w, frame_y_o;
+//            frame_y_frame.setZero();
+//            frame_y_frame[1] = -1;
+            for(int i = 0; i < num_bodyparts ; i++){
+//                if(i > 16){
+//                    frame_y_frame.setZero();
+//                    frame_y_frame[0] = -0.717;
+//                    frame_y_frame[2] = -0.717;
+//                }
+//                mano_r_->getFrameOrientation(body_parts_r_[i], frame_mat);
+                mano_r_->getFramePosition(body_parts_r_[i], joint_pos_w);
+//                raisim::matvecmul(frame_mat, frame_y_frame, frame_y_w);
+//                raisim::matvecmul(Obj_orientation, frame_y_w, frame_y_o);
+                joint_pos_in_world[i * 3] = joint_pos_w[0];
+                joint_pos_in_world[i * 3 + 1] = joint_pos_w[1];
+                joint_pos_in_world[i * 3 + 2] = joint_pos_w[2];
+                joint_height_w[i] = joint_pos_w[2] - 0.771;
+
+                raisim::Vec<3>  joint_pos_o_temp;
+                joint_pos_o_temp[0] = joint_pos_w[0] - Obj_Position[0];
+                joint_pos_o_temp[1] = joint_pos_w[1] - Obj_Position[1];
+                joint_pos_o_temp[2] = joint_pos_w[2] - Obj_Position[2];
+                raisim::matvecmul(Obj_orientation, joint_pos_o_temp, joint_pos_o);
+
+//                frame_y_in_obj[i * 3] = frame_y_o[0];
+//                frame_y_in_obj[i * 3 + 1] = frame_y_o[1];
+//                frame_y_in_obj[i * 3 + 2] = frame_y_o[2];
+                joint_pos_in_obj[i * 3] = joint_pos_o[0];
+                joint_pos_in_obj[i * 3 + 1] = joint_pos_o[1];
+                joint_pos_in_obj[i * 3 + 2] = joint_pos_o[2];
+            }
+
+
+            for(int i = 0; i < 6 ; i++){
+                mano_r_->getFramePosition(arm_parts[i], joint_pos_w);
+                arm_joint_pos_in_world[i * 3] = joint_pos_w[0];
+                arm_joint_pos_in_world[i * 3 + 1] = joint_pos_w[1];
+                arm_joint_pos_in_world[i * 3 + 2] = joint_pos_w[2];
+                arm_height_w[i] = joint_pos_w[2] - 0.771;
+            }
+
+            raisim::Vec<3> wrist_euler_current;
+            raisim::RotmatToEuler(wrist_mat_r, wrist_euler_current);
+
+            if (wrist_euler_previous.norm() > 0.01){
+                for (int i = 0; i < 3; i++) {
+                    if (wrist_euler_current[i] - wrist_euler_previous[i] > M_PI) {
+                        wrist_euler_current[i] -= 2 * M_PI;
+                } else if (wrist_euler_current[i] - wrist_euler_previous[i] < -M_PI) {
+                        wrist_euler_current[i] += 2 * M_PI;
+                    }
+                }
+            }
+            // std::cout << "wrist_euler_current: " << wrist_euler_current.e().transpose() << std::endl;
+            // std::cout << "wrist_euler_previous: " << wrist_euler_previous.e().transpose() << std::endl;
+            // std::cout << "wrist_euler_current - wrist_euler_previous: " << (wrist_euler_current.e() - wrist_euler_previous.e()).transpose() << std::endl << std::endl;
+            wrist_euler_previous = wrist_euler_current;
+
+            Eigen::Vector3d euler_diff;
+            raisim::Vec<3> euler_diff_raisim;
+            raisim::Mat<3,3> wrist_mat_r_init_trans, wrist_mat_diff;
+            raisim::transpose(wrist_mat_r_init, wrist_mat_r_init_trans);
+            raisim::matmul(wrist_mat_r_init_trans, wrist_mat_r, wrist_mat_diff);
+            raisim::RotmatToEuler(wrist_mat_diff, euler_diff_raisim);
+            euler_diff = euler_diff_raisim.e();
+//            euler_diff = wrist_euler_current.e() - wrist_euler_init.e();
+
+//            std::cout<<"wrist euler diff: "<<euler_diff<<std::endl;
+//            obDouble_r_ << target_center_dif,           // 3, hand center diff
+////                           gc_r_.segment(3, 3) - wrist_target_euler.e(),         // 3, wrist orientation diff
+////                           gc_r_.tail(gcDim_ - 6),      // (mirror) 45, generalized coordinate
+//                           gc_r_,
+                obDouble_r_ << gc_r_,
+                            right_hand_torque,
+//                            obj_pos_wrist,
+
+                            contacts_r_af,
+                            impulses_r_af,
+                            joint_height_w,
+                            arm_height_w,
+//                            wrist_vel.e(),
+//                            wrist_qvel.e(),
+//                            target_center_dif_world,
+                            hand_center_w,
+                            euler_diff,
+                        //    0,0,0;
+                            wrist_euler_current.e();
+//                            target_center,
+//                            euler_diff;
+
+           raisim::Vec<3> obj_pose;
+           raisim::RotmatToEuler(Obj_orientation_temp, obj_pose);
+           raisim::Vec<3> hand_pose_trans;
+           raisim::RotmatToEuler(wrist_mat_r_trans, hand_pose_trans);
+
+            raisim::Vec<3> wrist_pos_obj_temp, wrist_pos_obj;
+            wrist_pos_obj_temp[0] = wrist_pos_w[0] - obj_pos_w[0];
+            wrist_pos_obj_temp[1] = wrist_pos_w[1] - obj_pos_w[1];
+            wrist_pos_obj_temp[2] = wrist_pos_w[2] - obj_pos_w[2];
+            raisim::matvecmul(Obj_orientation, wrist_pos_obj_temp, wrist_pos_obj);
+            computeGraspCosts();
+            raisim::Vec<6> Grasp_acc;
+            Grasp_acc = grasp_acceleration_error_norm / obj_weight;
+
+//            global_state_ << wrist_pos_r_o.e(),
+//                             euler_r_o.e(),
+//            global_state_ << obj_pose.e(),
+            global_state_ << obj_pose_wrist.e(),
+                             frame_y_in_obj,
+                             joint_pos_in_obj,
+                             Obj_Position.e(),
+                             hand_pose_trans.e(),
+                             0,
+                             wrist_pos_w.e(),
+                             target_center_dif,
+                             obj_pose.e(),
+                             wrist_pos_obj.e(),
+                             contacts_arm_all[1],
+                             contacts_arm_all[2],
+                             contacts_arm_all[3],
+                             contacts_arm_all[4],
+                             max_contact_force_,
+                             obj_com[0],
+                             obj_com[1],
+                             obj_com[2],
+                             Grasp_acc[0],
+                             Grasp_acc[1],
+                             Grasp_acc[2],
+                             Grasp_acc[3],
+                             Grasp_acc[4],
+                             Grasp_acc[5];
+        }
+
+        /// Set observation in wrapper to current observation
+        void observe(Eigen::Ref<EigenVec> ob_r, Eigen::Ref<EigenVec> ob_l) final {
+            ob_r = obDouble_r_.cast<float>();
+            ob_l = obDouble_l_.cast<float>();
+        }
+
+        void get_global_state(Eigen::Ref<EigenVec> gs) {
+            gs = global_state_.cast<float>();
+        }
+
+
+        void get_contact_info(std::vector<Eigen::Vector3d>& points, 
+                            std::vector<Eigen::Vector3d>& normals, 
+                            std::vector<Eigen::Vector3d>& forces,
+                            std::vector<Eigen::Vector3d>& normal_forces,
+                            std::vector<int>& ids,
+                            // std::vector<raisim::SparseJacobian>& jacobians
+                            std::vector<Eigen::MatrixXd>& dense_jacobians
+                        ) {
+            points = contact_points;
+            normals = contact_normals;
+            forces = contact_forces;
+            ids = contact_ids;
+            normal_forces = contact_normal_forces;
+            dense_jacobians = dense_contact_jacobians; 
+        }
+
+        void Contact_Detection(){
+
+            contact_points.clear();
+            contact_normals.clear();
+            contact_forces.clear();
+            contact_ids.clear();
+            contact_normal_forces.clear();
+            dense_contact_jacobians.clear();
+
+            
+            // Get grasp contacts
+            auto& contacts = mano_r_->getContacts();
+            auto affordance_id = arctic->getBodyIdx("top");
+            auto& contact_list_obj = arctic->getContacts();
+            
+            // Storage for aggregated contact information
+            std::map<int, Eigen::Vector3d> aggregated_forces;
+            std::map<int, Eigen::Vector3d> aggregated_positions;
+            std::map<int, Eigen::Vector3d> aggregated_normals;
+            std::map<int, double> total_force_magnitude; // For weighted averaging
+            std::map<int, int> aggregated_body_indices; 
+            
+            // Collect and aggregate valid grasp contacts
+
+            for(auto& contact: contacts) {
+                if (contact.skip() || contact.getPairObjectIndex() != arctic->getIndexInWorld()) continue;
+                if (contact.getPairObjectBodyType() != raisim::BodyType::DYNAMIC) continue;
+                if (contact_list_obj[contact.getPairContactIndexInPairObject()].getlocalBodyIndex() != affordance_id) continue;
+                if (contact.getImpulse().e().norm() < 0.001) continue;
+
+                // Get contact information in world frame
+                int body_idx = contact.getlocalBodyIndex();
+                int idx = contactMapping_r_[body_idx]; // Map to our contact index
+                Eigen::Vector3d contact_point = contact.getPosition().e().transpose();
+                Eigen::Vector3d contact_normal = contact.getNormal().e().transpose(); // Normal vector
+                Eigen::Vector3d contact_force = contact.getContactFrame().e().transpose() * contact.getImpulse().e()/ simulation_dt_; // Force = impulse/time
+
+                double force_magnitude = contact_force.norm();
+                
+                // Aggregate contact information for the same body part
+                if (aggregated_forces.find(idx) == aggregated_forces.end()) {
+                    // First contact on this body part
+                    aggregated_forces[idx] = contact_force;
+                    aggregated_positions[idx] = contact_point * force_magnitude; // Weighted by force magnitude
+                    aggregated_normals[idx] = contact_normal * force_magnitude;   // Weighted by force magnitude
+                    total_force_magnitude[idx] = force_magnitude;
+                    aggregated_body_indices[idx] = body_idx;
+                } else {
+                    // Additional contact on this body part - accumulate with weighting
+                    aggregated_forces[idx] += contact_force;
+                    aggregated_positions[idx] += contact_point * force_magnitude;
+                    aggregated_normals[idx] += contact_normal * force_magnitude;
+                    total_force_magnitude[idx] += force_magnitude;
+                }
+            }
+                        
+            // Process aggregated contacts to compute weighted averages
+            int dof = mano_r_->getDOF();
+            for (const auto& pair : aggregated_forces) {
+                int idx = pair.first;
+                const Eigen::Vector3d& total_force = pair.second;
+                
+                // Compute weighted average position and normal
+                Eigen::Vector3d avg_position = aggregated_positions[idx] / total_force_magnitude[idx];
+                Eigen::Vector3d avg_normal = aggregated_normals[idx] / total_force_magnitude[idx];
+                avg_normal.normalize(); // Ensure normal is unit vector
+                
+                // Compute normal force in world frame
+                const double normal_magnitude = -total_force.dot(avg_normal); 
+                const Eigen::Vector3d normal_force_3d = normal_magnitude * avg_normal;
+
+                // Compute Jacobian 
+                Eigen::MatrixXd jac(3, dof);
+                jac.setZero();
+                int body_idx = aggregated_body_indices[idx];
+                mano_r_->getDenseJacobian(body_idx, avg_position, jac);
+
+                dense_contact_jacobians.push_back(jac);
+                contact_points.push_back(avg_position);
+                contact_normals.push_back(avg_normal);
+                contact_forces.push_back(-total_force); // Force direction from object2Hand => Hand2Object
+                contact_ids.push_back(idx);
+                contact_normal_forces.push_back(normal_force_3d);
+            }
+            
+            // FOR DEBUGGING the direction
+            // for (size_t i = 0; i < contact_normals.size(); ++i) {
+            //         std::cerr << "Contact " << i << ":\n"
+            //                 << "contact_id: " << contact_ids[i] << "\n"
+            //                 << "  Normal: " << contact_normals[i].transpose() << "\n"
+            //                 << "  Force:  " << contact_forces[i].transpose() << "\n\n";
+            //     }
+
+        }
+
+        void computeGraspCosts() {
+            // we compute following things:
+            /// 1. (GF-mg) / m : means current object acc in table-free
+            /// 2. /max {cf}; cf: contact coefficient, measures the incipinet slip state.  cf=1- F_t/ (\mu * F_n)
+
+            // Initialize
+            grasp_acceleration_error_norm.setZero(6);
+            min_contact_coef = 0.0;
+            num_grasp_contacts_ = 0;
+            Contact_Detection();
+            num_grasp_contacts_ = contact_points.size();
+
+            // Compute
+            if (num_grasp_contacts_ >= 1) { // Need at least 1 contact to compute force closure
+                // Compute force closure cost
+                grasp_acceleration_error_norm = computeGraspAcc();
+                
+                // Compute friction cone cost
+                min_contact_coef = computeFrictionConeCost();
+            }
+            else {
+                grasp_acceleration_error_norm(2) = -obj_weight; // z方向的重力
+                min_contact_coef = 0.0;
+
+            }
+            // std::cerr<<"min_contact_coef" << min_contact_coef << std::endl;
+        }
+
+        // 计算力闭合成本
+        Eigen::VectorXd computeGraspAcc() {
+            int n_contacts = contact_points.size();
+            Eigen::VectorXd F_obj = Eigen::VectorXd::Zero(6);
+            F_obj(2) = -obj_weight; // z方向的重力
+            if (n_contacts < 1) return F_obj; // 
+            
+            // 计算物体中心位置
+            auto affordance_id = arctic->getBodyIdx("top");
+            arctic->getPosition(affordance_id, obj_com);
+            
+            // 构建抓取矩阵 G (6 x 3n)
+            Eigen::MatrixXd G = Eigen::MatrixXd::Zero(6, 3 * n_contacts);
+            
+            for (int i = 0; i < n_contacts; i++) {
+                // 相对于质心的位置向量
+                Eigen::Vector3d r = contact_points[i] - obj_com.e();
+                G(0, 3*i) = 1.0;     // fx
+                G(1, 3*i+1) = 1.0;   // fy
+                G(2, 3*i+2) = 1.0;   // fz
+                G(3, 3*i+1) = -r(2);   // mx = y*fz - z*fy
+                G(3, 3*i+2) = r(1);
+                G(4, 3*i) = r(2);    // my = z*fx - x*fz
+                G(4, 3*i+2) = -r(0);
+                G(5, 3*i) = -r(1);     // mz = x*fy - y*fx
+                G(5, 3*i+1) = r(0);
+
+            }
+            
+            
+            // 计算接触力向量
+            Eigen::VectorXd F_contact = Eigen::VectorXd(3 * n_contacts);
+            for (int i = 0; i < n_contacts; i++) {
+                F_contact(3*i) = contact_forces[i](0);
+                F_contact(3*i+1) = contact_forces[i](1);
+                F_contact(3*i+2) = contact_forces[i](2);
+            }
+            
+            // 计算 ||GF - G_obj||^2
+            Eigen::VectorXd GF = G * F_contact;
+            Eigen::VectorXd diff = GF + F_obj;
+            double force_closure_norm = diff.squaredNorm();
+            return diff ;  
+        }
+        
+        double computeFrictionConeCost() {
+            if (contact_normals.size() == 0) {
+                std::cerr << "No contact detected" << std::endl;
+                return 0.0;}
+            // std::cerr << "contact_normals size: " << contact_normals.size() << std::endl;
+            double max_friction_violation = 0.0;
+            double min = std::numeric_limits<double>::max(); // 初始化为正无穷大
+
+            
+            for (size_t i = 0; i < contact_normals.size(); i++) {
+                const Eigen::Vector3d& normal = contact_normals[i];
+                const Eigen::Vector3d& force = contact_forces[i];
+                
+                // 计算法向力
+                double normal_force = force.dot(-normal);
+                if (normal_force < 1e-3) continue; // 忽略小的法向力
+                
+                // 计算切向力
+                Eigen::Vector3d normal_force_vec = normal_force * normal;
+                Eigen::Vector3d tangential_force = (-force) - normal_force_vec;
+                double tangential_force_mag = tangential_force.norm();
+                // 计算摩擦比 F_t/μF_n
+                double contact_coef = tangential_force_mag / (mu_finger2obj * (normal_force+1e-8));
+                if (contact_coef < min) {
+                    min = contact_coef;
+                }
+                // std::cerr << "      contact_coef" << contact_coef << std::endl;
+            }
+            
+            if (min == std::numeric_limits<double>::max()) {
+                    return 0.0;
+                }
+            return min;
+        }
+
+        
+
+        double getForceClosureCost() const { return grasp_acceleration_error_norm.norm(); }
+        double getFrictionConeCost() const { return min_contact_coef; }
+        int getNumGraspContacts() const { return num_grasp_contacts_; }
+        double get_obj_weight() const { return obj_weight; }
+
+        raisim::Vec<3> get_obj_com() const { return obj_com; }
+        double get_obj_mu() const { return mu_finger2obj; }
+
+        /// Set root guidance
+        void set_rootguidance() final {}
+        void switch_root_guidance(bool is_on) {
+            lift = true;
+            arm_gc_lift = gc_r_.head(6);
+            lift_num = 0;
+        }
+        void switch_obj_pos(Eigen::Ref<EigenVec> obj_pos_bias) {
+            Eigen::Vector3d obj_pos_bias_temp;
+            obj_pos_bias_temp = obj_pos_bias.cast<double>();
+            obj_base_pos.setZero();
+            arctic->getBasePosition(obj_base_pos);
+            obj_base_pos[0] += obj_pos_bias_temp[0];
+            obj_base_pos[1] += obj_pos_bias_temp[1];
+            arctic->setBasePos(obj_base_pos);
+            updateObservation();
+        }
+        /// Since the episode lengths are fixed, this function is used to catch instabilities in simulation and reset the env in such cases
+        bool isTerminalState(float& terminalReward) final {
+            raisim::Vec<3> obj_current_pos;
+            auto top_id = arctic->getBodyIdx("top");
+            arctic->getPosition(top_id, obj_current_pos); //Obj_Position: object base position at this time
+
+//            if(lift || visualizable_){}
+//            else{
+//                double displacement = (obj_current_pos.e() - obj_pos_init_.head(3)).squaredNorm();
+//                if (displacement > 0.1){
+//                    terminalReward = -10;
+//                    std::cout<<"object displacement: "<<displacement<<std::endl;
+//                    return true;
+//                }
+//            }
+
+
+            for(int i = 0; i < num_bodyparts ; i++){
+                if (joint_height_w[i] < -0.0){
+                    terminalReward = -10;
+                    // std::cout<<"joint_height_w: "<<joint_height_w[i]<<std::endl;
+                    return true;
+                }
+            }
+
+//            for(int i = 1; i < 5; i++){
+//                if (contacts_arm_table[i] == 1){
+//                    terminalReward = -10;
+////                    std::cout<<"contact link name: "<<contact_arm_bodies[i]<<std::endl;
+////                    std::cout<<"contact names: "<<mano_r_->getBodyNames()[contact_arm_idx[i]]<<std::endl;
+//                    return true;
+//                }
+//            }
+
+            if(obDouble_r_.hasNaN() || global_state_.hasNaN())
+            {
+                std::cout<<"NaN detected in obj"<<obj_name<<std::endl;
+                std::cout<<"NaN detected obs"<< obDouble_r_.transpose()<<std::endl<<std::endl<<std::endl;
+                std::cout<<"NaN detected global"<< global_state_.transpose()<<std::endl<<std::endl<<std::endl;
+                return true;
+            }
+
+            return false;
+        }
+
+    private:
+        int gcDim_, gvDim_;
+        int gcDim_obj, gvDim_obj;
+        bool visualizable_ = false;
+        bool compute_inverse_dynamics_ = false;
+        bool lift = false;
+        int lift_num = 0;
+        raisim::ArticulatedSystem* mano_;
+        Eigen::VectorXd gc_r_, gv_r_, pTarget_r_, vTarget_r_, gc_set_r_, gv_set_r_;
+        Eigen::VectorXd obj_pos_init_;
+        Eigen::VectorXd joint_pos_in_world;
+        Eigen::VectorXd arm_joint_pos_in_world;
+        std::string load_set;
+        std::string obj_name;
+
+        double affordance_contact_reward_r= 0.0;
+        double not_affordance_contact_reward_r = 0.0;
+        double table_contact_reward_r = 0.0;
+        double affordance_impulse_reward_r= 0.0;
+        double not_affordance_impulse_reward_r = 0.0;
+        double push_reward_r = 0.0;
+        double table_impulse_reward_r = 0.0;
+        double wrist_vel_reward_r = 0.0;
+        double wrist_qvel_reward_r = 0.0;
+        double obj_vel_reward_r = 0.0;
+        double obj_qvel_reward_r = 0.0;
+        double arm_height_reward = 0.0;
+        double arm_table_contact_reward = 0.0;
+        double arm_table_impulse_reward = 0.0;
+        double obj_displacement_reward = 0.0;
+        double arm_joint_vel_reward = 0.0;
+
+        //for adaptive force strategy
+        double affordance_force_penalty = 0.0;
+
+        // obj info
+        double obj_weight = 0.0;
+        double mano_weight = 0.0;
+
+        double obj_mass =0.0;
+        double mu_finger2obj = 0;
+        raisim::Vec<3> obj_com;
+
+        // contact info
+        std::vector<Eigen::Vector3d> contact_points;  // in world frame
+        std::vector<Eigen::Vector3d> contact_normals; // obj2Hand
+        std::vector<Eigen::Vector3d> contact_forces; // hand2obj
+        std::vector<int> contact_ids; // current contact ids
+        std::vector<Eigen::Vector3d> contact_normal_forces; // normal force in world frame
+        // std::vector<raisim::SparseJacobian> contact_jacobians; // contact jacobians of mano_r for each contact point
+        std::vector<Eigen::MatrixXd> dense_contact_jacobians;
+
+        int num_contacts = 13;
+        int num_bodyparts = 17;
+        double max_contact_force_ = 0.0;
+
+        raisim::Mat<3,3> init_rot_r_, init_or_r_, init_obj_rot_, init_obj_or_, wrist_mat_r_in_obj_init;
+        raisim::Vec<3> init_root_r_, init_obj_;
+        Eigen::Vector3d init_center;
+        Eigen::VectorXd joint_limit_high, joint_limit_low;
+        Eigen::VectorXd impulse_high, impulse_low;
+        Eigen::VectorXd actionMean_r_, actionStd_r_, arm_gc_lift;
+        Eigen::VectorXd obDouble_r_, obDouble_l_, global_state_;
+        Eigen::VectorXd finger_weights_contact, finger_weights_aff;
+        Eigen::VectorXd contacts_r_af, impulses_r_af;
+        Eigen::VectorXd contacts_r_non_af, impulses_r_non_af;
+        Eigen::VectorXd contacts_r_table, impulses_r_table;
+        Eigen::VectorXd contacts_arm_table, impulses_arm_table, contacts_arm_all;
+        Eigen::VectorXd contact_body_idx_r_, contact_arm_idx;
+        Eigen::VectorXd frame_y_in_obj, joint_pos_in_obj, joint_height_w, arm_height_w;
+
+        Eigen::VectorXd impulses_r_af_vector, impulses_r_non_af_vector, impulses_r_table_vector, impulses_arm_table_vector, impulses_r_af_xy, impulses_r_af_z;
+
+        raisim::Vec<3> Position;
+        raisim::Vec<3> wrist_vel, wrist_qvel;
+        raisim::Vec<3> obj_base_pos;
+        Eigen::Vector3d wrist_vel_in_wrist, wrist_qvel_in_wrist;
+        Eigen::VectorXd right_hand_torque;
+        Eigen::VectorXd pTarget_clipped_r, pTarget_prev_r;
+        Eigen::Vector3d hand_center, afford_center;
+
+        Eigen::VectorXd init_arcticCoord;
+
+        raisim::Mesh *obj_mesh_1, *obj_mesh_2, *obj_mesh_3, *obj_mesh_4;
+        raisim::Box *box;
+        raisim::ArticulatedSystem *arctic;
+        std::unique_ptr<Hardware> mano_r_; 
+        raisim::ArticulatedSystemVisual *arcticVisual;
+        raisim::Mat<3,3> Obj_orientation, Obj_orientation_temp, Obj_orientation_init;
+        raisim::Vec<3> wrist_euler_in_obj_init, wrist_euler_init;
+        raisim::Vec<4> obj_quat;
+        raisim::Vec<3> Obj_Position, Obj_Position_init, Obj_qvel, Obj_linvel;
+        Eigen::Vector3d obj_vel_in_wrist, obj_qvel_in_wrist;
+        Eigen::Vector3d target_center_dif;
+        bool first_reset_=true;
+        float rewards_sum_[2];
+        bool has_non_aff = false;
+//        double hand_mass = 0.0;
+
+//        std::string body_parts_r_[21] = {"right_wrist_0rz",
+//                                         "right_index1_x", "right_index2_x", "right_index3_x", "right_index_tip",
+//                                         "right_middle1_x", "right_middle2_x", "right_middle3_x", "right_middle_tip",
+//                                         "right_pinky1_x", "right_pinky2_x", "right_pinky3_x", "right_pinky_tip",
+//                                         "right_ring1_x", "right_ring2_x", "right_ring3_x", "right_ring_tip",
+//                                         "right_thumb1_x", "right_thumb2_x", "right_thumb3_x", "right_thumb_tip",
+//        };
+//
+//        std::string contact_bodies_r_[16] = {"right_wrist_rz",
+//                                             "right_index1_z",  "right_index2_z",  "right_index3_z",
+//                                             "right_middle1_z", "right_middle2_z", "right_middle3_z",
+//                                             "right_pinky1_z",  "right_pinky2_z",  "right_pinky3_z",
+//                                             "right_ring1_z",   "right_ring2_z",   "right_ring3_z",
+//                                             "right_thumb1_z",  "right_thumb2_z",  "right_thumb3_z"
+//        };
+
+        std::vector<std::string> body_parts_r_;
+
+        // contact_bodies_实际上跟contact reward相关，因此指定的就是link所连接的collision body跟object的接触情况
+        std::vector<std::string> contact_bodies_r_;
+
+        std::vector<std::string> arm_parts;
+        std::vector<std::string> contact_arm_bodies;
+
+        Eigen::VectorXd mean_pose;
+
+        raisim::PolyLine *lines[17];
+        raisim::Visuals *table_top, *leg1,*leg2,*leg3,*leg4, *plane;
+        raisim::Visuals *Cylinder[17];
+        raisim::Visuals *wrist_target[2];
+
+        raisim::Vec<3> base_pos;
+        raisim::Mat<3,3> base_mat;
+        raisim::Mat<3,3> wrist_mat_r_init;
+        raisim::Vec<3> wrist_euler_previous;
+        
+        std::map<int,int> contactMapping_r_;
+        std::map<int,int> contactMapping_l_;
+        std::map<int,int> contactMapping_arm_;
+        std::string resourceDir_;
+        std::vector<raisim::Vec<2>> joint_limits_;
+
+        // cost 
+        Eigen::VectorXd grasp_acceleration_error_norm;
+        double min_contact_coef = 0.0;
+        int num_grasp_contacts_ = 0;
+        
+        // In private section of ENVIRONMENT class
+        std::map<size_t, std::string> bodyIndexToName_;
+
+        // for sliding
+        Eigen::VectorXd prevLocalContactPositions_, currentLocalContactPositions_;
+        double sliding_penalty;
+        double SLIDING_DISTANCE_THRESHOLD;
+        Eigen::VectorXd num_contact_in_one_body;
+    };
+}

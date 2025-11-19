@@ -18,7 +18,7 @@ import torch
 import trimesh
 # from bps_torch.bps import bps_torch
 import time
-
+from raisimGymTorch.helper.qp_solver import *
 from raisimGymTorch.helper import rotations
 class RaisimGymVecEnvTest:
 
@@ -50,6 +50,31 @@ class RaisimGymVecEnvTest:
         #         radius=1.,
         #         n_dims=3,
         #         custom_basis=None)
+        self.jacobians_list = []
+        self.dof = 22
+
+        # contact info
+        self.max_contacts = 13
+        self.points = np.zeros((self.num_envs, self.max_contacts * 3), dtype=np.float64, order='F')
+        self.normals = np.zeros((self.num_envs, self.max_contacts * 3), dtype=np.float64, order='F')
+        self.forces = np.zeros((self.num_envs, self.max_contacts * 3), dtype=np.float64, order='F')
+        self.normal_forces = np.zeros((self.num_envs, self.max_contacts * 3), dtype=np.float64, order='F')
+        self.contact_ids = np.full((self.num_envs, self.max_contacts), -1, dtype=np.int32, order='F') 
+        self.contact_counts = np.zeros(self.num_envs, dtype=np.int32, order='F')
+        self.contact_info_list = [{} for _ in range(self.num_envs)]     # num_envs * contact_info directory
+
+        
+        # for QP computation
+        self.solver = QP_Solver()
+
+        # object info
+        self.object_info_list = [{} for _ in range(self.num_envs)]     # num_envs * object_info directory
+        
+        # cost
+        self._force_closure_cost = np.zeros(self.num_envs, dtype=np.float32)
+        self._friction_cone_cost = np.zeros(self.num_envs, dtype=np.float32)
+        self.num_constraints = int(cfg['p3o']['num_of_costs'])
+                
 
         self.affordance_pcd = np.zeros([len(obj_list),200,3])
         self.affordance_normals = np.zeros([len(obj_list),200,3])
@@ -143,6 +168,33 @@ class RaisimGymVecEnvTest:
     def step_imitate(self, action_r, action_l, obj_pose_r, hand_ee_r, hand_pose_r, obj_pose_l, hand_ee_l, hand_pose_l, imitate_right, imitate_left):
         self.wrapper.step_imitate(action_r, action_l, obj_pose_r, hand_ee_r, hand_pose_r, obj_pose_l, hand_ee_l, hand_pose_l, imitate_right, imitate_left, self._reward_r, self._reward_l, self._done)
         return self._reward_r.copy(), self._reward_l.copy(), self._done.copy()
+    
+    def get_force_closure_costs(self):
+        """获取力闭合成本"""
+        self.wrapper.getForceClosureCosts(self._force_closure_cost)
+        return self._force_closure_cost.copy()
+
+    def get_friction_cone_costs(self):
+        """获取摩擦锥成本"""
+        self.wrapper.getFrictionConeCosts(self._friction_cone_cost)
+        return self._friction_cone_cost.copy()
+    
+    def get_cost_info_r(self):
+        # print(">>> force_closure_cost: ", self.get_force_closure_costs())
+        # print(">>> friction_cone_cost: ", self.get_friction_cone_costs())
+        
+        force_closure_costs = self.get_force_closure_costs()
+        friction_cone_costs = self.get_friction_cone_costs()
+        
+        # 组合成costs数组
+        costs = np.stack([force_closure_costs, friction_cone_costs], axis=1)[:, :self.num_constraints]
+        assert costs.shape == (self.num_envs, self.num_constraints)
+        return costs
+    
+    def set_random_obj_prior_info(self, random_mass, random_mu):
+        """Set random object properties for all environments"""
+        # self.wrapper.set_random_obj_prior_info(mass_lower_limit, mass_upper_limit, mu_lower_limit, mu_upper_limit)
+        self.wrapper.set_random_obj_prior_info(random_mass, random_mu)
 
     def load_scaling(self, dir_name, iteration, count=1e5, cent_training=False):
         mean_file_name_r = dir_name + "/mean_r" + str(iteration) + ".csv"
@@ -243,128 +295,215 @@ class RaisimGymVecEnvTest:
 
         return rotation_matrices
 
-    # def observe_temp(self, contain_non_aff, allegro=False):
-    #     self.wrapper.observe(self._observation_r, self._observation_l)
-    #     self.wrapper.get_global_state(self._global_state)
-    #
-    #     global_state = self._global_state.copy()
-    #     obs_r = self._observation_r.copy()
-    #
-    #     num_envs = global_state.shape[0]
-    #
-    #     joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
-    #
-    #     af_dists = torch.cdist(joints, self.affordance_pcd)
-    #     min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
-    #
-    #     af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
-    #     af_vec = af_points - joints
-    #
-    #     obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
-    #     obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
-    #
-    #     r_obj = self.euler_to_rotation_matrix(obj_euler_wrist).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
-    #     af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
-    #     af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
-    #
-    #     obs_r = np.concatenate([obs_r, af_vec], axis=-1)
-    #
-    #
-    #     show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
-    #     dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
-    #
-    #     return obs_r, dis_info
-    #
-    # def observe_vision(self, contain_non_aff, allegro=False):
-    #     self.wrapper.observe(self._observation_r, self._observation_l)
-    #     self.wrapper.get_global_state(self._global_state)
-    #
-    #     global_state = self._global_state.copy()
-    #     obs_r = self._observation_r.copy()
-    #
-    #     num_envs = global_state.shape[0]
-    #
-    #     # if allegro:
-    #     joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
-    #     # else:
-    #     #     joints = torch.from_numpy(global_state[:, 66:129].reshape(num_envs, -1, 3)).to('cuda')
-    #
-    #     af_dists = torch.cdist(joints, self.affordance_pcd)
-    #     min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
-    #
-    #     af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
-    #     af_vec = af_points - joints
-    #
-    #     obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
-    #     obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
-    #
-    #
-    #     # r_obj = obj_euler_wrist.cpu().numpy()[:, np.newaxis].repeat(joints.shape[1], 1).reshape(-1, 3)
-    #     # r_obj = R.from_euler('XYZ', r_obj, degrees=False)
-    #     # af_vec = r_obj.apply(af_vec.reshape(-1, 3).cpu()).reshape(num_envs, -1).astype('float32')
-    #
-    #     r_obj = self.euler_to_rotation_matrix(obj_euler_wrist).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
-    #     af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
-    #     af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
-    #
-    #     af_points_average_obj = torch.mean(af_points, dim=1).reshape(num_envs, -1)
-    #     wrist_pos_obj = torch.from_numpy(global_state[:, 121:124]).to('cuda')
-    #     af_points_average = af_points_average_obj - wrist_pos_obj
-    #     r_obj_single = self.euler_to_rotation_matrix(obj_euler_wrist)
-    #     af_points_average = torch.matmul(r_obj_single, af_points_average.to('cuda').unsqueeze(-1)).squeeze(-1).cpu().numpy().astype('float32')
-    #     obs_r = np.concatenate([obs_r, af_vec, af_points_average], axis=-1)
-    #
-    #     # obs_r = np.concatenate([obs_r, af_vec], axis=-1)
-    #
-    #
-    #     # r_obj_pt = obj_euler_world.cpu().numpy()[:, np.newaxis].repeat(self.affordance_pcd.shape[1], 1).reshape(-1, 3)
-    #     # r_obj_pt = R.from_euler('XYZ', r_obj_pt, degrees=False)
-    #     # pt_in_world = r_obj_pt.apply(self.affordance_pcd.reshape(-1, 3).cpu()).reshape(num_envs, -1, 3).astype('float32')
-    #
-    #     r_obj_pt = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, self.affordance_pcd.shape[1], 1, 1)
-    #     pt_in_world = torch.matmul(r_obj_pt, self.affordance_pcd.reshape(num_envs, -1, 3).unsqueeze(-1).to('cuda')).squeeze(-1).cpu().numpy().astype('float32')
-    #
-    #     pt_in_world[:, :, :] = pt_in_world[:, :, :] + global_state[:, np.newaxis, 105:108] - global_state[:, np.newaxis, 112:115]
-    #     hand_euler_world_trans = global_state[:, 108:111]
-    #
-    #     # r_wrist_trans = hand_euler_world_trans[:, np.newaxis].repeat(self.affordance_pcd.shape[1], 1).reshape(-1, 3)
-    #     # r_wrist_trans = R.from_euler('XYZ', r_wrist_trans, degrees=False)
-    #     # pt_in_wrist = r_wrist_trans.apply(pt_in_world.reshape(-1, 3)).reshape(num_envs, -1, 3).astype('float32')
-    #     r_wrist_trans = self.euler_to_rotation_matrix(torch.from_numpy(hand_euler_world_trans).to('cuda')).unsqueeze(1).repeat(1, self.affordance_pcd.shape[1], 1, 1)
-    #     pt_in_wrist = torch.matmul(r_wrist_trans, torch.from_numpy(pt_in_world).to('cuda').reshape(num_envs, -1, 3).unsqueeze(-1).to('cuda')).squeeze(-1).cpu().numpy().astype('float32')
-    #     pt_in_wrist[:, :, 0] -= 0.06
-    #     pt_in_wrist[:, :, 2] -= 0.08
-    #     center_dis = np.linalg.norm(pt_in_wrist, axis=-1)
-    #     min_idx = np.argmin(center_dis, axis=1)
-    #     min_dis_point = pt_in_wrist[np.arange(num_envs), min_idx]
-    #     x_dis_to_min_point = pt_in_wrist[:, :, 0] - min_dis_point[:, np.newaxis, 0]
-    #     y_dis_to_min_point = pt_in_wrist[:, :, 1] - min_dis_point[:, np.newaxis, 1]
-    #     close_points_mask = np.logical_and(np.abs(x_dis_to_min_point) < 0.1, np.abs(y_dis_to_min_point) < 0.05)
-    #     close_points = np.where(close_points_mask[:, :, np.newaxis], pt_in_wrist, np.nan)
-    #     pt_range_z = (np.nanmax(close_points[:, :, 2], axis=1) - np.nanmin(close_points[:, :, 2], axis=1)).reshape(num_envs, 1)
-    #     # center_dis = torch.norm(pt_in_wrist, dim=-1)
-    #     # min_idx = torch.argmin(center_dis, dim=1)
-    #     # min_dis_point = pt_in_wrist[torch.arange(num_envs), min_idx]
-    #     # x_dis_to_min_point = pt_in_wrist[:, :, 0] - min_dis_point[:, None, 0]
-    #     # y_dis_to_min_point = pt_in_wrist[:, :, 1] - min_dis_point[:, None, 1]
-    #     # close_points_mask = torch.logical_and(torch.abs(x_dis_to_min_point) < 0.1, torch.abs(y_dis_to_min_point) < 0.05)
-    #     # close_points = torch.where(close_points_mask[:, :, None], pt_in_wrist, torch.tensor(float('nan'), device=pt_in_wrist.device))
-    #     # close_points_for_max = close_points.clone()
-    #     # close_points_for_min = close_points.clone()
-    #     # close_points_for_max = torch.where(torch.isnan(close_points_for_max), torch.full_like(close_points_for_max, float('-inf')), close_points_for_max)
-    #     # close_points_for_min = torch.where(torch.isnan(close_points_for_min), torch.full_like(close_points_for_min, float('inf')), close_points_for_min)
-    #     # pt_range_z = (torch.max(close_points[:, :, 2], dim=1)[0] - torch.min(close_points[:, :, 2], dim=1)[0]).reshape(num_envs, 1).cpu().numpy()
-    #
-    #     # pt_range_z = np.zeros((num_envs, 1), 'float32')
-    #
-    #
-    #     show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
-    #     af_points_average_obj = af_points_average_obj.cpu().numpy().astype('float32')
-    #     dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point, pt_range_z, af_points_average_obj], axis=-1)
-    #
-    #     return obs_r, dis_info
+    def observe_vision_new_sum(self, obs_dim):
+        if obs_dim == 153: # Original RobustDexGrasp
+            return self.observe_vision_new()
+        
+        elif obs_dim == 155: # With object mass and friction
+            return self.observe_vision_obj_new()
+        
+        elif obs_dim == 158: # With object mass, friction, and Center of Mass
+            return self.observe_vision_obj_com_new()
+        
+        elif obs_dim == 159: # Grasp Acc extraction.
+            return self.observe_vision_GraspAcc_new()
+        
+        elif obs_dim == 153 + 13*3 + 1: # QP as reference
+            return self.observe_vision_QP_new()
+        
+        elif obs_dim == 153 + 16 + 1: # Wrench Error + QP + IK error as reference
+            return self.observe_vision_QP_IK_new()
+        else:
+            raise ValueError("Invalid observation dimension")
+    
+    
+    def update_contact_info(self):
+       
+        jacobian_size_per_contact = 3 * self.dof
+        total_jacobian_cols = self.max_contacts * jacobian_size_per_contact
+        self.jacobians_flat = np.asfortranarray(np.zeros((self.num_envs, total_jacobian_cols), dtype=np.float64))
+        
+    
+        self.wrapper.get_contact_info(
+            self.points, self.normals, self.forces, self.normal_forces,
+            self.contact_ids, self.jacobians_flat, self.contact_counts
+        )
+        
+        
+    def get_object_info(self):
+        self.object_info_list = [{} for _ in range(self.num_envs)]
+        obj_weight, obj_mu = self.get_obj_weight().reshape(self.num_envs, -1), self.get_obj_mu().reshape(self.num_envs, -1)
+        self.wrapper.get_global_state(self._global_state)
+        global_state = self._global_state.copy()
+        obj_com = global_state[:, 129:132].reshape(self.num_envs, -1)
+        for i in range(self.num_envs):
+            # print(type(obj_mu[i]), obj_mu[i].shape)
+            self.object_info_list[i] = {
+                "object_weight": obj_weight[i],
+                "miu_coef": [obj_mu[i][0], 0.02],
+                "object_gravity_center" : obj_com[i],
+                "env_id": i,
+            }
+        return self.object_info_list
+        
+    def get_contact_info(self):
+        """
+        Update self.contact_info_list: a list of dictionaries, each dictionary contains the following keys:
+            contact_info_dict = {
+                'env_index': env_index,
+                'points': points, # contact points in world frame
+                'normals': normals, # contact normals point from object to hand
+                'forces': forces, # contact forces from hand to object
+                "contact_ids": contact_ids, # contact ids, relates to allegro's affordance id
+                "num_contact": count,
+            }
+        """
+        
+        self.update_contact_info()
+        self.contact_info_list = []
+        jacobian_size_per_contact = 3 * self.dof
+    
+        for env_index in range(self.num_envs):
+            count = self.contact_counts[env_index]
+            contact_info_dict = {}
+            points, normals, forces, contact_ids, normal_forces = [], [], [], [], []
+            jacobians = []
+            
 
-    def observe_vision_new(self):
+            for j in range(count):
+                point_idx = j * 3
+                point = self.points[env_index, point_idx:point_idx+3]
+                normal = self.normals[env_index, point_idx:point_idx+3]
+                force = self.forces[env_index, point_idx:point_idx+3]
+                normal_force = self.normal_forces[env_index, point_idx:point_idx+3]
+                contact_id = self.contact_ids[env_index, j]
+                points.append(point.copy().tolist())
+                normals.append(normal.copy().tolist())
+                forces.append(force.copy().tolist())
+                normal_forces.append(normal_force.copy().tolist())
+                contact_ids.append(contact_id)
+                
+                jac_start_idx = j * jacobian_size_per_contact
+                jac_flat = self.jacobians_flat[env_index, jac_start_idx:jac_start_idx + jacobian_size_per_contact]
+                jac_matrix = jac_flat.reshape(3, self.dof)
+                jacobians.append(jac_matrix)
+            
+                
+            contact_info_dict = {
+                'env_index': env_index,
+                'points': points, # contact points in world frame
+                'normals': np.array(normals), # contact normals point from object to hand
+                'forces': np.array(forces), # contact forces from hand to object
+                'normal_forces': normal_forces,
+                "contact_ids": contact_ids, # contact ids, relates to allegro's affordance id
+                "num_contact": count,
+                "env_jacobians": np.array(jacobians),
+            }
+            # ==============================================================================================================
+            # print("PYTHON:\n normal_forces:\n",np.array(contact_info_dict['normal_forces']))
+            # print("forces:\n",np.array(contact_info_dict['forces']))
+            # print("normals:\n",np.array(contact_info_dict['normals']))
+            # print(repr(contact_info_dict))
+            # print(repr(self.get_object_info()))
+            # print(f"Env id in {contact_info_dict['env_index']} Jacobians in Python {np.array(contact_info_dict['env_jacobians']).shape}:\n")
+            # print(f"Jacobians in Python {np.array(contact_info_dict['env_jacobians']).shape}:\n")
+            # print(np.array(contact_info_dict['forces']).shape)
+            
+            # ============================================================================================================
+            # NOTE: Check Jacobian via contact forces
+            # if contact_info_dict['num_contact'] > 0:
+            #     tau = np.zeros(22)
+            #     for j in range(contact_info_dict['num_contact']):
+            #         tau += np.dot(contact_info_dict['env_jacobians'][j].T, contact_info_dict['forces'][j])
+            #         # print("Caculate tau: J^T * F :\n", tau)
+                    # print("Jacobian:\n", contact_info_dict['env_jacobians'][j])
+                # print("Force:\n", contact_info_dict['forces'])
+                # print("contact_ids:\n", contact_info_dict['contact_ids'])
+                # print("[Computed] tau:\n", tau)
+                # print("--------")
+            # ============================================================================================================
+            
+            
+            self.contact_info_list.append(contact_info_dict)
+            
+        return self.contact_info_list
+    
+    
+    def observe_vision_GraspAcc_new(self):
+        self.wrapper.observe(self._observation_r, self._observation_l)
+        self.wrapper.get_global_state(self._global_state)
+
+        global_state = self._global_state.copy()
+        obs_r = self._observation_r.copy() 
+
+        num_envs = global_state.shape[0]
+
+        joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+
+        af_dists = torch.cdist(joints, self.affordance_pcd)
+        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+
+        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+        af_vec = af_points - joints
+
+        obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
+        obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
+
+        r_obj = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
+        
+        af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
+        af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
+
+        # obj_weight, obj_mu = self.get_obj_weight().reshape(num_envs, -1), self.get_obj_mu().reshape(num_envs, -1)
+        # obj_com = global_state[:, 129:132].reshape(num_envs, -1)
+        grasp_acc = global_state[:, 132:132+6].reshape(num_envs, -1)
+        # print('>>> Grasp Acc: ', grasp_acc)
+        
+        obs_r = np.concatenate([obs_r, af_vec, grasp_acc], axis=-1)
+
+        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
+        return obs_r, dis_info
+    
+    def observe_vision_obj_com_new(self):
+        self.wrapper.observe(self._observation_r, self._observation_l)
+        self.wrapper.get_global_state(self._global_state)
+
+        global_state = self._global_state.copy()
+        obs_r = self._observation_r.copy()
+
+        num_envs = global_state.shape[0]
+
+        joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+
+        af_dists = torch.cdist(joints, self.affordance_pcd)
+        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+
+        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+        af_vec = af_points - joints
+
+        obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
+        obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
+
+        r_obj = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
+        
+        af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
+        af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
+
+        obj_weight, obj_mu = self.get_obj_weight().reshape(num_envs, -1), self.get_obj_mu().reshape(num_envs, -1)
+        obj_com = global_state[:, 129:132].reshape(num_envs, -1)
+
+        obs_r = np.concatenate([obs_r, af_vec, obj_weight, obj_mu, obj_com], axis=-1)
+
+        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
+
+        # raise NotImplementedError("Not implemented yet")
+        return obs_r, dis_info
+        
+    
+
+    def observe_vision_obj_new(self):
         self.wrapper.observe(self._observation_r, self._observation_l)
         self.wrapper.get_global_state(self._global_state)
 
@@ -388,23 +527,135 @@ class RaisimGymVecEnvTest:
         af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
         af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
 
-        # af_points_average_obj = torch.mean(af_points, dim=1).reshape(num_envs, -1)
-        # wrist_pos_obj = torch.from_numpy(global_state[:, 121:124]).to('cuda')
-        # af_points_average = af_points_average_obj - wrist_pos_obj
-        # r_obj_single = self.euler_to_rotation_matrix(obj_euler_wrist)
-        # af_points_average = torch.matmul(r_obj_single, af_points_average.to('cuda').unsqueeze(-1)).squeeze(-1).cpu().numpy().astype('float32')
-        # obs_r = np.concatenate([obs_r, af_vec, af_points_average], axis=-1)
+        obj_weight, obj_mu = self.get_obj_weight().reshape(num_envs, -1), self.get_obj_mu().reshape(num_envs, -1)
 
-        obs_r = np.concatenate([obs_r, af_vec], axis=-1)
+        obs_r = np.concatenate([obs_r, af_vec, obj_weight, obj_mu], axis=-1)
 
         show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
-        # af_points_average_obj = af_points_average_obj.cpu().numpy().astype('float32')
-        # dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point, af_points_average_obj], axis=-1)
         dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
+
+
+        return obs_r, dis_info
+    
+    def observe_vision_QP_IK_new(self):
+        self.wrapper.observe(self._observation_r, self._observation_l)
+        self.wrapper.get_global_state(self._global_state)
+
+        global_state = self._global_state.copy()
+        obs_r = self._observation_r.copy()
+
+        num_envs = global_state.shape[0]
+
+        joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+
+
+        af_dists = torch.cdist(joints, self.affordance_pcd)
+        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+
+        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+        af_vec = af_points - joints
+
+        obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
+        obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
+
+        r_obj = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
+        af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
+        af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
+
+        # compute qp result
+        # forces_error, wrench_error_list = self.solver.qp_force_as_ref(self.get_contact_info(), self.get_object_info())
+        tau_error_list, wrench_error_list = self.solver.qp_ik_torque_as_ref(self.get_contact_info(), self.get_object_info())
+        wrench_error_list = np.array(wrench_error_list).reshape(num_envs, -1)
+
+        obs_r = np.concatenate([obs_r, af_vec, tau_error_list, wrench_error_list], axis=-1)
+        
+        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
+
+
+        return obs_r, dis_info
+    def observe_vision_QP_new(self):
+        self.wrapper.observe(self._observation_r, self._observation_l)
+        self.wrapper.get_global_state(self._global_state)
+
+        global_state = self._global_state.copy()
+        obs_r = self._observation_r.copy()
+
+        num_envs = global_state.shape[0]
+
+        joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+
+
+        af_dists = torch.cdist(joints, self.affordance_pcd)
+        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+
+        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+        af_vec = af_points - joints
+
+        obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
+        obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
+
+        r_obj = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
+        af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
+        af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
+
+        # compute qp result
+        forces_error, wrench_error_list = self.solver.qp_force_as_ref(self.get_contact_info(), self.get_object_info())
+        # print("wrench_error_list:\n", wrench_error_list)
+        # print("forces_error:\n", forces_error)
+        
+        obs_r = np.concatenate([obs_r, af_vec, forces_error, wrench_error_list], axis=-1)
+
+
+        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
+
+
+        return obs_r, dis_info
+    
+            
+    
+    def observe_vision_new(self):
+        self.wrapper.observe(self._observation_r, self._observation_l)
+        self.wrapper.get_global_state(self._global_state)
+
+        global_state = self._global_state.copy()
+        obs_r = self._observation_r.copy()
+
+        num_envs = global_state.shape[0]
+
+        joints = torch.from_numpy(global_state[:, 54:105].reshape(num_envs, -1, 3)).to('cuda')
+
+
+        af_dists = torch.cdist(joints, self.affordance_pcd)
+        min_dis_af, min_idx_af = torch.min(af_dists, dim=2)
+
+        af_points = torch.gather(self.affordance_pcd, 1, min_idx_af.unsqueeze(2).expand(-1, -1, 3))
+        af_vec = af_points - joints
+
+        obj_euler_wrist = torch.from_numpy(global_state[:, :3]).to('cuda')
+        obj_euler_world = torch.from_numpy(global_state[:, 118:121]).to('cuda')
+
+        r_obj = self.euler_to_rotation_matrix(obj_euler_world).unsqueeze(1).repeat(1, joints.shape[1], 1, 1).to('cuda')
+        af_vec_rotated = torch.matmul(r_obj, af_vec.reshape(num_envs, -1, 3).to('cuda').unsqueeze(-1)).squeeze(-1)
+        af_vec = af_vec_rotated.reshape(num_envs, -1).float().cpu().numpy().astype('float32')
+
+        obs_r = np.concatenate([obs_r, af_vec], axis=-1)
+        obj_com = global_state[:, 129:132]
+        # print(len(global_state[0]))
+        # print("obj_com: ", obj_com)
+        
+        show_af_point = af_points.reshape(-1, 3).cpu().numpy().reshape(num_envs, -1).astype('float32')
+        dis_info = np.concatenate([min_dis_af.cpu().numpy(), show_af_point], axis=-1)
+
 
         return obs_r, dis_info
 
-
+    def get_obj_mu(self):
+        mu = np.zeros(self.num_envs, dtype=np.float32)
+        self.wrapper.get_obj_mu(mu)
+        return mu
+    
     def observe_student_aff(self, visible_points, Tinit_obj = None, real_track_obj = None):
         self.wrapper.observe(self._observation_r, self._observation_l)
         self.wrapper.get_global_state(self._global_state)
@@ -481,6 +732,11 @@ class RaisimGymVecEnvTest:
         obs_r = np.concatenate([obs_r, af_vec], axis=-1)
 
         return obs_r, af_vec
+
+    def get_obj_weight(self):
+        weights = np.zeros(self.num_envs, dtype=np.float32)
+        self.wrapper.get_obj_weight(weights)
+        return weights
 
     # def observe(self, contain_non_aff, allegro=False, partial_obs=False, test=True):
     #     self.wrapper.observe(self._observation_r, self._observation_l)
@@ -664,7 +920,11 @@ class RaisimGymVecEnvTest:
 
     def load_multi_articulated(self, obj_models):
         self.wrapper.load_multi_articulated(obj_models)
-
+    def get_obj_weight(self):
+        weights = np.zeros(self.num_envs, dtype=np.float32)
+        self.wrapper.get_obj_weight(weights)  # 调用 C++ 接口
+        return weights
+    
     def reset_state(self, init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose, sim_flag = True):
         if sim_flag is True:
             self.wrapper.reset_state(init_state_r, init_state_l, init_vel_r, init_vel_l, obj_pose)
@@ -707,8 +967,14 @@ class RaisimGymVecEnvTest:
     def set_sample_point_visual(self, joint_sensor_visual, obj_pose):
         self.wrapper.set_sample_point_visual(joint_sensor_visual, obj_pose)
 
+    def getObjectTotalMass(self, env_id, object_name):
+        return self.wrapper.getObjectTotalMass(env_id, object_name)
+
     def check_collision(self, joint_state):
         return self.wrapper.check_collision(joint_state)
+
+    def getMaterialPairProperties(self, envIndex, mat1, mat2):
+        return self.wrapper.getMaterialPairProperties(envIndex, mat1, mat2)
 
     def set_joint_sensor_visual_l(self, joint_sensor_visual):
         self.wrapper.set_joint_sensor_visual_l(joint_sensor_visual)

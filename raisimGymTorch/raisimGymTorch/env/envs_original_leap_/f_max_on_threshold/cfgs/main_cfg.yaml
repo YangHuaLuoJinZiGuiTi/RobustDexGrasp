@@ -1,0 +1,27 @@
+mode: train
+eval_name: null
+exp:
+  logdir: null
+  log_name: Safety_boundary_/2_F_3_new_qp_grasp_40_seed_1_entropy_0
+  seed: 1
+  num_iterations: 15000
+  load_trained_policy: true
+exp_name: Penalty_speical_force
+weight: /home/hang/raisim/SafeGrasp/raisimGymTorch/data_all/QP_IK_pretrain_obj_32_use_affordance_reward/2025-11-03-05-51-17/full_13500_r.pt
+task_name: f_max_on_threshold
+task_path: /home/hang/raisim/SafeGrasp/raisimGymTorch/raisimGymTorch/env/envs/f_max_on_threshold/cfgs/cfg_reg.yaml
+single_obj: true
+load_param_path: null
+data:
+  storedir: data_all
+env_settings:
+  mass: null
+random_prior:
+  use: false
+  mass_bound:
+  - 0.1
+  - 0.6
+  mu_bound:
+  - 0.8
+  - 0.8
+use_QP_reward: true

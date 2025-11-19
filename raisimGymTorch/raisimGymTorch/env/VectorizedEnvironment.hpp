@@ -41,7 +41,10 @@ class VectorizedEnvironment {
     THREAD_COUNT = cfg_["num_threads"].template As<int>();
     omp_set_num_threads(THREAD_COUNT);
     num_envs_ = cfg_["num_envs"].template As<int>();
-
+    forceClosureCosts_.resize(num_envs_);
+    frictionConeCosts_.resize(num_envs_);
+    forceClosureCosts_.setZero();
+    frictionConeCosts_.setZero();
     environments_.reserve(num_envs_);
     rewardInformation_r_.reserve(num_envs_);
     rewardInformation_r_.reserve(num_envs_);
@@ -72,7 +75,19 @@ class VectorizedEnvironment {
     for (auto env: environments_)
       env->reset();
   }
-
+  void getForceClosureCosts(Eigen::Ref<EigenVec> costs) {
+#pragma omp parallel for
+        for (int i = 0; i < num_envs_; i++) {
+            costs[i] = environments_[i]->getForceClosureCost();
+        }
+    }
+    
+  void getFrictionConeCosts(Eigen::Ref<EigenVec> costs) {
+#pragma omp parallel for
+        for (int i = 0; i < num_envs_; i++) {
+            costs[i] = environments_[i]->getFrictionConeCost();
+        }
+    }
   void set_pd_wrist() {
     for (auto env: environments_)
       env->set_pd_wrist();
@@ -162,6 +177,25 @@ class VectorizedEnvironment {
                                           );
     }
 
+  // Add this method to the VectorizedEnvironment class in VectorizedEnvironment.hpp
+  // Place it with the other public methods like set_goals_r, etc.
+
+  /**
+   * Set random object properties (mass and friction) for all environments
+   * @param mass_lower_limit Lower bound for object mass sampling
+   * @param mass_upper_limit Upper bound for object mass sampling
+   * @param mu_lower_limit Lower bound for friction coefficient sampling
+   * @param mu_upper_limit Upper bound for friction coefficient sampling
+   */
+  void set_random_obj_prior_info(double random_mass,
+                                double random_mu) {
+  #pragma omp parallel for
+      for (int i = 0; i < num_envs_; i++) {
+          environments_[i]->set_random_obj_prior_info(
+                  random_mass, random_mu
+          );
+      }
+  }
 
     void set_goals_r2(Eigen::Ref<EigenRowMajorMat> &obj_pos_r,
                       Eigen::Ref<EigenRowMajorMat> &ee_pos_r,
@@ -261,6 +295,102 @@ class VectorizedEnvironment {
 #pragma omp parallel for
     for (int i = 0; i < num_envs_; i++) 
       environments_[i]->get_global_state(gs.row(i));
+  }
+
+    void get_contact_info(Eigen::Ref<Eigen::MatrixXd> points,
+                        Eigen::Ref<Eigen::MatrixXd> normals,
+                        Eigen::Ref<Eigen::MatrixXd> forces,
+                        Eigen::Ref<Eigen::MatrixXd> normal_forces,
+                        Eigen::Ref<Eigen::MatrixXi> contact_ids,
+                        Eigen::Ref<Eigen::MatrixXd> jacobians_flat,  // 扁平化雅可比
+                        Eigen::Ref<Eigen::VectorXi> contact_counts
+                        ) {  
+        
+        int dof = 22;
+        int num_envs = num_envs_;
+        int max_contacts = 13;
+        int jacobian_size_per_contact = 3 * dof;  // 每个接触点的雅可比大小
+        
+        contact_counts.resize(num_envs);
+        
+        #pragma omp parallel for
+        for (int i = 0; i < num_envs; i++) {
+            std::vector<Eigen::Vector3d> env_points, env_normals, env_forces, env_normal_forces;
+            std::vector<int> env_ids;
+            std::vector<Eigen::MatrixXd> env_jacobians_dense;
+            
+            environments_[i]->get_contact_info(env_points, env_normals, env_forces, 
+                                              env_normal_forces, env_ids, env_jacobians_dense);
+            // std::cerr << "Env ["<< i << "] Number of contact Jacobians: " << env_jacobians_dense.size() << std::endl;
+
+            int num_contacts = std::min(static_cast<int>(env_points.size()), max_contacts);
+            contact_counts(i) = num_contacts;
+            
+            // 将雅可比矩阵扁平化存储
+            for (int j = 0; j < num_contacts; j++) {
+                int flat_start_index = j * jacobian_size_per_contact;
+                const Eigen::MatrixXd& jac = env_jacobians_dense[j];
+                
+                // 将 3 x dof 矩阵展平存储
+                for (int row = 0; row < 3; row++) {
+                    for (int col = 0; col < dof; col++) {
+                        jacobians_flat(i, flat_start_index + row * dof + col) = jac(row, col);
+                    }
+                }
+            }
+            
+            // 填充剩余部分为0
+            for (int j = num_contacts; j < max_contacts; j++) {
+                int flat_start_index = j * jacobian_size_per_contact;
+                for (int k = 0; k < jacobian_size_per_contact; k++) {
+                    jacobians_flat(i, flat_start_index + k) = 0.0;
+                }
+            }
+            
+            // 原有的接触信息填充保持不变
+            for (int j = 0; j < num_contacts; j++) {
+                int col_index = j * 3;
+                points(i, col_index)     = env_points[j].x();
+                points(i, col_index + 1) = env_points[j].y();
+                points(i, col_index + 2) = env_points[j].z();
+                
+                normals(i, col_index)     = env_normals[j].x();
+                normals(i, col_index + 1) = env_normals[j].y();
+                normals(i, col_index + 2) = env_normals[j].z();
+                
+                forces(i, col_index)     = env_forces[j].x();
+                forces(i, col_index + 1) = env_forces[j].y();
+                forces(i, col_index + 2) = env_forces[j].z();
+
+                normal_forces(i, col_index) = env_normal_forces[j].x();
+                normal_forces(i, col_index + 1) = env_normal_forces[j].y();
+                normal_forces(i, col_index + 2) = env_normal_forces[j].z();
+
+                contact_ids(i, j) = env_ids[j];
+            }
+            
+            for (int j = num_contacts; j < 13; j++) {
+                int col_index = j * 3;
+                points(i, col_index) = points(i, col_index + 1) = points(i, col_index + 2) = 0.0;
+                normals(i, col_index) = normals(i, col_index + 1) = normals(i, col_index + 2) = 0.0;
+                forces(i, col_index) = forces(i, col_index + 1) = forces(i, col_index + 2) = 0.0;
+                normal_forces(i, col_index) = normal_forces(i, col_index + 1) = normal_forces(i, col_index + 2) = 0.0;
+                contact_ids(i, j) = -1;
+            }
+        }
+    }
+void get_obj_weight(Eigen::Ref<EigenVec> weights) {
+    #pragma omp parallel for
+    for (int i = 0; i < num_envs_; i++) {
+        weights[i] = environments_[i]->get_obj_weight(); // 假设get_obj_weight()返回单个环境的权重
+    }
+}
+
+void get_obj_mu(Eigen::Ref<EigenVec> mus) {
+    #pragma omp parallel for
+    for (int i = 0; i < num_envs_; i++) {
+        mus[i] = environments_[i]->get_obj_mu(); // 假设get_obj_weight()返回单个环境的权重
+    }
   }
 
     void get_global_state_l(Eigen::Ref<EigenRowMajorMat> &gs) {
@@ -420,6 +550,31 @@ class VectorizedEnvironment {
   int getGSDim() { return gsDim_; }
   int getNumOfEnvs() { return num_envs_; }
 
+  // Return material pair properties for a given environment index and material names.
+  // Returns a vector of doubles: {c_f, c_r, r_th, c_static_f, v_static_speed}
+  std::vector<double> getMaterialPairProperties(int envIndex, const std::string &mat1, const std::string &mat2) {
+    if (envIndex < 0 || envIndex >= num_envs_)
+      throw std::runtime_error("envIndex out of range");
+    const raisim::MaterialPairProperties &p = environments_[envIndex]->getWorld()->getMaterialPairProperties(mat1, mat2);
+    return std::vector<double>{p.c_f, p.c_r, p.r_th, p.c_static_f, p.v_static_speed};
+  }
+
+  // Return the total mass of an object in a given env (by object name). If the object is articulated, returns getTotalMass(), otherwise returns getMass(0).
+  double getObjectTotalMass(int envIndex, const std::string &objName="object") {
+    if (envIndex < 0 || envIndex >= num_envs_)
+      throw std::runtime_error("envIndex out of range");
+    raisim::Object* obj = environments_[envIndex]->getWorld()->getObject(objName);
+    if (!obj) throw std::runtime_error("object not found: " + objName);
+    if (auto art = dynamic_cast<raisim::ArticulatedSystem*>(obj))
+      return art->getTotalMass();
+    else
+      return obj->getMass(0);
+  }
+
+
+
+
+
   ////// optional methods //////
   void curriculumUpdate() {
     for (auto *env: environments_)
@@ -526,7 +681,8 @@ class VectorizedEnvironment {
   std::vector<ChildEnvironment *> environments_;
   std::vector<std::map<std::string, float>> rewardInformation_r_;
   std::vector<std::map<std::string, float>> rewardInformation_l_;
-
+  Eigen::VectorXd forceClosureCosts_;
+  Eigen::VectorXd frictionConeCosts_;
   int num_envs_ = 1;
   int obDim_r_ = 0, obDim_l_ = 0, actionDim_ = 0, gsDim_ = 0;
   bool recordVideo_=false, render_=false;

@@ -104,6 +104,7 @@ public:
         while (std::getline(ss, token, ',')) {
             mask = mask | raisim::COLLISION(std::stoi(token));
         }
+
         arm_hand_platform_ = world->addArticulatedSystem(
             rsc_pth_simplify + "/" + cfg["rsc_model"].As<std::string>() + "/" + cfg["sim_model"].As<std::string>() + ".urdf", "", {},
             raisim::COLLISION(std::stoi(cfg["vis_group_id"].As<std::string>())), mask);
@@ -592,6 +593,45 @@ public:
     double getTotalMass() const { 
         return arm_hand_platform_->getTotalMass();
     }
+
+    void setComputeInverseDynamics(bool flag){
+        arm_hand_platform_->setComputeInverseDynamics(flag);
+    }
+
+    
+    // tau = arm->getTorqueAtJointInWorldFrame(size_tjointId)
+    std::vector<double> computeJointTorques() {
+        size_t num_joints = arm_hand_platform_->getNumberOfJoints();
+        std::vector<double> tau_list;
+        for (size_t joint_id = 0; joint_id < num_joints; ++joint_id) {
+            // 调用API获取扭矩（世界坐标系下的3维向量）
+            const raisim::Vec<3>& torque_3d = arm_hand_platform_->getTorqueAtJointInWorldFrame(joint_id); // torque in world Frame
+            const raisim::Vec<3>& joint_axis = arm_hand_platform_->getJointAxis(joint_id);
+            double scalar_torque = torque_3d.dot(joint_axis);
+            tau_list.push_back(scalar_torque);
+            // std::cerr << "Joint " << joint_id << " torque: " << scalar_torque << std::endl;
+        }
+        // // 正确代码
+        // raisim::VecDyn gc = arm_hand_platform_->getGeneralizedCoordinate();
+        // Eigen::VectorXd gc_eigen = gc.e(); 
+        // std::cout << "Generalized coordinates: " << gc_eigen.transpose() << std::endl;
+
+
+        return tau_list;
+    }
+
+
+    void getSparseJacobian(size_t bodyIdx, const raisim::Vec<3>&point_W, raisim::SparseJacobian&jac){
+        arm_hand_platform_->getSparseJacobian(bodyIdx, point_W, jac);
+    }
+    void getDenseJacobian(size_t bodyIdx, const raisim::Vec<3>&point_W, Eigen::MatrixXd&jac){
+        arm_hand_platform_->getDenseJacobian(bodyIdx, point_W, jac);
+    }
+
+    size_t getDOF() const {
+        return arm_hand_platform_->getDOF();
+    }
+    
     void setMaterialFriction(std::unique_ptr<raisim::World> &world, raisim::ArticulatedSystem *arctic) {
         arctic->getCollisionBody("top/0").setMaterial("object");
         if (randomize_friction_.size() > 0) {

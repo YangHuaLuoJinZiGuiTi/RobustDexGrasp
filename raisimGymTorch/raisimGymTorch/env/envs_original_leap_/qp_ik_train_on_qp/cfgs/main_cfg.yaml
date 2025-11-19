@@ -1,0 +1,27 @@
+mode: train
+eval_name: null
+exp:
+  logdir: null
+  log_name: MLP_512_256_256
+  seed: 1
+  num_iterations: 15000
+  load_trained_policy: false
+exp_name: QP_IK_pretrain_obj_32_use_affordance_reward
+weight: /home/hang/raisim/SafeGrasp/raisimGymTorch/data_all/add_object_properties/OBJMASS025/full_3500_r.pt
+task_name: qp_ik_train_on_qp
+task_path: /home/hang/raisim/SafeGrasp/raisimGymTorch/raisimGymTorch/env/envs/qp_ik_train_on_qp/cfgs/cfg_reg.yaml
+single_obj: false
+load_param_path: null
+data:
+  storedir: data_all
+env_settings:
+  mass: null
+random_prior:
+  use: false
+  mass_bound:
+  - 0.1
+  - 0.6
+  mu_bound:
+  - 0.8
+  - 0.8
+use_QP_reward: false
